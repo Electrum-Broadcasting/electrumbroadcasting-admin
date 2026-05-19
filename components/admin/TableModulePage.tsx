@@ -5,6 +5,7 @@ import { TableToolbar } from "@/components/admin/TableToolbar";
 import { RecordsTable } from "@/components/admin/RecordsTable";
 import { canCreate, canDelete, canEdit } from "@/lib/admin/permissions";
 import { getCurrentRole, requireAuthenticatedUser } from "@/lib/admin/auth";
+import { hasMinimumRole } from "@/lib/admin/role";
 
 interface TableModulePageProps {
   table: AdminTableName;
@@ -14,7 +15,7 @@ export async function TableModulePage({ table }: TableModulePageProps) {
   const user = await requireAuthenticatedUser();
   const role = await getCurrentRole(user.id);
 
-  if (role !== "admin") {
+  if (!role || !hasMinimumRole(role, "admin")) {
     redirect("/");
   }
 

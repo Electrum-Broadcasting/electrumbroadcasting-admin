@@ -3,7 +3,13 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { ADMIN_ROLE_COLUMN, ADMIN_ROLE_TABLE, ADMIN_USER_ID_COLUMN, normalizeAdminRole } from "@/lib/admin/role";
+import {
+  ADMIN_ROLE_COLUMN,
+  ADMIN_ROLE_TABLE,
+  ADMIN_USER_ID_COLUMN,
+  hasMinimumRole,
+  normalizeAdminRole
+} from "@/lib/admin/role";
 
 function encodeMessage(type: "error" | "success", message: string) {
   return `${type}=${encodeURIComponent(message)}`;
@@ -63,7 +69,7 @@ export async function loginAction(formData: FormData) {
     role = normalizeAdminRole(roleData?.[ADMIN_ROLE_COLUMN]);
   }
 
-  if (role === "admin") {
+  if (role && hasMinimumRole(role, "admin")) {
     redirect(nextPath.startsWith("/admin") ? nextPath : "/admin");
   }
 

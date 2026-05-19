@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { getCurrentRole, requireAuthenticatedUser } from "@/lib/admin/auth";
+import { hasMinimumRole } from "@/lib/admin/role";
 
 export default async function AdminProtectedLayout({
   children
@@ -10,7 +11,7 @@ export default async function AdminProtectedLayout({
   const user = await requireAuthenticatedUser();
   const role = await getCurrentRole(user.id);
 
-  if (role !== "admin") {
+  if (!role || !hasMinimumRole(role, "admin")) {
     redirect("/");
   }
 

@@ -4,12 +4,13 @@ import { DashboardCards } from "@/components/admin/DashboardCards";
 import { adminTables } from "@/lib/admin/config";
 import { getTableCount } from "@/lib/admin/data";
 import { getCurrentRole, requireAuthenticatedUser } from "@/lib/admin/auth";
+import { hasMinimumRole } from "@/lib/admin/role";
 import { logoutAction } from "@/app/(auth)/actions";
 
 export default async function AdminDashboardPage() {
   const user = await requireAuthenticatedUser();
   const role = await getCurrentRole(user.id);
-  if (role !== "admin") {
+  if (!role || !hasMinimumRole(role, "admin")) {
     redirect("/");
   }
 

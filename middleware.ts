@@ -1,6 +1,12 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { ADMIN_ROLE_COLUMN, ADMIN_ROLE_TABLE, ADMIN_USER_ID_COLUMN, normalizeAdminRole } from "@/lib/admin/role";
+import {
+  ADMIN_ROLE_COLUMN,
+  ADMIN_ROLE_TABLE,
+  ADMIN_USER_ID_COLUMN,
+  hasMinimumRole,
+  normalizeAdminRole
+} from "@/lib/admin/role";
 
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next({
@@ -50,7 +56,7 @@ export async function middleware(request: NextRequest) {
     role = normalizeAdminRole(data?.[ADMIN_ROLE_COLUMN]);
   }
 
-  if (role !== "admin") {
+  if (!role || !hasMinimumRole(role, "admin")) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/";
     redirectUrl.search = "";
