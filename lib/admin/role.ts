@@ -11,8 +11,15 @@ const roleRank: Record<AdminRole, number> = {
 };
 
 export function normalizeAdminRole(value: unknown): AdminRole | null {
-  const role = String(value ?? "") as AdminRole;
-  return role in roleRank ? role : null;
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  if (!(value in roleRank)) {
+    return null;
+  }
+
+  return value as AdminRole;
 }
 
 export function hasMinimumRole(current: AdminRole, required: AdminRole): boolean {

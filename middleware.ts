@@ -45,7 +45,11 @@ export async function middleware(request: NextRequest) {
     .eq(ADMIN_USER_ID_COLUMN, session.user.id)
     .maybeSingle();
 
-  const role = !error ? normalizeAdminRole(data?.[ADMIN_ROLE_COLUMN]) : null;
+  let role = null;
+  if (!error) {
+    role = normalizeAdminRole(data?.[ADMIN_ROLE_COLUMN]);
+  }
+
   if (role !== "admin") {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/";

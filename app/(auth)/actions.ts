@@ -56,7 +56,11 @@ export async function loginAction(formData: FormData) {
     .eq(ADMIN_USER_ID_COLUMN, user.id)
     .maybeSingle();
 
-  const role = roleError ? null : normalizeAdminRole(roleData?.[ADMIN_ROLE_COLUMN]);
+  let role = null;
+  if (!roleError) {
+    role = normalizeAdminRole(roleData?.[ADMIN_ROLE_COLUMN]);
+  }
+
   if (role === "admin") {
     redirect(nextPath.startsWith("/admin") ? nextPath : "/admin");
   }
