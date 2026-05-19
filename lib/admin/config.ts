@@ -96,7 +96,7 @@ export const adminTables = {
     key: "admin_roles",
     label: "Admin Roles",
     route: "/admin/admin-users",
-    titleField: "user_id",
+    titleField: "role",
     fields: [
       { name: "id", label: "ID", type: "text", readOnly: true },
       { name: "user_id", label: "User ID", type: "text", required: true },

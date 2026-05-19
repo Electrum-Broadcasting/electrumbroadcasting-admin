@@ -24,7 +24,7 @@ function getSiteUrl() {
   }
 
   const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host");
-  const protocol = headerStore.get("x-forwarded-proto") ?? "https";
+  const protocol = headerStore.get("x-forwarded-proto") ?? "http";
   if (host) {
     return `${protocol}://${host}`;
   }
