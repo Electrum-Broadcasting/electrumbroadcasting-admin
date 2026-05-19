@@ -10,6 +10,10 @@ const roleRank: Record<AdminRole, number> = {
   admin: 3
 };
 
+/**
+ * Validates and normalizes role values from Supabase payloads.
+ * Returns null when the input is not one of the supported admin roles.
+ */
 export function normalizeAdminRole(value: unknown): AdminRole | null {
   if (typeof value !== "string") {
     return null;
@@ -22,6 +26,9 @@ export function normalizeAdminRole(value: unknown): AdminRole | null {
   return value as AdminRole;
 }
 
+/**
+ * Checks whether the current role rank is at least the required role rank.
+ */
 export function hasMinimumRole(current: AdminRole, required: AdminRole): boolean {
   return roleRank[current] >= roleRank[required];
 }

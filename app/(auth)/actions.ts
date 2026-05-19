@@ -9,6 +9,8 @@ function encodeMessage(type: "error" | "success", message: string) {
   return `${type}=${encodeURIComponent(message)}`;
 }
 
+// Resolve the site origin in this order: configured env URL, Origin header,
+// forwarded/host headers, then localhost as a final development fallback.
 function getSiteUrl() {
   const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
   if (configured) {
