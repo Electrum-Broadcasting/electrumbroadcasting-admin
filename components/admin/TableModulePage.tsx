@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import type { AdminTableName } from "@/lib/admin/config";
 import { listRows } from "@/lib/admin/data";
 import { TableToolbar } from "@/components/admin/TableToolbar";
@@ -13,8 +14,8 @@ export async function TableModulePage({ table }: TableModulePageProps) {
   const user = await requireAuthenticatedUser();
   const role = await getCurrentRole(user.id);
 
-  if (!role) {
-    throw new Error("Missing role assignment");
+  if (role !== "admin") {
+    redirect("/");
   }
 
   const rows = await listRows(table);

@@ -15,8 +15,8 @@ export const adminTables = {
     ]
   },
 
-  city_themes: {
-    key: "city_themes",
+  themes: {
+    key: "themes",
     label: "City Themes",
     route: "/admin/city-themes",
     titleField: "city_id",
@@ -61,8 +61,8 @@ export const adminTables = {
     ]
   },
 
-  game_scores: {
-    key: "game_scores",
+  scores: {
+    key: "scores",
     label: "Game Scores",
     route: "/admin/game-scores",
     titleField: "id",
@@ -92,15 +92,14 @@ export const adminTables = {
     ]
   },
 
-  admin_users: {
-    key: "admin_users",
-    label: "Admin Users",
+  admin_roles: {
+    key: "admin_roles",
+    label: "Admin Roles",
     route: "/admin/admin-users",
-    titleField: "email",
+    titleField: "user_id",
     fields: [
       { name: "id", label: "ID", type: "text", readOnly: true },
       { name: "user_id", label: "User ID", type: "text", required: true },
-      { name: "email", label: "Email", type: "text", required: true },
       { name: "role", label: "Role", type: "text", required: true },
       { name: "city_ids", label: "City IDs", type: "json" }
     ]

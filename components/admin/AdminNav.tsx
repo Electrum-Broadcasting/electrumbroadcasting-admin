@@ -6,7 +6,7 @@ import { adminTables } from "@/lib/admin/config";
 
 const staticLinks = [
   { href: "/admin", label: "Dashboard" },
-  { href: "/admin/reset-password", label: "Reset Password" }
+  { href: "/reset-password", label: "Reset Password" }
 ];
 
 export function AdminNav() {

@@ -1,5 +1,5 @@
 import type { AdminRole } from "@/lib/admin/types";
-import { hasMinimumRole } from "@/lib/admin/auth";
+import { hasMinimumRole } from "@/lib/admin/role";
 
 export function canCreate(role: AdminRole): boolean {
   return hasMinimumRole(role, "editor");

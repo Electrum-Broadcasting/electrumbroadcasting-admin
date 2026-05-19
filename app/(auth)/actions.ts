@@ -1,10 +1,33 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ADMIN_ROLE_COLUMN, ADMIN_ROLE_TABLE, ADMIN_USER_ID_COLUMN, normalizeAdminRole } from "@/lib/admin/role";
 
 function encodeMessage(type: "error" | "success", message: string) {
   return `${type}=${encodeURIComponent(message)}`;
+}
+
+function getSiteUrl() {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (configured) {
+    return configured;
+  }
+
+  const headerStore = headers();
+  const origin = headerStore.get("origin");
+  if (origin) {
+    return origin;
+  }
+
+  const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host");
+  const protocol = headerStore.get("x-forwarded-proto") ?? "https";
+  if (host) {
+    return `${protocol}://${host}`;
+  }
+
+  return "http://localhost:3000";
 }
 
 export async function loginAction(formData: FormData) {
@@ -19,7 +42,26 @@ export async function loginAction(formData: FormData) {
     redirect(`/login?${encodeMessage("error", error.message)}`);
   }
 
-  redirect(nextPath.startsWith("/admin") ? nextPath : "/admin");
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect(`/login?${encodeMessage("error", "Unable to load user session after login.")}`);
+  }
+
+  const { data: roleData, error: roleError } = await supabase
+    .from(ADMIN_ROLE_TABLE)
+    .select(ADMIN_ROLE_COLUMN)
+    .eq(ADMIN_USER_ID_COLUMN, user.id)
+    .maybeSingle();
+
+  const role = roleError ? null : normalizeAdminRole(roleData?.[ADMIN_ROLE_COLUMN]);
+  if (role === "admin") {
+    redirect(nextPath.startsWith("/admin") ? nextPath : "/admin");
+  }
+
+  redirect("/");
 }
 
 export async function createAccountAction(formData: FormData) {
@@ -31,7 +73,7 @@ export async function createAccountAction(formData: FormData) {
     email,
     password,
     options: {
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"}/login`
+      emailRedirectTo: `${getSiteUrl()}/login`
     }
   });
 
@@ -47,7 +89,7 @@ export async function resetPasswordAction(formData: FormData) {
 
   const supabase = createSupabaseServerClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"}/update-password`
+    redirectTo: `${getSiteUrl()}/update-password`
   });
 
   if (error) {

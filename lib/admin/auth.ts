@@ -1,12 +1,13 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AdminRole } from "@/lib/admin/types";
-
-const roleRank: Record<AdminRole, number> = {
-  viewer: 1,
-  editor: 2,
-  admin: 3
-};
+import {
+  ADMIN_ROLE_COLUMN,
+  ADMIN_ROLE_TABLE,
+  ADMIN_USER_ID_COLUMN,
+  hasMinimumRole,
+  normalizeAdminRole
+} from "@/lib/admin/role";
 
 export async function getCurrentUser() {
   const supabase = createSupabaseServerClient();
@@ -19,21 +20,16 @@ export async function getCurrentUser() {
 export async function getCurrentRole(userId: string): Promise<AdminRole | null> {
   const supabase = createSupabaseServerClient();
   const { data, error } = await supabase
-    .from("admin_users")
-    .select("role")
-    .eq("user_id", userId)
+    .from(ADMIN_ROLE_TABLE)
+    .select(ADMIN_ROLE_COLUMN)
+    .eq(ADMIN_USER_ID_COLUMN, userId)
     .maybeSingle();
 
-  if (error || !data?.role) {
+  if (error) {
     return null;
   }
 
-  const role = String(data.role) as AdminRole;
-  if (!(role in roleRank)) {
-    return null;
-  }
-
-  return role;
+  return normalizeAdminRole(data?.[ADMIN_ROLE_COLUMN]);
 }
 
 export async function requireAuthenticatedUser() {
@@ -48,13 +44,9 @@ export async function requireMinimumRole(requiredRole: AdminRole) {
   const user = await requireAuthenticatedUser();
   const role = await getCurrentRole(user.id);
 
-  if (!role || roleRank[role] < roleRank[requiredRole]) {
-    redirect("/login?error=unauthorized");
+  if (!role || !hasMinimumRole(role, requiredRole)) {
+    redirect("/");
   }
 
   return { user, role };
-}
-
-export function hasMinimumRole(current: AdminRole, required: AdminRole): boolean {
-  return roleRank[current] >= roleRank[required];
 }
