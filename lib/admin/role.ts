@@ -1,6 +1,6 @@
 import type { AdminRole } from "@/lib/admin/types";
 
-export const ADMIN_ROLE_TABLE = "admin_roles";
+export const ADMIN_ROLE_TABLE = "admin_users";
 export const ADMIN_ROLE_COLUMN = "role";
 export const ADMIN_USER_ID_COLUMN = "user_id";
 

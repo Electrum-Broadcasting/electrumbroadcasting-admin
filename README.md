@@ -18,7 +18,7 @@ Secure role-based admin system for Supabase-backed content management, built wit
 	- places
 	- scores
 	- media_assets
-	- admin_roles
+	- admin_users
 - Shared admin UI components in `components/admin`.
 - Shared Supabase and admin logic in `lib/supabase` and `lib/admin`.
 - RLS policy script at `supabase/rls.sql`.
@@ -82,7 +82,7 @@ npm run dev
 - Mutation rules:
 	- `viewer`: read only
 	- `editor`: create/update
-	- `admin`: create/update/delete and manage `admin_roles`
+	- `admin`: create/update/delete and manage `admin_users`
 
 ### RLS
 

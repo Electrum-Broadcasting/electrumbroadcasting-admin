@@ -12,7 +12,7 @@ export default function CreateAccountPage({ searchParams }: CreateAccountPagePro
 	return (
 		<AuthCard
 			title="Create Admin Account"
-			description="Create credentials first, then have an existing admin assign your role in admin_roles."
+			description="Create credentials first, then have an existing admin assign your role in admin_users."
 			footerLinkHref="/login"
 			footerLinkLabel="Back to Login"
 		>
