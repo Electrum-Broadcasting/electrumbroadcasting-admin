@@ -1,6 +1,26 @@
 import type { AdminTableConfig } from "@/lib/admin/types";
 
-export const adminTables = {
+export const adminTableNames = [
+  "cities",
+  "city_themes",
+  "places",
+  "stories",
+  "game_scores",
+  "media_assets",
+  "admin_users"
+] as const;
+
+export type AdminTableName = (typeof adminTableNames)[number];
+
+type StrictAdminTableConfig<TName extends AdminTableName> = Omit<AdminTableConfig, "key"> & {
+  key: TName;
+};
+
+type AdminTablesMap = {
+  [TName in AdminTableName]: StrictAdminTableConfig<TName>;
+};
+
+export const adminTables: AdminTablesMap = {
   cities: {
     key: "cities",
     label: "Cities",
@@ -106,8 +126,6 @@ export const adminTables = {
     ]
   }
 };
-
-export type AdminTableName = keyof typeof adminTables;
 
 export function getTableConfig(table: AdminTableName) {
   return adminTables[table];

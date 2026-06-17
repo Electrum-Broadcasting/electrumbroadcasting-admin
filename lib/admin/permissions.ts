@@ -1,14 +1,25 @@
-import type { AdminRole } from "@/lib/admin/types";
-import { hasMinimumRole } from "@/lib/admin/auth";
+// lib/admin/permissions.ts
 
-export function canCreate(role: AdminRole): boolean {
-  return hasMinimumRole(role, "editor");
+import type { AdminRole } from "./types";
+
+const ROLE_RANK: Record<AdminRole, number> = {
+  CEO: 4,
+  platform_admin: 3,
+  city_admin: 2,
+  editor: 1,
+};
+
+export function hasMinimumRole(
+  userRole: AdminRole,
+  requiredRole: AdminRole
+): boolean {
+  return ROLE_RANK[userRole] >= ROLE_RANK[requiredRole];
 }
 
-export function canEdit(role: AdminRole): boolean {
-  return hasMinimumRole(role, "editor");
+export function canManageUsers(role: AdminRole): boolean {
+  return role === "CEO" || role === "platform_admin";
 }
 
-export function canDelete(role: AdminRole): boolean {
-  return hasMinimumRole(role, "admin");
+export function canManageCityContent(role: AdminRole): boolean {
+  return role === "CEO" || role === "platform_admin" || role === "city_admin";
 }

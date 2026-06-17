@@ -1,19 +1,23 @@
-export type AdminRole = "admin" | "editor" | "viewer";
+// lib/admin/types.ts
 
-export type FieldType = "text" | "textarea" | "number" | "boolean" | "date" | "json";
+export type AdminRole =
+  | "CEO"
+  | "PLATFORM_ADMIN"
+  | "CITY_ADMIN"
+  | "EDITOR";
 
-export interface AdminField {
-  name: string;
-  label: string;
-  type: FieldType;
-  required?: boolean;
-  readOnly?: boolean;
+export interface AdminUser {
+  id: string;
+  user_id: string;
+  email: string;
+  role: AdminRole;
+  city_ids: string[];
+  status: "active" | "inactive";
 }
 
-export interface AdminTableConfig {
-  key: string;
-  label: string;
-  route: string;
-  fields: AdminField[];
-  titleField: string;
+export interface AdminContext {
+  userId: string;
+  email: string | null;
+  role: AdminRole;
+  cityIds: string[];
 }

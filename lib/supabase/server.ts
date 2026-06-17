@@ -1,22 +1,29 @@
-import { cookies } from "next/headers";
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { getSupabaseEnv } from "@/lib/supabase/env";
+// lib/supabase/server.ts
 
-export function createSupabaseServerClient() {
+import { cookies, headers } from "next/headers";
+import { createServerClient as createSupabaseSSRClient } from "@supabase/ssr";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./env";
+
+export function createServerClient() {
   const cookieStore = cookies();
-  const { url, anonKey } = getSupabaseEnv();
+  const headerStore = headers();
 
-  return createServerClient(url, anonKey, {
+  return createSupabaseSSRClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     cookies: {
       get(name: string) {
         return cookieStore.get(name)?.value;
       },
-      set(name: string, value: string, options: CookieOptions) {
+      set(name: string, value: string, options: any) {
         cookieStore.set({ name, value, ...options });
       },
-      remove(name: string, options: CookieOptions) {
+      remove(name: string, options: any) {
         cookieStore.set({ name, value: "", ...options });
-      }
-    }
+      },
+    },
+    headers: {
+      get(name: string) {
+        return headerStore.get(name) ?? undefined;
+      },
+    },
   });
 }
