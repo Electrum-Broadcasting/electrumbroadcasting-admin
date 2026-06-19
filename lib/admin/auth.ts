@@ -1,6 +1,5 @@
-// lib/admin/auth.ts
-
-import { createServerClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 import type { AdminContext, AdminRole } from "./types";
 
 function normalizeRole(role: string): AdminRole {
@@ -19,14 +18,27 @@ function normalizeRole(role: string): AdminRole {
 }
 
 export async function getAdminContext(): Promise<AdminContext> {
-  const supabase = createServerClient();
+  const cookieStore = cookies();
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+      },
+    }
+  );
 
   const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  if (authError || !user) {
+  const user = session?.user ?? null;
+
+  if (!user) {
     throw new Error("Not authenticated as admin");
   }
 

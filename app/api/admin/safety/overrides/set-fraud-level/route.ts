@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 export async function POST(req: Request) {
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServiceClient();
   const { contributor_id, fraud_level } = await req.json();
 
-// 1. Perform the update
+  // 1. Update fraud level
   const { error: updateError } = await supabase
     .from("fraud_contributor_state")
     .update({ fraud_level })
@@ -13,14 +13,20 @@ export async function POST(req: Request) {
 
   if (updateError) {
     console.error(updateError);
-    return NextResponse.json({ error: "Failed to set fraud level" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to set fraud level" },
+      { status: 500 }
+    );
   }
 
-  // 2. Resolve admin identity
-  const { data: userData } = await supabase.auth.getUser();
-  const authUserId = userData?.user?.id || null;
+  // 2. Resolve admin identity (service client version)
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  let adminId = null;
+  const authUserId = session?.user?.id ?? null;
+
+  let adminId: string | null = null;
 
   if (authUserId) {
     const { data: adminRow } = await supabase
@@ -29,17 +35,23 @@ export async function POST(req: Request) {
       .eq("user_id", authUserId)
       .single();
 
-    adminId = adminRow?.id || null;
+    adminId = adminRow?.id ?? null;
   }
 
-    // 3. Insert log entry
-  await supabase.from("admin_override_logs").insert({
-    admin_id: adminId,
-    target_type: "contributor",
-    target_id: contributor_id,
-    action: "set_fraud_level",
-    metadata: { fraud_level },
-  });
+  // 3. Insert override log entry
+  const { error: logError } = await supabase
+    .from("admin_override_logs")
+    .insert({
+      admin_id: adminId,
+      target_type: "contributor",
+      target_id: contributor_id,
+      action: "set_fraud_level",
+      metadata: { fraud_level },
+    });
+
+  if (logError) {
+    console.error("Log error:", logError);
+  }
 
   return NextResponse.json({ success: true });
 }

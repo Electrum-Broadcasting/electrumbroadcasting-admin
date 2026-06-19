@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 export async function POST(req: Request) {
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServiceClient();
   const { contributor_id, fraud_score } = await req.json();
 
-  // Load old score
+  // 1. Load old score
   const { data: existing } = await supabase
     .from("fraud_contributor_state")
     .select("fraud_score")
@@ -14,6 +14,7 @@ export async function POST(req: Request) {
 
   const old_score = existing?.fraud_score ?? null;
 
+  // 2. Update fraud score
   const { error: updateError } = await supabase
     .from("fraud_contributor_state")
     .update({ fraud_score })
@@ -21,14 +22,20 @@ export async function POST(req: Request) {
 
   if (updateError) {
     console.error(updateError);
-    return NextResponse.json({ error: "Failed to set fraud score" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to set fraud score" },
+      { status: 500 }
+    );
   }
 
-  // Resolve admin identity
-  const { data: userData } = await supabase.auth.getUser();
-  const authUserId = userData?.user?.id || null;
+  // 3. Resolve admin identity (service client version)
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  let adminId = null;
+  const authUserId = session?.user?.id ?? null;
+
+  let adminId: string | null = null;
 
   if (authUserId) {
     const { data: adminRow } = await supabase
@@ -37,17 +44,23 @@ export async function POST(req: Request) {
       .eq("user_id", authUserId)
       .single();
 
-    adminId = adminRow?.id || null;
+    adminId = adminRow?.id ?? null;
   }
 
-    // 3. Insert log entry
-  await supabase.from("admin_override_logs").insert({
-    admin_id: adminId,
-    target_type: "contributor",
-    target_id: contributor_id,
-    action: "set_fraud_score",
-    metadata: { old_score, new_score: fraud_score },
-  });
+  // 4. Insert override log entry
+  const { error: logError } = await supabase
+    .from("admin_override_logs")
+    .insert({
+      admin_id: adminId,
+      target_type: "contributor",
+      target_id: contributor_id,
+      action: "set_fraud_score",
+      metadata: { old_score, new_score: fraud_score },
+    });
+
+  if (logError) {
+    console.error("Log error:", logError);
+  }
 
   return NextResponse.json({ success: true });
 }

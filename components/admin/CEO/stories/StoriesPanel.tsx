@@ -7,7 +7,7 @@ import { StatusBadge } from "@/components/ui/badge";
 
 import type { StoryRow } from "@/lib/admin/types";
 
-interface StoriesPanelProps {
+interface CEOStoriesPanelProps {
   stories: StoryRow[];
   selectedStoryId: string;
   onSelectStory: (id: string) => void;
@@ -17,15 +17,15 @@ interface StoriesPanelProps {
   onUnfreeze: () => void;
 }
 
-export function StoriesPanel({
-  stories,
-  selectedStoryId,
+export function CEOStoriesPanel({
+  stories = [],
+  selectedStoryId = "",
   onSelectStory,
   onHide,
   onRepublish,
   onFreeze,
   onUnfreeze,
-}: StoriesPanelProps) {
+}: CEOStoriesPanelProps) {
   const selectedStory = useMemo(
     () => stories.find((s) => s.id === selectedStoryId) ?? null,
     [stories, selectedStoryId]
@@ -34,7 +34,7 @@ export function StoriesPanel({
   return (
     <section className="border rounded-lg p-6 space-y-4 relative z-10 overflow-visible">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Stories (City)</h2>
+        <h2 className="text-lg font-semibold">Stories (CEO)</h2>
       </div>
 
       <div className="flex gap-3 items-center">
@@ -74,14 +74,25 @@ export function StoriesPanel({
       {selectedStory && (
         <div className="mt-4 p-4 border rounded bg-slate-50">
           <h3 className="font-semibold text-ink">{selectedStory.title}</h3>
+
           <p className="text-sm text-slate-600 mt-1">
             Author: {selectedStory.author_name ?? "Unknown"}
           </p>
+
           <p className="text-sm text-slate-600 mt-1">
             Category: {selectedStory.category ?? "Uncategorized"}
           </p>
+
           <p className="text-sm text-slate-600 mt-1">
             Neighborhood: {selectedStory.neighborhood ?? "N/A"}
+          </p>
+
+          <p className="text-sm text-slate-600 mt-1">
+            City: {selectedStory.city ?? "N/A"}
+          </p>
+
+          <p className="text-sm text-slate-600 mt-1">
+            Year: {selectedStory.year ?? "N/A"}
           </p>
         </div>
       )}

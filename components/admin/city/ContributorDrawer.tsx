@@ -2,7 +2,7 @@
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { StatusBadge } from "@/components/ui/Badge";
+import { StatusBadge } from "@/components/ui/badge";
 import type { StoryRow } from "./useStories";
 
 type ContributorRow = {

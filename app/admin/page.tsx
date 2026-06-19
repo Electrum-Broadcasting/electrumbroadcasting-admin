@@ -1,25 +1,23 @@
 import { redirect } from "next/navigation";
-import { getAdminContext } from "@/lib/admin/getAdminContext";
+import { getAdminContext } from "@/lib/admin/auth";
 
 export default async function AdminLandingPage() {
   const { role, cityIds } = await getAdminContext();
 
   switch (role) {
-  case "CEO":
-  
-    redirect("/admin/CEO");
+    case "CEO":
+      redirect("/admin/CEO");
 
-  case "CITY_ADMIN":
-    redirect(`/admin/city/${cityIds}`);
+    case "PLATFORM_ADMIN":
+      redirect("/admin/platform");
 
-  case "EDITOR":
-    redirect("/admin/editor");
+    case "CITY_ADMIN":
+      redirect(`/admin/city/${cityIds[0]}`);
 
-  case "PLATFORM_ADMIN":
-    redirect("/admin/platform");
+    case "EDITOR":
+      redirect("/admin/editor");
 
-  default:
-    redirect("/login?error=unauthorized");
-}
-
+    default:
+      redirect("/admin/unauthorized");
+  }
 }

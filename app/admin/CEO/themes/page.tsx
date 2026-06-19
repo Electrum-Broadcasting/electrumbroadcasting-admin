@@ -8,7 +8,7 @@ export default async function ThemesListPage() {
   const supabase = createSupabaseServiceClient();
 
   const { data: themes } = await supabase
-    .from("city_themes")
+    .from("cities")
     .select("id, city_id, name, updated_at")
     .order("updated_at", { ascending: false });
 

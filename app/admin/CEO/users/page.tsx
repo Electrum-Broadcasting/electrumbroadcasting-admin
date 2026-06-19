@@ -5,22 +5,38 @@ import Link from "next/link";
 import { ToastTrigger } from "@/components/ui/ToastTrigger";
 import { ToastBoundary } from "@/components/ui/ToastBoundary";
 
-async function getUsers() {
+// Types for strict mode
+type AdminUserRow = {
+  user_id: string;
+  email: string;
+  role: string;
+  city_ids: string[] | null;
+  status: string;
+};
+
+type CityRow = {
+  id: string;
+  name: string;
+};
+
+async function getUsers(): Promise<AdminUserRow[]> {
   const supabase = createSupabaseServiceClient();
   const { data } = await supabase
     .from("admin_users")
     .select("user_id, email, role, city_ids, status")
     .order("email");
-  return data ?? [];
+
+  return (data as AdminUserRow[]) ?? [];
 }
 
-async function getCities() {
+async function getCities(): Promise<CityRow[]> {
   const supabase = createSupabaseServiceClient();
   const { data } = await supabase
     .from("cities")
     .select("id, name")
     .order("name");
-  return data ?? [];
+
+  return (data as CityRow[]) ?? [];
 }
 
 export default async function UsersPage({
@@ -31,7 +47,10 @@ export default async function UsersPage({
   const admin = await getAdminContext();
   const [users, cities] = await Promise.all([getUsers(), getCities()]);
 
-  const cityMap = new Map(cities.map((c) => [c.id, c.name]));
+  // Strictly typed city map
+  const cityMap: Map<string, string> = new Map(
+    cities.map((c: CityRow) => [c.id, c.name])
+  );
 
   return (
     <ToastBoundary
@@ -48,9 +67,11 @@ export default async function UsersPage({
 
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-xl font-semibold text-ink">Users</h1>
+
+          {/* Updated button styling (Option A) */}
           <Link
             href="/admin/CEO/users/new"
-            className="bg-ink text-white px-4 py-2 rounded-md text-sm hover:bg-ink/90"
+            className="bg-ink text-white px-4 py-2 rounded-md text-sm border border-ink/20 hover:bg-ink/80"
           >
             Create New User
           </Link>
@@ -79,7 +100,7 @@ export default async function UsersPage({
             </thead>
 
             <tbody className="divide-y divide-slate-200 bg-white">
-              {users.map((user) => (
+              {users.map((user: AdminUserRow) => (
                 <tr key={user.user_id}>
                   <td className="px-4 py-3 text-sm text-ink">
                     {user.email}

@@ -1,12 +1,12 @@
 import { CitySafetyDashboard } from "@/components/admin/city/CitySafetyDashboard";
-import { createServerClient } from "@/lib/supabase/server";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 export default async function CitySafetyPage({
   params,
 }: {
   params: { id: string };
 }) {
-  const supabase = createServerClient();
+  const supabase = createSupabaseServiceClient();
 
   // 1. Look up the city by slug
   const { data: city, error } = await supabase

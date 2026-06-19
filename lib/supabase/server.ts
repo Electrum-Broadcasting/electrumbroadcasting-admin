@@ -1,14 +1,14 @@
 // lib/supabase/server.ts
 
 import { cookies, headers } from "next/headers";
-import { createServerClient as createSupabaseSSRClient } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./env";
 
-export function createServerClient() {
+export function createSupabaseServerClient() {
   const cookieStore = cookies();
   const headerStore = headers();
 
-  return createSupabaseSSRClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  return createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     cookies: {
       get(name: string) {
         return cookieStore.get(name)?.value;

@@ -1,112 +1,82 @@
 import { AdminShell } from "@/components/admin/AdminShell";
-import { getAdminContext } from "@/lib/admin/getAdminContext";
-import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
 import { CEOMetrics } from "@/components/admin/CEOMetrics";
 
 export default async function CEODashboardPage() {
-  const { email } = await getAdminContext();
+  const supabase = createSupabaseServerClient();
 
-const supabase = createSupabaseServiceClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-const { data: logs } = await supabase
-  .from("system_logs")
-  .select("id, event_type, severity, created_at")
-  .order("created_at", { ascending: false })
-  .limit(5);
+  if (!session) return null;
+
+  const email = session.user.email ?? null;
+  const jwtRole = session.user.app_metadata.role ?? "unknown";
+
+  // 1. Last 20 published stories
+  const { data: recentStories } = await supabase
+    .from("civic_stories")
+    .select("id, title, contributor_display_name, published_at")
+    .eq("is_published", true)
+    .order("published_at", { ascending: false })
+    .limit(20);
+
+  // 2. Last 20 override logs
+  const { data: overrideLogs } = await supabase
+    .from("admin_override_logs")
+    .select("id, action_type, target_type, target_id, created_at, metadata_json")
+    .order("created_at", { ascending: false })
+    .limit(20);
 
   return (
-    <AdminShell email={email} role="CEO" title="CEO Dashboard">
-      <div className="space-y-8">
+    <AdminShell email={email} role={jwtRole} title="CEO Dashboard">
+      <div className="space-y-12">
 
         {/* Quick Actions */}
         <section>
           <h2 className="text-lg font-semibold text-ink mb-3">Quick Actions</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-
-            <a
-              href="/admin/CEO/users/new"
-              className="rounded-lg border border-slate-300 p-4 hover:bg-slate-50 transition"
-            >
-              <h3 className="font-medium text-ink">Create New User</h3>
-              <p className="text-sm text-slate-600">Add a new city_admin or editor.</p>
-            </a>
-
-            <a
-              href="/admin/CEO/users"
-              className="rounded-lg border border-slate-300 p-4 hover:bg-slate-50 transition"
-            >
-              <h3 className="font-medium text-ink">View All Users</h3>
-              <p className="text-sm text-slate-600">Manage platform administrators.</p>
-            </a>
-
-            <a
-              href="/admin/CEO/cities"
-              className="rounded-lg border border-slate-300 p-4 hover:bg-slate-50 transition"
-            >
-              <h3 className="font-medium text-ink">Manage Cities</h3>
-              <p className="text-sm text-slate-600">Assign city_admins and configure cities.</p>
-            </a>
-
-          </div>
+          <p className="text-sm text-slate-500">CEO-level shortcuts coming soon.</p>
         </section>
 
-        {/* Overview */}
+        {/* Metrics */}
         <section>
-          <h2 className="text-lg font-semibold text-ink mb-3">Platform Overview</h2>
-          <p className="text-sm text-slate-600">
-            Use the CEO Dashboard to manage users, cities, and global platform settings.
-          </p>
+          <h2 className="text-lg font-semibold text-ink mb-3">Platform Metrics</h2>
+          <CEOMetrics />
         </section>
-        </div>
 
+        {/* Recent Stories */}
+        <section>
+          <h2 className="text-lg font-semibold text-ink mb-3">Recent Published Stories</h2>
+          <ul className="space-y-2">
+            {recentStories?.map((s) => (
+              <li key={s.id} className="border-b border-gray-200 pb-2">
+                <div className="font-medium">{s.title}</div>
+                <div className="text-sm text-gray-500">
+                  {s.contributor_display_name ?? "Unknown"} — {s.published_at}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
 
+        {/* Override Logs */}
+        <section>
+          <h2 className="text-lg font-semibold text-ink mb-3">Recent Admin Override Actions</h2>
+          <ul className="space-y-2">
+            {overrideLogs?.map((log) => (
+              <li key={log.id} className="border-b border-gray-200 pb-2">
+                <div className="font-medium">
+                  {log.action_type} — {log.target_type} #{log.target_id}
+                </div>
+                <div className="text-sm text-gray-500">{log.created_at}</div>
+              </li>
+            ))}
+          </ul>
+        </section>
 
-{/* Platform Metrics */}
-<section>
-  <h2 className="text-lg font-semibold text-ink mb-3">Platform Metrics</h2>
-  <CEOMetrics />
-</section>
-
-        {/* System Logs Preview */}
-<section>
-  <h2 className="text-lg font-semibold text-ink mb-3">System Logs</h2>
-
-  {logs?.length === 0 && (
-    <p className="text-sm text-slate-500">No recent system events.</p>
-  )}
-
-  <ul className="mt-4 space-y-3">
-    {logs?.map((log) => (
-      <li key={log.id} className="text-sm">
-        <span
-          className={`inline-block px-2 py-1 text-xs font-medium rounded border mr-2 ${
-            log.severity === "error"
-              ? "bg-red-100 text-red-800 border-red-200"
-              : log.severity === "warning"
-              ? "bg-yellow-100 text-yellow-800 border-yellow-200"
-              : "bg-slate-100 text-slate-800 border-slate-200"
-          }`}
-        >
-          {log.severity}
-        </span>
-        <span className="font-medium">{log.event_type}</span>
-        <span className="text-slate-500 ml-2">
-          {new Date(log.created_at).toLocaleTimeString()}
-        </span>
-      </li>
-    ))}
-  </ul>
-
-  <div className="mt-4">
-    <a
-      href="/admin/platform/system-logs"
-      className="text-blue-600 hover:underline text-sm"
-    >
-      View all system logs →
-    </a>
-  </div>
-</section>
-
+      </div>
     </AdminShell>
   );
 }

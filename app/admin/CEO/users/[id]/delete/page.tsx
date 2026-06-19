@@ -1,68 +1,100 @@
 import { AdminShell } from "@/components/admin/AdminShell";
-import { getAdminContext } from "@/lib/admin/auth";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getAdminContext } from "@/lib/admin/getAdminContext";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { redirect } from "next/navigation";
+import Link from "next/link";
+import { ToastBoundary } from "@/components/ui/ToastBoundary";
+import { ToastTrigger } from "@/components/ui/ToastTrigger";
 
-async function getUser(id: string) {
-  const supabase = createSupabaseServerClient();
-  const { data, error } = await supabase
+type AdminUserRow = {
+  user_id: string;
+  email: string;
+  role: string;
+  city_ids: string[] | null;
+  status: string;
+};
+
+async function getUserById(id: string): Promise<AdminUserRow | null> {
+  const supabase = createSupabaseServiceClient();
+  const { data } = await supabase
     .from("admin_users")
-    .select("email, role")
+    .select("user_id, email, role, city_ids, status")
     .eq("user_id", id)
-    .maybeSingle();
+    .single();
 
-  if (error || !data) throw new Error("User not found");
-  return data;
+  return (data as AdminUserRow) ?? null;
+}
+
+async function deleteUser(id: string): Promise<void> {
+  const supabase = createSupabaseServiceClient();
+  await supabase.from("admin_users").delete().eq("user_id", id);
 }
 
 export default async function DeleteUserPage({
   params,
+  searchParams,
 }: {
   params: { id: string };
+  searchParams: { toast?: string; confirm?: string };
 }) {
   const admin = await getAdminContext();
-  const user = await getUser(params.id);
+  const user = await getUserById(params.id);
 
-  async function deleteUser() {
-    "use server";
+  if (!user) {
+    return (
+      <AdminShell email={admin.email} role={admin.role} title="User Not Found">
+        <p className="text-red-600">User not found.</p>
+        <Link href="/admin/CEO/users" className="text-ink underline">
+          Back to Users
+        </Link>
+      </AdminShell>
+    );
+  }
 
-    const supabase = createSupabaseServiceClient();
+  // If the user confirmed deletion via ?confirm=true
+  if (searchParams.confirm === "true") {
+    await deleteUser(params.id);
 
-    await supabase.from("admin_users").delete().eq("user_id", params.id);
-    await supabase.auth.admin.deleteUser(params.id);
-
-    redirect("/admin/CEO/users?toast=User%20deleted");
+    return (
+      <AdminShell email={admin.email} role={admin.role} title="User Deleted">
+        <ToastTrigger message="User deleted successfully." />
+        <p className="text-green-700 font-medium mb-4">
+          User {user.email} has been deleted.
+        </p>
+        <Link href="/admin/CEO/users" className="text-ink underline">
+          Back to Users
+        </Link>
+      </AdminShell>
+    );
   }
 
   return (
-    <AdminShell email={admin.email} role={admin.role} title="Delete User">
-      <div className="max-w-lg space-y-6">
-        <p className="text-sm text-slate-600">
-          Are you sure you want to delete this user?
+    <ToastBoundary>
+      <AdminShell email={admin.email} role={admin.role} title="Delete User">
+        <h1 className="text-xl font-semibold text-ink mb-4">
+          Delete User: {user.email}
+        </h1>
+
+        <p className="text-slate-700 mb-6">
+          Are you sure you want to delete this user? This action cannot be
+          undone.
         </p>
 
-        <div className="p-4 bg-slate-50 rounded-md border border-slate-200">
-          <p className="text-sm font-medium text-ink">{user.email}</p>
-          <p className="text-xs text-slate-500">{user.role}</p>
-        </div>
-
-        <form action={deleteUser} className="flex gap-3">
-          <button
-            type="submit"
-            className="bg-red-600 text-white px-4 py-2 rounded-md text-sm hover:bg-red-700"
+        <div className="flex gap-4">
+          <Link
+            href={`/admin/CEO/users/${user.user_id}/delete?confirm=true`}
+            className="bg-red-600 text-white px-4 py-2 rounded-md text-sm border border-red-700 hover:bg-red-700"
           >
-            Delete User
-          </button>
+            Yes, Delete User
+          </Link>
 
-          <a
-            href="/admin/CEO/users"
-            className="px-4 py-2 rounded-md border border-slate-300 text-sm text-ink hover:bg-slate-50"
+          <Link
+            href={`/admin/CEO/users/${user.user_id}`}
+            className="text-ink hover:underline text-sm"
           >
             Cancel
-          </a>
-        </form>
-      </div>
-    </AdminShell>
+          </Link>
+        </div>
+      </AdminShell>
+    </ToastBoundary>
   );
 }

@@ -14,6 +14,8 @@ const ceoLinks = [
   { href: "/admin/CEO", label: "Dashboard" },
   { href: "/admin/CEO/cities", label: "Cities" },
   { href: "/admin/CEO/users", label: "Users" },
+  { href: "/admin/CEO/stories", label: "Stories" },
+  { href: "/admin/CEO/contributors", label: "Contributors" },
   { href: "/admin/CEO/themes", label: "Themes" },
   { href: "/admin/CEO/safety", label: "Safety" },
   { href: "/admin/platform/system-logs", label: "System Logs" },

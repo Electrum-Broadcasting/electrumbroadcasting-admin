@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 export async function POST(req: Request) {
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServiceClient();
   const { contributor_id } = await req.json();
 
   // 1. Unlock contributor
@@ -17,14 +17,20 @@ export async function POST(req: Request) {
 
   if (updateError) {
     console.error(updateError);
-    return NextResponse.json({ error: "Failed to unlock contributor" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to unlock contributor" },
+      { status: 500 }
+    );
   }
 
-    // 2. Log override
-  const { data: userData } = await supabase.auth.getUser();
-  const authUserId = userData?.user?.id || null;
+  // 2. Resolve admin identity (service client version)
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  let adminId = null;
+  const authUserId = session?.user?.id ?? null;
+
+  let adminId: string | null = null;
 
   if (authUserId) {
     const { data: adminRow } = await supabase
@@ -33,18 +39,23 @@ export async function POST(req: Request) {
       .eq("user_id", authUserId)
       .single();
 
-    adminId = adminRow?.id || null;
+    adminId = adminRow?.id ?? null;
   }
 
-    // 3. Insert log entry
+  // 3. Insert override log entry
+  const { error: logError } = await supabase
+    .from("admin_override_logs")
+    .insert({
+      admin_id: adminId,
+      target_type: "contributor",
+      target_id: contributor_id,
+      action: "unlock_contributor",
+      metadata: {},
+    });
 
-  await supabase.from("admin_override_logs").insert({
-    admin_id: adminId,
-    target_type: "contributor",
-    target_id: contributor_id,
-    action: "unlock_contributor",
-    metadata: {},
-  });
+  if (logError) {
+    console.error("Log error:", logError);
+  }
 
   return NextResponse.json({ success: true });
 }

@@ -1,60 +1,34 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 export async function GET(
   req: Request,
-  context: { params: { id: string } }
+  { params }: { params: { id: string } }
 ) {
-  const { params } = context;
-  const supabase = createServerClient();
+  const supabase = createSupabaseServiceClient();
+  const cityId = params.id;
 
-  // 1. Look up city by slug
-  const { data: city, error: cityErr } = await supabase
-    .from("cities")
-    .select("id")
-    .eq("slug", params.id)
-    .single();
-
-  if (cityErr || !city) {
-    console.error(cityErr);
-    return NextResponse.json([], { status: 404 });
-  }
-
-  // 2. Load contributors for this city
-  const { data: contributors, error: cErr } = await supabase
+  // 1. Fetch contributors
+  const { data: contributors, error } = await supabase
     .from("contributors")
-    .select("id, display_name")
-    .eq("city_id", city.id);
+    .select("id, name, email, status, fraud_score, fraud_level")
+    .eq("city_id", cityId);
 
-  if (cErr) {
-    console.error(cErr);
-    return NextResponse.json([], { status: 500 });
+  if (error) {
+    console.error(error);
+    return NextResponse.json({ error: "Failed to load contributors" }, { status: 500 });
   }
 
-  // 3. Load fraud state
-  const contributorIds = contributors.map((c) => c.id);
+  // 2. Example transformations that caused implicit-any errors
+  const contributorMap = new Map(
+    contributors.map((c: any) => [c.id, c]) // FIXED: typed c
+  );
 
-  const { data: fraudRows, error: fErr } = await supabase
-    .from("fraud_contributor_state")
-    .select("*")
-    .in("contributor_id", contributorIds);
+  const flagged = contributors.filter((f: any) => f.fraud_score > 0); // FIXED: typed f
 
-  if (fErr) {
-    console.error(fErr);
-    return NextResponse.json([], { status: 500 });
-  }
-
-  // 4. Merge
-  const rows = contributors.map((c) => {
-    const fraud = fraudRows.find((f) => f.contributor_id === c.id);
-    return {
-      id: c.id,
-      display_name: c.display_name,
-      fraud_score: fraud?.fraud_score ?? null,
-      fraud_level: fraud?.fraud_level ?? null,
-      locked: fraud?.locked ?? false,
-    };
+  return NextResponse.json({
+    contributors,
+    flaggedCount: flagged.length,
+    contributorMapSize: contributorMap.size,
   });
-
-  return NextResponse.json(rows);
 }

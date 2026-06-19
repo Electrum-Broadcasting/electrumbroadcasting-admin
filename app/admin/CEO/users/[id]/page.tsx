@@ -1,176 +1,157 @@
 import { AdminShell } from "@/components/admin/AdminShell";
 import { getAdminContext } from "@/lib/admin/getAdminContext";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { redirect } from "next/navigation";
+import { ToastBoundary } from "@/components/ui/ToastBoundary";
+import { ToastTrigger } from "@/components/ui/ToastTrigger";
+import Link from "next/link";
 
-async function getCities() {
-  const supabase = createSupabaseServiceClient();
-  const { data } = await supabase
-    .from("cities")
-    .select("id, name, domain")
-    .order("name");
-  return data ?? [];
-}
+// Types
+type AdminUserRow = {
+  user_id: string;
+  email: string;
+  role: string;
+  city_ids: string[] | null;
+  status: string;
+};
 
-async function getUser(id: string) {
+type CityRow = {
+  id: string;
+  name: string;
+};
+
+async function getUserById(id: string): Promise<AdminUserRow | null> {
   const supabase = createSupabaseServiceClient();
   const { data } = await supabase
     .from("admin_users")
-    .select("email, role, city_ids, status")
+    .select("user_id, email, role, city_ids, status")
     .eq("user_id", id)
-    .maybeSingle();
-  return data;
+    .single();
+
+  return (data as AdminUserRow) ?? null;
+}
+
+async function getCities(): Promise<CityRow[]> {
+  const supabase = createSupabaseServiceClient();
+  const { data } = await supabase
+    .from("cities")
+    .select("id, name")
+    .order("name");
+
+  return (data as CityRow[]) ?? [];
 }
 
 export default async function EditUserPage({
   params,
+  searchParams,
 }: {
   params: { id: string };
+  searchParams: { toast?: string };
 }) {
   const admin = await getAdminContext();
-  const [cities, user] = await Promise.all([
-    getCities(),
-    getUser(params.id),
-  ]);
+  const user = await getUserById(params.id);
+  const cities = await getCities();
 
   if (!user) {
-    redirect("/admin/CEO/users?toast=User%20not%20found");
-  }
-
-  async function updateUser(formData: FormData) {
-    "use server";
-
-    const supabase = createSupabaseServiceClient();
-
-    const role = formData.get("role") as string;
-    const status = formData.get("status") as string;
-    const cityIds = formData.getAll("cityIds") as string[];
-
-    await supabase
-      .from("admin_users")
-      .update({ role, status, city_ids: cityIds })
-      .eq("user_id", params.id);
-
-    redirect("/admin/CEO/users?toast=User%20updated");
-  }
-
-  async function toggleSuspend() {
-    "use server";
-
-    const supabase = createSupabaseServiceClient();
-    const newStatus = user.status === "active" ? "inactive" : "active";
-
-    await supabase
-      .from("admin_users")
-      .update({ status: newStatus })
-      .eq("user_id", params.id);
-
-    redirect(
-      `/admin/CEO/users?toast=User%20${
-        newStatus === "active" ? "reinstated" : "suspended"
-      }`
+    return (
+      <AdminShell email={admin.email} role={admin.role} title="User Not Found">
+        <p className="text-red-600">User not found.</p>
+        <Link href="/admin/CEO/users" className="text-ink underline">
+          Back to Users
+        </Link>
+      </AdminShell>
     );
   }
 
-  async function sendReset() {
-    "use server";
-
-    const supabase = createSupabaseServiceClient();
-    await supabase.auth.admin.generateLink({
-      type: "recovery",
-      email: user.email,
-    });
-
-    redirect("/admin/CEO/users?toast=Password%20reset%20sent");
-  }
-
-  const userCityIds = new Set(user.city_ids ?? []);
+  const cityMap: Map<string, string> = new Map(
+    cities.map((c: CityRow) => [c.id, c.name])
+  );
 
   return (
-    <AdminShell email={admin.email} role={admin.role} title="Edit User">
-      <div className="max-w-xl space-y-6">
-        <p className="text-sm text-slate-600">{user.email}</p>
+    <ToastBoundary
+      toast={
+        searchParams.toast
+          ? decodeURIComponent(searchParams.toast)
+          : undefined
+      }
+    >
+      <AdminShell email={admin.email} role={admin.role} title="Edit User">
+        {searchParams.toast && (
+          <ToastTrigger message={decodeURIComponent(searchParams.toast)} />
+        )}
 
-        <form action={updateUser} className="space-y-6">
+        <div className="mb-6">
+          <h1 className="text-xl font-semibold text-ink">
+            Edit User: {user.email}
+          </h1>
+        </div>
+
+        <div className="space-y-6">
           <div>
-            <label className="block text-sm font-medium mb-1">Role</label>
-            <select
-              name="role"
-              defaultValue={user.role}
-              className="w-full border border-slate-300 rounded-md px-3 py-2"
-            >
-              <option value="CITY_ADMIN">City Admin</option>
-              <option value="EDITOR">Editor</option>
-              <option value="PLATFORM_ADMIN">Platform Admin</option>
-              <option value="CEO">CEO</option>
-            </select>
+            <h2 className="text-sm font-semibold text-slate-600 uppercase mb-2">
+              Email
+            </h2>
+            <p className="text-ink">{user.email}</p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Status</label>
-            <select
-              name="status"
-              defaultValue={user.status}
-              className="w-full border border-slate-300 rounded-md px-3 py-2"
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Suspended</option>
-            </select>
+            <h2 className="text-sm font-semibold text-slate-600 uppercase mb-2">
+              Role
+            </h2>
+            <p className="text-ink">{user.role.replace("_", " ")}</p>
           </div>
 
           <div>
-            <p className="text-sm font-medium mb-1">Cities</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {cities.map((city) => (
-                <label key={city.id} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    name="cityIds"
-                    value={city.id}
-                    defaultChecked={userCityIds.has(city.id)}
-                    className="h-4 w-4"
-                  />
-                  {city.name}
-                </label>
-              ))}
+            <h2 className="text-sm font-semibold text-slate-600 uppercase mb-2">
+              Cities
+            </h2>
+
+            <div className="flex flex-wrap gap-1">
+              {(user.city_ids ?? []).length === 0 && (
+                <span className="text-xs text-slate-400 italic">None</span>
+              )}
+
+              {(user.city_ids ?? []).map((id: string) => {
+                const name = cityMap.get(id);
+                return name ? (
+                  <span
+                    key={id}
+                    className="px-2 py-0.5 rounded-full bg-slate-100 text-xs text-slate-800"
+                  >
+                    {name}
+                  </span>
+                ) : null;
+              })}
             </div>
           </div>
 
-          <div className="flex gap-3">
-            <button
-              type="submit"
-              className="bg-ink text-white px-4 py-2 rounded-md text-sm hover:bg-ink/90"
-            >
-              Save Changes
-            </button>
-
-            <a
-              href="/admin/CEO/users"
-              className="px-4 py-2 rounded-md border border-slate-300 text-sm hover:bg-slate-50"
-            >
-              Cancel
-            </a>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-600 uppercase mb-2">
+              Status
+            </h2>
+            {user.status === "active" ? (
+              <span className="text-green-600 font-medium">Active</span>
+            ) : (
+              <span className="text-red-600 font-medium">Suspended</span>
+            )}
           </div>
-        </form>
 
-        <form action={toggleSuspend}>
-          <button
-            type="submit"
-            className="mt-4 px-4 py-2 rounded-md border border-slate-300 text-sm hover:bg-slate-50"
-          >
-            {user.status === "active" ? "Suspend User" : "Reinstate User"}
-          </button>
-        </form>
+          <div className="pt-4 flex gap-4">
+            <Link
+              href={`/admin/CEO/users/${user.user_id}/delete`}
+              className="text-red-600 hover:underline"
+            >
+              Delete User
+            </Link>
 
-        <form action={sendReset}>
-          <button
-            type="submit"
-            className="mt-4 px-4 py-2 rounded-md border border-slate-300 text-sm hover:bg-slate-50"
-          >
-            Send Password Reset Link
-          </button>
-        </form>
-      </div>
-    </AdminShell>
+            <Link
+              href="/admin/CEO/users"
+              className="text-ink hover:underline"
+            >
+              Back to Users
+            </Link>
+          </div>
+        </div>
+      </AdminShell>
+    </ToastBoundary>
   );
 }

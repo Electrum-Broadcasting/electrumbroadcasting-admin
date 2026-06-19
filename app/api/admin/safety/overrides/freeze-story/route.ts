@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 export async function POST(req: Request) {
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServiceClient();
   const { story_id } = await req.json();
 
-  // 1. Perform the override
+  // 1. Freeze the story
   const { error: updateError } = await supabase
     .from("stories")
     .update({ is_frozen: true })
@@ -19,11 +19,14 @@ export async function POST(req: Request) {
     );
   }
 
-  // 2. Resolve admin identity
-  const { data: userData } = await supabase.auth.getUser();
-  const authUserId = userData?.user?.id || null;
+  // 2. Resolve admin identity (service client version)
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  let adminId = null;
+  const authUserId = session?.user?.id ?? null;
+
+  let adminId: string | null = null;
 
   if (authUserId) {
     const { data: adminRow } = await supabase
@@ -32,10 +35,10 @@ export async function POST(req: Request) {
       .eq("user_id", authUserId)
       .single();
 
-    adminId = adminRow?.id || null;
+    adminId = adminRow?.id ?? null;
   }
 
-  // 3. Insert log entry
+  // 3. Insert override log entry
   const { error: logError } = await supabase
     .from("admin_override_logs")
     .insert({
@@ -46,7 +49,9 @@ export async function POST(req: Request) {
       metadata: {},
     });
 
-  if (logError) console.error("Log error:", logError);
+  if (logError) {
+    console.error("Log error:", logError);
+  }
 
   return NextResponse.json({ success: true });
 }
