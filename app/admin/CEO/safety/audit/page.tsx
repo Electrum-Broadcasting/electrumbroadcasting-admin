@@ -1,16 +1,26 @@
 import { AdminShell } from "@/components/admin/AdminShell";
 import { getAdminContext } from "@/lib/admin/getAdminContext";
-import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+type AuditLog = {
+  id: string;
+  actor: string | null;
+  action: string;
+  entity: string | null;
+  metadata: any | null;
+  created_at: string;
+};
 
 export default async function AuditLogsListPage() {
   const { email, role } = await getAdminContext();
-  const supabase = createSupabaseServiceClient();
+  const supabase = createSupabaseServerClient();
 
   const { data: logs } = await supabase
     .from("audit_logs")
     .select("id, actor, action, entity, metadata, created_at")
     .order("created_at", { ascending: false })
-    .limit(200); // generous but safe
+    .limit(200)
+    .returns<AuditLog[]>();
 
   return (
     <AdminShell email={email} role={role} title="Audit Logs">

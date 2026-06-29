@@ -1,12 +1,12 @@
 import { AdminShell } from "@/components/admin/AdminShell";
 import { ThemeForm } from "@/components/admin/themes/ThemeForm";
 import { getAdminContext } from "@/lib/admin/getAdminContext";
-import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { loadMergedTheme } from "@/lib/themes/loadTheme";
 
 export default async function ThemeEditorPage({ params }: { params: { cityId: string } }) {
   const { email, role } = await getAdminContext();
-  const supabase = createSupabaseServiceClient();
+  const supabase = createSupabaseServerClient();
 
   // 1. Load the city FIRST
   const { data: city, error } = await supabase

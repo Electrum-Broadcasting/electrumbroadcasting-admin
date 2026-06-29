@@ -53,7 +53,7 @@ export async function getAdminContext(): Promise<AdminContext> {
   }
 
   return {
-    userId: user.id,
+    id: user.id,
     email: user.email ?? null,
     role: normalizeRole(adminRow.role),
     cityIds: adminRow.city_ids ?? [],

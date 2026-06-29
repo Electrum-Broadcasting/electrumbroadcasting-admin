@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
-  const supabase = createSupabaseServiceClient();
+  const supabase = createSupabaseServerClient();
   const { contributor_id } = await req.json();
 
   // 1. Unlock contributor

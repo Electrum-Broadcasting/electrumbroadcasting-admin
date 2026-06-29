@@ -1,7 +1,7 @@
 // app/api/admin/users/[id]/route.ts
 
 import { NextResponse } from "next/server";
-import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getAdminContext } from "@/lib/admin/auth";
 import { canManageUsers } from "@/lib/admin/permissions";
 import type { AdminRole } from "@/lib/admin/types";
@@ -28,7 +28,7 @@ export async function PATCH(req: Request, { params }: RouteContext) {
       status?: "active" | "inactive";
     };
 
-    const supabase = createSupabaseServiceClient();
+    const supabase = createSupabaseServerClient();
 
     const updatePayload: Record<string, unknown> = {};
     if (role) updatePayload.role = role;
@@ -66,7 +66,7 @@ export async function DELETE(_req: Request, { params }: RouteContext) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const supabase = createSupabaseServiceClient();
+    const supabase = createSupabaseServerClient();
 
     const { error: adminError } = await supabase
       .from("admin_users")

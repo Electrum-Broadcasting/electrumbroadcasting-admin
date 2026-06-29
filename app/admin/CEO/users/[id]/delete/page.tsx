@@ -1,6 +1,6 @@
 import { AdminShell } from "@/components/admin/AdminShell";
 import { getAdminContext } from "@/lib/admin/getAdminContext";
-import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { ToastBoundary } from "@/components/ui/ToastBoundary";
 import { ToastTrigger } from "@/components/ui/ToastTrigger";
@@ -14,7 +14,7 @@ type AdminUserRow = {
 };
 
 async function getUserById(id: string): Promise<AdminUserRow | null> {
-  const supabase = createSupabaseServiceClient();
+  const supabase = createSupabaseServerClient();
   const { data } = await supabase
     .from("admin_users")
     .select("user_id, email, role, city_ids, status")
@@ -25,7 +25,7 @@ async function getUserById(id: string): Promise<AdminUserRow | null> {
 }
 
 async function deleteUser(id: string): Promise<void> {
-  const supabase = createSupabaseServiceClient();
+  const supabase = createSupabaseServerClient();
   await supabase.from("admin_users").delete().eq("user_id", id);
 }
 

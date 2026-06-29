@@ -15,11 +15,9 @@ type ContributorRow = {
 
 type OverrideLogRow = {
   id: string;
+  action_type: string;
   created_at: string;
-  admin_id: string | null;
-  action: string;
-  target_type: string;
-  target_id: string;
+  metadata_json: any;
 };
 
 interface ContributorDrawerProps {
@@ -63,7 +61,7 @@ export function ContributorDrawer({
 }: ContributorDrawerProps) {
   if (!contributor) return null;
 
-  return (
+    return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-[380px] p-0 bg-white">
         {/* Header */}
@@ -197,15 +195,15 @@ export function ContributorDrawer({
               {actions.map((log) => (
                 <div key={log.id} className="border rounded-md p-3 text-sm">
                   <div className="flex justify-between">
-                    <span className="font-medium">{log.action}</span>
+                    <span className="font-medium">{log.action_type}</span>
                     <span className="text-muted-foreground">
                       {new Date(log.created_at).toLocaleString()}
                     </span>
                   </div>
 
-                  {log.admin_id && (
+                  {log.id && (
                     <div className="text-xs text-muted-foreground mt-1">
-                      by {log.admin_id}
+                      by {log.id}
                     </div>
                   )}
                 </div>

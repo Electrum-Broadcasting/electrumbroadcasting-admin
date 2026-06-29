@@ -4,10 +4,11 @@ import { adminTableNames, adminTables } from "@/lib/admin/config";
 import { getTableCount } from "@/lib/admin/data";
 import { getAdminContext } from "@/lib/admin/getAdminContext";
 import { logoutAction } from "@/app/(auth)/actions";
-import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
 export default async function AdminDashboardPage() {
   const { email, role } = await getAdminContext();
-  const supabase = createSupabaseServiceClient();
+  const supabase = createSupabaseServerClient();
 
   const { data: logs } = await supabase
     .from("system_logs")

@@ -1,6 +1,25 @@
 import { AdminShell } from "@/components/admin/AdminShell";
 import { getAdminContext } from "@/lib/admin/getAdminContext";
-import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+type FraudSignal = {
+  id: string;
+  user_id: string;
+  city_id: string;
+  signal_type: string;
+  signal_value: number;
+  metadata: any | null;
+  created_at: string;
+   user: {
+    id: string;
+    email: string;
+    display_name: string;
+  } | null;
+  city: {
+    id: string;
+    name: string;
+  } | null;
+};
 
 export default async function FraudSignalDetailPage({
   params,
@@ -8,23 +27,30 @@ export default async function FraudSignalDetailPage({
   params: { id: string };
 }) {
   const { email, role } = await getAdminContext();
-  const supabase = createSupabaseServiceClient();
+  const supabase = createSupabaseServerClient();
 
   const { data: signal, error } = await supabase
-    .from("fraud_signals")
-    .select(
-      `
+  .from("fraud_signals")
+  .select(`
+    id,
+    user_id,
+    city_id,
+    signal_type,
+    signal_value,
+    metadata,
+    created_at,
+    user:contributors!inner (
       id,
-      signal_type,
-      signal_value,
-      metadata,
-      created_at,
-      user:users ( id, email ),
-      city:cities ( id, name )
-    `
+      email,
+      display_name
+    ),
+    city:cities!inner (
+      id,
+      name
     )
-    .eq("id", params.id)
-    .single();
+  `)
+  .eq("id", params.id)
+  .single<FraudSignal>();
 
   if (error || !signal) {
     return (
@@ -38,14 +64,13 @@ export default async function FraudSignalDetailPage({
     <AdminShell email={email} role={role} title="Fraud Signal">
       <h2 className="text-xl font-semibold text-ink mb-6">Fraud Signal</h2>
 
-      {/* Metadata */}
       <div className="rounded-lg border border-slate-200 p-6 mb-10 bg-white">
         <h3 className="text-lg font-semibold text-ink mb-4">Signal Details</h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Detail label="Signal Type" value={signal.signal_type} />
           <Detail label="Value" value={signal.signal_value} />
-          <Detail label="User" value={signal.user?.email ?? "Unknown"} />
+          <Detail label="User" value={signal.user?.display_name ?? "Unknown"} />
           <Detail label="City" value={signal.city?.name ?? "—"} />
           <Detail
             label="Detected"
@@ -53,7 +78,6 @@ export default async function FraudSignalDetailPage({
           />
         </div>
 
-        {/* Metadata block */}
         {signal.metadata && (
           <div className="mt-6">
             <h4 className="text-sm font-semibold text-slate-700 mb-1">Metadata</h4>
@@ -64,7 +88,6 @@ export default async function FraudSignalDetailPage({
         )}
       </div>
 
-      {/* Actions */}
       <div className="rounded-lg border border-slate-200 p-6 bg-white">
         <h3 className="text-lg font-semibold text-ink mb-4">Actions</h3>
 

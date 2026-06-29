@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function GET() {
-  const supabase = createSupabaseServiceClient();
+  const supabase = createSupabaseServerClient();
 
   const { data: cities, error } = await supabase
     .from("cities")
@@ -18,7 +18,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const supabase = createSupabaseServiceClient();
+  const supabase = createSupabaseServerClient();
   const body = await req.json();
 
   const { name, slug, domain, status } = body;

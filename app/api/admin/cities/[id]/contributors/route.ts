@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function GET(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const supabase = createSupabaseServiceClient();
+  const supabase = createSupabaseServerClient();
   const cityId = params.id;
 
   // 1. Fetch contributors

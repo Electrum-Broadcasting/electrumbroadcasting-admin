@@ -12,10 +12,16 @@ export default async function CEOContributorsPage() {
   if (!session) return null;
 
   const email = session.user.email ?? null;
-  const jwtRole = session.user.app_metadata.role ?? "unknown";
+const { data: adminUser } = await supabase
+  .from("admin_users")
+  .select("role")
+  .eq("user_id", session.user.id)
+  .single();
+
+const role = adminUser?.role ?? "UNKNOWN";
 
   return (
-    <AdminShell email={email} role={jwtRole} title="Contributors">
+    <AdminShell email={email} role={role} title="Contributors">
       <div className="space-y-8">
         <section>
           <h2 className="text-lg font-semibold text-ink mb-3">

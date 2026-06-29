@@ -1,6 +1,6 @@
 import { AdminShell } from "@/components/admin/AdminShell";
 import { getAdminContext } from "@/lib/admin/getAdminContext";
-import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function SafetyReportDetailPage({
   params,
@@ -8,20 +8,22 @@ export default async function SafetyReportDetailPage({
   params: { id: string };
 }) {
   const { email, role } = await getAdminContext();
-  const supabase = createSupabaseServiceClient();
+  const supabase = createSupabaseServerClient();
 
-  // Fetch the report with relationships
+  // Unified moderation query: load the flag event + reporter + target + city
   const { data: report, error } = await supabase
-    .from("safety_reports")
+    .from("flag_events")
     .select(
       `
       id,
-      category,
-      description,
-      status,
+      entity_type,
+      entity_id,
+      reason,
+      user_id,
       created_at,
-      reporter:reported_by ( id, email ),
-      target:reported_user ( id, email ),
+      metadata,
+      reporter:users!flag_events_user_id_fkey ( id, email ),
+      target:users!flag_events_entity_id_fkey ( id, email ),
       city:cities ( id, name )
     `
     )
@@ -36,6 +38,11 @@ export default async function SafetyReportDetailPage({
     );
   }
 
+  // Legacy fields preserved in metadata
+  const category = report.metadata?.legacy_category ?? "—";
+  const status = report.metadata?.legacy_status ?? "open";
+  const description = report.metadata?.legacy_description ?? report.reason;
+
   return (
     <AdminShell email={email} role={role} title="Safety Report">
       <h2 className="text-xl font-semibold text-ink mb-6">Safety Report</h2>
@@ -48,8 +55,8 @@ export default async function SafetyReportDetailPage({
           <Detail label="Reported User" value={report.target?.email ?? "Unknown"} />
           <Detail label="Reporter" value={report.reporter?.email ?? "Unknown"} />
           <Detail label="City" value={report.city?.name ?? "—"} />
-          <Detail label="Category" value={report.category} />
-          <Detail label="Status" value={report.status} />
+          <Detail label="Category" value={category} />
+          <Detail label="Status" value={status} />
           <Detail
             label="Created"
             value={new Date(report.created_at).toLocaleString()}
@@ -60,7 +67,7 @@ export default async function SafetyReportDetailPage({
         <div className="mt-6">
           <h4 className="text-sm font-semibold text-slate-700 mb-1">Description</h4>
           <p className="text-sm text-slate-800 whitespace-pre-wrap">
-            {report.description ?? "No description provided."}
+            {description ?? "No description provided."}
           </p>
         </div>
       </div>

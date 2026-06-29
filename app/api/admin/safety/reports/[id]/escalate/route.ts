@@ -11,48 +11,42 @@ export async function POST(
 
   const flagId = params.id;
 
-  // 1. Load the flag event so we know which city is affected
+  // 1. Load the flag event so we know which user + city are involved
   const { data: flagEvent } = await supabase
     .from("flag_events")
-    .select("city_id, entity_id")
+    .select("entity_id, city_id")
     .eq("id", flagId)
     .single();
 
+  const reportedUserId = flagEvent?.entity_id ?? null;
   const cityId = flagEvent?.city_id ?? null;
 
-  // 2. Freeze the city if we have one
-  if (cityId) {
-    await supabase
-      .from("cities")
-      .update({ frozen: true })
-      .eq("id", cityId);
-  }
-
-  // 3. Write an audit log entry
+  // 2. Write an audit log entry
   await supabase.from("audit_logs").insert({
     actor: email,
-    action: "freeze_city",
-    entity: cityId ?? "unknown",
+    action: "escalate_flag",
+    entity: flagId,
     metadata: {
-      flag_event_id: flagId,
+      reported_user_id: reportedUserId,
+      city_id: cityId,
       source: "admin_action",
     },
   });
 
-  // 4. Optional: add a fraud signal for admin freeze (neutral impact)
-  if (flagEvent?.entity_id) {
+  // 3. Add a fraud signal for admin escalation
+  if (reportedUserId) {
     await supabase.from("fraud_signals").insert({
-      user_id: flagEvent.entity_id,
+      user_id: reportedUserId,
       city_id: cityId,
-      signal_type: "admin_freeze_city",
-      signal_value: 0,
+      signal_type: "admin_escalate",
+      signal_value: 1,
       severity: "medium",
-      score_impact: 0,
+      score_impact: 2,
       metadata: { flag_event_id: flagId },
       reviewed: true,
     });
   }
 
-  // 5. Redirect back to the report detail page
+  // 4. Redirect back to the report detail page
   return NextResponse.redirect(`/admin/CEO/safety/reports/${flagId}`);
 }

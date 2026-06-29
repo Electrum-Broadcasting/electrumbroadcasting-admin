@@ -13,7 +13,15 @@ export default async function CEODashboardPage() {
   if (!session) return null;
 
   const email = session.user.email ?? null;
-  const jwtRole = session.user.app_metadata.role ?? "unknown";
+
+  // Load admin_users.role (uppercase, canonical for UI)
+  const { data: adminUser } = await supabase
+    .from("admin_users")
+    .select("role")
+    .eq("user_id", session.user.id)
+    .single();
+
+  const role = adminUser?.role ?? "UNKNOWN";
 
   // 1. Last 20 published stories
   const { data: recentStories } = await supabase
@@ -31,7 +39,7 @@ export default async function CEODashboardPage() {
     .limit(20);
 
   return (
-    <AdminShell email={email} role={jwtRole} title="CEO Dashboard">
+    <AdminShell email={email} role={role} title="CEO Dashboard">
       <div className="space-y-12">
 
         {/* Quick Actions */}

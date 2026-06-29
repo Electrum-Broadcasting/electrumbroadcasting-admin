@@ -1,22 +1,27 @@
 import { AdminShell } from "@/components/admin/AdminShell";
 import { getAdminContext } from "@/lib/admin/getAdminContext";
-import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function SafetyReportsListPage() {
   const { email, role } = await getAdminContext();
-  const supabase = createSupabaseServiceClient();
+  const supabase = createSupabaseServerClient();
 
+  // Unified moderation query: user flags + legacy metadata
   const { data: reports } = await supabase
-    .from("safety_reports")
+    .from("flag_events")
     .select(`
       id,
-      category,
-      status,
+      entity_type,
+      entity_id,
+      reason,
+      user_id,
       created_at,
-      reporter:reported_by ( id, email ),
-      target:reported_user ( id, email ),
+      metadata,
+      reporter:users!flag_events_user_id_fkey ( id, email ),
+      target:users!flag_events_entity_id_fkey ( id, email ),
       city:cities ( id, name )
     `)
+    .eq("entity_type", "user") // only user→user reports for this page
     .order("created_at", { ascending: false });
 
   return (
@@ -38,26 +43,31 @@ export default async function SafetyReportsListPage() {
           </thead>
 
           <tbody className="divide-y divide-slate-200 bg-white">
-            {reports?.map((r) => (
-              <tr key={r.id} className="hover:bg-slate-50 transition">
-                <td className="px-4 py-2 text-sm">{r.target?.email ?? "Unknown"}</td>
-                <td className="px-4 py-2 text-sm">{r.reporter?.email ?? "Unknown"}</td>
-                <td className="px-4 py-2 text-sm">{r.category}</td>
-                <td className="px-4 py-2 text-sm">{r.city?.name ?? "—"}</td>
-                <td className="px-4 py-2 text-sm capitalize">{r.status}</td>
-                <td className="px-4 py-2 text-sm">
-                  {new Date(r.created_at).toLocaleDateString()}
-                </td>
-                <td className="px-4 py-2 text-sm">
-                  <a
-                    href={`/admin/CEO/safety/reports/${r.id}`}
-                    className="text-blue-600 hover:underline"
-                  >
-                    View
-                  </a>
-                </td>
-              </tr>
-            ))}
+            {reports?.map((r) => {
+              const category = r.metadata?.legacy_category ?? "—";
+              const status = r.metadata?.legacy_status ?? "open";
+
+              return (
+                <tr key={r.id} className="hover:bg-slate-50 transition">
+                  <td className="px-4 py-2 text-sm">{r.target?.email ?? "Unknown"}</td>
+                  <td className="px-4 py-2 text-sm">{r.reporter?.email ?? "Unknown"}</td>
+                  <td className="px-4 py-2 text-sm">{category}</td>
+                  <td className="px-4 py-2 text-sm">{r.city?.name ?? "—"}</td>
+                  <td className="px-4 py-2 text-sm capitalize">{status}</td>
+                  <td className="px-4 py-2 text-sm">
+                    {new Date(r.created_at).toLocaleDateString()}
+                  </td>
+                  <td className="px-4 py-2 text-sm">
+                    <a
+                      href={`/admin/CEO/safety/reports/${r.id}`}
+                      className="text-blue-600 hover:underline"
+                    >
+                      View
+                    </a>
+                  </td>
+                </tr>
+              );
+            })}
 
             {reports?.length === 0 && (
               <tr>

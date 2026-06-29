@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function encodeMessage(type: "error" | "success", message: string) {
   return `${type}=${encodeURIComponent(message)}`;
@@ -12,7 +12,7 @@ export async function loginAction(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   const nextPath = String(formData.get("next") ?? "/admin");
 
-  const supabase = createSupabaseServiceClient();
+  const supabase = createSupabaseServerClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
@@ -26,7 +26,7 @@ export async function createAccountAction(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
 
-  const supabase = createSupabaseServiceClient();
+  const supabase = createSupabaseServerClient();
   const { error } = await supabase.auth.signUp({
     email,
     password,
@@ -52,7 +52,7 @@ export async function createAccountAction(formData: FormData) {
 export async function resetPasswordAction(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
 
-  const supabase = createSupabaseServiceClient();
+  const supabase = createSupabaseServerClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${
       process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
@@ -74,10 +74,10 @@ export async function resetPasswordAction(formData: FormData) {
 export async function updatePasswordAction(formData: FormData) {
   const password = String(formData.get("password") ?? "");
 
-  const supabase = createSupabaseServiceClient();
+  const supabase = createSupabaseServerClient();
   const { error } = await supabase.auth.updateUser({ password });
 
-  if (error) {
+    if (error) {
     redirect(`/update-password?${encodeMessage("error", error.message)}`);
   }
 
@@ -90,7 +90,7 @@ export async function updatePasswordAction(formData: FormData) {
 }
 
 export async function logoutAction() {
-  const supabase = createSupabaseServiceClient();
+  const supabase = createSupabaseServerClient();
   await supabase.auth.signOut();
   redirect("/login");
 }

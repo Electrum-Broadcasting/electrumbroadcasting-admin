@@ -10,7 +10,17 @@ interface AdminShellProps {
   children: React.ReactNode;
 }
 
+const ROLE_DISPLAY: Record<AdminRole, string> = {
+  CEO: "Chief Executive Officer",
+  PLATFORM_ADMIN: "Platform Administrator",
+  CITY_ADMIN: "City Administrator",
+  EDITOR: "Editor",
+};
+
 export function AdminShell({ email, role, title, cityName, children }: AdminShellProps) {
+
+  const displayRole = ROLE_DISPLAY[role] ?? role;
+
   return (
     <div className="min-h-screen">
       {/* HEADER */}
@@ -28,10 +38,10 @@ export function AdminShell({ email, role, title, cityName, children }: AdminShel
           {/* Right: User Info + Logout */}
           <div className="text-right text-sm space-y-1">
             <p className="font-medium text-ink">{email ?? "Unknown"}</p>
-            <p className="text-slate-500">Role: {role}</p>
+            <p className="text-slate-500">Role: {displayRole}</p>
             <p className="text-slate-400">
-              {role === "CEO" ? "All Cities" : cityName}
-            </p>
+            {role === "CEO" ? "All Cities" : cityName}
+</p>
 
             {/* Logout Button */}
             <form action={logoutAction} className="mt-2">

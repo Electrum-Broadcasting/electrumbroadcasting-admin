@@ -43,7 +43,7 @@ export async function GET() {
       count("civic_moments"),
       count("admin_users"),
       count("ad_placements"),
-      count("game_users"),
+      count("game_players"),
     ]);
 
     return NextResponse.json({

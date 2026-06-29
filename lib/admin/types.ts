@@ -16,7 +16,7 @@ export interface AdminUser {
 }
 
 export interface AdminContext {
-  userId: string;
+  id: string;
   email: string | null;
   role: AdminRole;
   cityIds: string[];

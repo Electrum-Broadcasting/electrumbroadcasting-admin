@@ -1,10 +1,10 @@
 import { AdminShell } from "@/components/admin/AdminShell";
 import { getAdminContext } from "@/lib/admin/getAdminContext";
-import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
 async function getCities() {
-  const supabase = createSupabaseServiceClient();
+  const supabase = createSupabaseServerClient();
   const { data } = await supabase
     .from("cities")
     .select("id, name, domain")
@@ -19,7 +19,7 @@ export default async function NewUserPage() {
   async function createUser(formData: FormData) {
     "use server";
 
-    const supabase = createSupabaseServiceClient();
+    const supabase = createSupabaseServerClient();
 
     const email = formData.get("email") as string;
     const role = formData.get("role") as string;

@@ -1,24 +1,41 @@
 import { AdminShell } from "@/components/admin/AdminShell";
-import { CitiesTable } from "@/components/admin/cities/CitiesTable";
-import { getAdminContext } from "@/lib/admin/getAdminContext";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { CitiesTable  } from "@/components/admin/cities/CitiesTable";
 
 export default async function CEOCitiesPage() {
-  const { email, role } = await getAdminContext();
+  const supabase = createSupabaseServerClient();
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session) return null;
+
+  const email = session.user.email ?? null;
+
+  // Load canonical admin role (uppercase) from admin_users
+  const { data: adminUser } = await supabase
+    .from("admin_users")
+    .select("role")
+    .eq("user_id", session.user.id)
+    .single();
+
+  const role = adminUser?.role ?? "UNKNOWN";
 
   return (
     <AdminShell email={email} role={role} title="Cities">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold text-ink">All Cities</h2>
+      <div className="space-y-8">
+        <section>
+          <h2 className="text-lg font-semibold text-ink mb-3">
+            Manage Cities
+          </h2>
+          <p className="text-sm text-slate-600 mb-6">
+            View and manage all cities across the Electrum platform.
+          </p>
 
-        <a
-          href="/admin/CEO/cities/new"
-          className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-ink/90"
-        >
-          Create New City
-        </a>
+          <CitiesTable />
+        </section>
       </div>
-
-      <CitiesTable />
     </AdminShell>
   );
 }

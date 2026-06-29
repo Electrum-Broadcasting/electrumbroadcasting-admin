@@ -1,17 +1,24 @@
 import { AdminShell } from "@/components/admin/AdminShell";
 import { CityForm } from "@/components/admin/cities/CityForm";
 import { getAdminContext } from "@/lib/admin/getAdminContext";
-import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+type CityRow = {
+  id: string;
+  name: string;
+  slug: string | null;
+  // add any other columns your CityForm expects
+};
 
 export default async function EditCityPage({ params }: { params: { id: string } }) {
   const { email, role } = await getAdminContext();
-  const supabase = createSupabaseServiceClient();
+  const supabase = createSupabaseServerClient();
 
   const { data: city, error } = await supabase
     .from("cities")
-    .select("*")
+    .select("id, name, slug")
     .eq("id", params.id)
-    .single();
+    .single<CityRow>();
 
   if (error || !city) {
     return (

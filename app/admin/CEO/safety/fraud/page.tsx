@@ -1,22 +1,52 @@
 import { AdminShell } from "@/components/admin/AdminShell";
 import { getAdminContext } from "@/lib/admin/getAdminContext";
-import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+type FraudSignalRow = {
+  id: string;
+  user_id: string;
+  city_id: string;
+  signal_type: string;
+  signal_value: number;
+  metadata: any | null;
+  created_at: string;
+  user: {
+    id: string;
+    email: string;
+    display_name: string;
+  } | null;
+  city: {
+    id: string;
+    name: string;
+  } | null;
+};
 
 export default async function FraudSignalsPage() {
   const { email, role } = await getAdminContext();
-  const supabase = createSupabaseServiceClient();
+  const supabase = createSupabaseServerClient();
 
   const { data: signals } = await supabase
-    .from("fraud_signals")
-    .select(`
+  .from("fraud_signals")
+  .select(`
+    id,
+    user_id,
+    city_id,
+    signal_type,
+    signal_value,
+    metadata,
+    created_at,
+    user:contributors!inner (
       id,
-      signal_type,
-      signal_value,
-      created_at,
-      user:users ( id, email ),
-      city:cities ( id, name )
-    `)
-    .order("created_at", { ascending: false });
+      email,
+      display_name
+    ),
+    city:cities!inner (
+      id,
+      name
+    )
+  `)
+  .order("created_at", { ascending: false })
+  .returns<FraudSignalRow[]>();
 
   return (
     <AdminShell email={email} role={role} title="Fraud Signals">

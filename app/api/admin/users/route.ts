@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function GET() {
-  const supabase = createSupabaseServiceClient();
+  const supabase = createSupabaseServerClient();
 
   // 1. Load admin_users
   const { data: adminRows, error: adminError } = await supabase

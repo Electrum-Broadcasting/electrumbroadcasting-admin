@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { runAutoActions } from "@/lib/safety/autoActions/runAutoActions";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function POST(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const supabase = createSupabaseServiceClient();
+  const supabase = createSupabaseServerClient();
   const contentId = params.id;
 
   const { reason } = await req.json();
@@ -25,7 +24,7 @@ export async function POST(
   // 2. Fetch content
   const { data: content, error: contentError } = await supabase
     .from("content_items")
-    .select("id, city_id, content_type")
+    .select("id, city_id, content_type, contributor_id")
     .eq("id", contentId)
     .single();
 
@@ -33,14 +32,16 @@ export async function POST(
     return NextResponse.json({ error: "Content not found" }, { status: 404 });
   }
 
-  // 3. Insert flag
-  const { data: insertedFlagEvent, error: flagError } = await supabase
+  // 3. Insert flag event
+  const { data: flagEvent, error: flagError } = await supabase
     .from("flag_events")
     .insert({
-      content_item_id: contentId,
+      entity_type: "content",
+      entity_id: contentId,
       user_id: user.id,
       city_id: content.city_id,
       reason,
+      metadata: { content_type: content.content_type },
     })
     .select()
     .single();
@@ -49,46 +50,43 @@ export async function POST(
     return NextResponse.json({ error: flagError.message }, { status: 400 });
   }
 
-  // 4. Auto-actions
-  await runAutoActions(insertedFlagEvent);
-
-  // 5. Count flags
+  // 4. Count total flags for this content
   const { count: flagCount } = await supabase
     .from("flag_events")
     .select("*", { count: "exact", head: true })
-    .eq("content_item_id", contentId);
+    .eq("entity_id", contentId)
+    .eq("entity_type", "content");
 
-  // 6. Fetch rules
-  const { data: rules } = await supabase
-    .from("moderation_rules")
-    .select("*")
-    .eq("city_id", content.city_id);
+  // 5. Fraud signal: flag spike (3 flags in 24 hours)
+  const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
 
-  // 7. Evaluate rules (FIXED implicit-any)
-  const triggeredRules = rules.filter(
-    (rule: any) => flagCount >= rule.flag_threshold
-  );
+  const { count: recentFlags } = await supabase
+    .from("flag_events")
+    .select("*", { count: "exact", head: true })
+    .eq("entity_id", contentId)
+    .gte("created_at", since);
 
-  // 8. Escalate
-  if (triggeredRules.length > 0) {
-    const rule = triggeredRules[0];
-
-    await supabase.from("moderation_queue").insert({
+  if ((recentFlags ?? 0) >= 3) {
+    await supabase.from("fraud_signals").insert({
+      user_id: content.contributor_id,
       city_id: content.city_id,
-      content_type: content.content_type,
-      content_id: contentId,
-      reason: `Rule triggered: ${rule.name}`,
-      status: "pending",
-    });
-
-    await supabase.from("moderation_events").insert({
-      content_item_id: contentId,
-      moderator_user_id: null,
-      event_type: "auto_escalate",
-      reason: `Triggered rule: ${rule.name}`,
-      metadata_json: { rule_id: rule.id, flag_count: flagCount },
+      signal_type: "flag_spike",
+      signal_value: recentFlags,
+      severity: "high",
+      score_impact: 3,
+      metadata: { content_id: contentId },
+      reviewed: false,
     });
   }
+
+  // 6. Audit log
+  await supabase.from("audit_logs").insert({
+    actor_user_id: user.id,
+    action: "flag_content",
+    entity_type: "content",
+    entity_id: contentId,
+    metadata: { reason },
+  });
 
   return NextResponse.json({ success: true, flagCount });
 }

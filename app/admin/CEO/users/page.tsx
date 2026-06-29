@@ -1,6 +1,6 @@
 import { AdminShell } from "@/components/admin/AdminShell";
 import { getAdminContext } from "@/lib/admin/getAdminContext";
-import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { ToastTrigger } from "@/components/ui/ToastTrigger";
 import { ToastBoundary } from "@/components/ui/ToastBoundary";
@@ -20,7 +20,7 @@ type CityRow = {
 };
 
 async function getUsers(): Promise<AdminUserRow[]> {
-  const supabase = createSupabaseServiceClient();
+  const supabase = createSupabaseServerClient();
   const { data } = await supabase
     .from("admin_users")
     .select("user_id, email, role, city_ids, status")
@@ -30,7 +30,7 @@ async function getUsers(): Promise<AdminUserRow[]> {
 }
 
 async function getCities(): Promise<CityRow[]> {
-  const supabase = createSupabaseServiceClient();
+  const supabase = createSupabaseServerClient();
   const { data } = await supabase
     .from("cities")
     .select("id, name")

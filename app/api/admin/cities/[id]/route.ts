@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function PATCH(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const supabase = createSupabaseServiceClient();
+  const supabase = createSupabaseServerClient();
   const cityId = params.id;
   const body = await req.json();
 
@@ -28,7 +28,7 @@ export async function DELETE(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const supabase = createSupabaseServiceClient();
+  const supabase = createSupabaseServerClient();
   const cityId = params.id;
 
   const { error } = await supabase.from("cities").delete().eq("id", cityId);

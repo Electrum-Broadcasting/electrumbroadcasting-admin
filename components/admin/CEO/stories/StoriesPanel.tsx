@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { createBrowserClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/badge";
@@ -9,27 +10,30 @@ import type { StoryRow } from "@/lib/admin/types";
 
 interface CEOStoriesPanelProps {
   stories: StoryRow[];
-  selectedStoryId: string;
-  onSelectStory: (id: string) => void;
-  onHide: () => void;
-  onRepublish: () => void;
-  onFreeze: () => void;
-  onUnfreeze: () => void;
 }
 
-export function CEOStoriesPanel({
-  stories = [],
-  selectedStoryId = "",
-  onSelectStory,
-  onHide,
-  onRepublish,
-  onFreeze,
-  onUnfreeze,
-}: CEOStoriesPanelProps) {
+export function CEOStoriesPanel({ stories = [] }: CEOStoriesPanelProps) {
+  const supabase = createBrowserClient();
+
+  // Local state for selected story
+  const [selectedStoryId, setSelectedStoryId] = useState(
+    stories.length > 0 ? stories[0].id : ""
+  );
+
   const selectedStory = useMemo(
     () => stories.find((s) => s.id === selectedStoryId) ?? null,
     [stories, selectedStoryId]
   );
+
+  async function handleAction(action: string) {
+    if (!selectedStoryId) return;
+
+    await supabase.rpc("admin_update_story_status", {
+      story_id: selectedStoryId,
+      action,
+      metadata: {},
+    });
+  }
 
   return (
     <section className="border rounded-lg p-6 space-y-4 relative z-10 overflow-visible">
@@ -38,7 +42,7 @@ export function CEOStoriesPanel({
       </div>
 
       <div className="flex gap-3 items-center">
-        <Select value={selectedStoryId} onValueChange={onSelectStory}>
+        <Select value={selectedStoryId} onValueChange={setSelectedStoryId}>
           <SelectTrigger className="w-[260px]">
             <SelectValue placeholder="Select story" />
           </SelectTrigger>
@@ -65,10 +69,10 @@ export function CEOStoriesPanel({
           </SelectContent>
         </Select>
 
-        <Button onClick={onHide}>Hide Story</Button>
-        <Button onClick={onRepublish}>Republish Story</Button>
-        <Button onClick={onFreeze}>Freeze Story</Button>
-        <Button onClick={onUnfreeze}>Unfreeze Story</Button>
+        <Button onClick={() => handleAction("hide")}>Hide Story</Button>
+        <Button onClick={() => handleAction("republish")}>Republish Story</Button>
+        <Button onClick={() => handleAction("freeze")}>Freeze Story</Button>
+        <Button onClick={() => handleAction("unfreeze")}>Unfreeze Story</Button>
       </div>
 
       {selectedStory && (
