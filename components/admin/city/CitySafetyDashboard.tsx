@@ -1,17 +1,13 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { ContributorsPanel } from "./ContributorsPanel";
 import { ContributorDrawer } from "./ContributorDrawer";
 import { StoriesPanel } from "./StoriesPanel";
-import { RecentSafetyActivity } from "./RecentSafetyActivity";
+import { useContributors, type Contributor } from "./useContributors";
+import { useStories, type StoryRow } from "./useStories";
 
-import { useSafetyDashboard } from "./useSafetyDashboard";
-
-import { Sheet, SheetContent } from "@/components/ui/sheet";
-
-import { StoryRow } from "./useStories";
-
-import { useState } from "react";
+type ContributorRow = Contributor;
 
 interface CitySafetyDashboardProps {
   cityId: string;
@@ -20,131 +16,149 @@ interface CitySafetyDashboardProps {
 export function CitySafetyDashboard({ cityId }: CitySafetyDashboardProps) {
   const {
     contributors,
-    stories,
-    logs,
-
-    selectedContributorId,
-    setSelectedContributorId,
-
-    selectedStoryId,
-    setSelectedStoryId,
-
-    fraudScore,
-    setFraudScoreInput,
-
-    fraudLevel,
-    setFraudLevelInput,
-
+    refreshContributors,
     lockContributor,
     unlockContributor,
     setFraudScore,
     setFraudLevel,
+  } = useContributors(cityId);
 
+  const {
+    stories,
     hideStory,
     republishStory,
     freezeStory,
     unfreezeStory,
-  } = useSafetyDashboard(cityId);
+  } = useStories(cityId);
 
-  const selectedContributor = Array.isArray(contributors)
-  ? contributors.find((c) => c.id === selectedContributorId)
-  : null;
-
-  const contributorLogs = logs.filter(
-    (log) =>
-      log.target_type === "contributor" &&
-      log.target_id === selectedContributorId
-  );
-
-  const contributorStories = stories.filter(
-    (s) => s.contributor_id === selectedContributorId
-  );
+  const [selectedContributorId, setSelectedContributorId] = useState("");
+  const [selectedStoryId, setSelectedStoryId] = useState("");
+  const [fraudScoreInput, setFraudScoreInput] = useState("");
+  const [fraudLevelInput, setFraudLevelInput] = useState("low");
 
   const [isContributorDrawerOpen, setIsContributorDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    void refreshContributors();
+  }, [refreshContributors]);
+
+  useEffect(() => {
+    if (contributors.length === 0) {
+      setSelectedContributorId("");
+      return;
+    }
+
+    const stillExists = contributors.some((c) => c.id === selectedContributorId);
+    if (!stillExists) {
+      setSelectedContributorId(contributors[0].id);
+      setFraudScoreInput("");
+      setFraudLevelInput(contributors[0].fraud_level ?? "low");
+    }
+  }, [contributors, selectedContributorId]);
+
+  useEffect(() => {
+    if (!selectedContributorId) return;
+    const selected = contributors.find((c) => c.id === selectedContributorId);
+    if (!selected) return;
+
+    setFraudScoreInput(
+      typeof selected.fraud_score === "number" ? String(selected.fraud_score) : ""
+    );
+    setFraudLevelInput(selected.fraud_level ?? "low");
+  }, [selectedContributorId, contributors]);
+
+  useEffect(() => {
+    if (stories.length === 0) {
+      setSelectedStoryId("");
+      return;
+    }
+
+    const stillExists = stories.some((story) => story.id === selectedStoryId);
+    if (!stillExists) {
+      setSelectedStoryId(stories[0].id);
+    }
+  }, [stories, selectedStoryId]);
+
+  const selectedContributor: ContributorRow | null = useMemo(
+    () => contributors.find((c) => c.id === selectedContributorId) ?? null,
+    [contributors, selectedContributorId]
+  );
+
+  const selectedStory: StoryRow | null = useMemo(
+    () => stories.find((story) => story.id === selectedStoryId) ?? null,
+    [stories, selectedStoryId]
+  );
+
+  const contributorStories: StoryRow[] = useMemo(
+    () => stories.filter((story) => story.contributor_id === selectedContributorId),
+    [stories, selectedContributorId]
+  );
 
   return (
     <div className="space-y-8">
       <ContributorsPanel
-  contributors={contributors}
-  selectedContributorId={selectedContributorId}
-  onSelectContributor={setSelectedContributorId}
-
- fraudScore={fraudScore}
-onFraudScoreChange={(value) => {
-  setFraudScoreInput(value); // local only
-}}
-
-fraudLevel={fraudLevel}
-onFraudLevelChange={(value) => {
-  setFraudLevelInput(value); // local only
-}}
-
-  onLock={() =>
-    selectedContributorId && lockContributor(selectedContributorId)
-  }
-  onUnlock={() =>
-    selectedContributorId && unlockContributor(selectedContributorId)
-  }
-
-  /** ⭐ ADD THESE THREE PROPS ⭐ */
-  setIsContributorDrawerOpen={setIsContributorDrawerOpen}
- onSetFraudScore={() => {
-  if (!selectedContributorId) return;
-  const score = parseInt(fraudScore, 10);
-  if (!isNaN(score)) setFraudScore(selectedContributorId, score);
-}}
-
-onSetFraudLevel={() => {
-  if (!selectedContributorId) return;
-  setFraudLevel(selectedContributorId, fraudLevel);
-}}
-/>
+        contributors={contributors}
+        selectedContributorId={selectedContributorId}
+        onSelectContributor={setSelectedContributorId}
+        setIsContributorDrawerOpen={setIsContributorDrawerOpen}
+        fraudScore={fraudScoreInput}
+        onFraudScoreChange={setFraudScoreInput}
+        fraudLevel={fraudLevelInput}
+        onFraudLevelChange={setFraudLevelInput}
+        onLock={() => selectedContributorId && void lockContributor(selectedContributorId)}
+        onUnlock={() => selectedContributorId && void unlockContributor(selectedContributorId)}
+        onSetFraudScore={() => {
+          if (!selectedContributorId) return;
+          const score = Number.parseInt(fraudScoreInput, 10);
+          if (Number.isNaN(score)) return;
+          void setFraudScore(selectedContributorId, score);
+        }}
+        onSetFraudLevel={() => {
+          if (!selectedContributorId) return;
+          void setFraudLevel(selectedContributorId, fraudLevelInput);
+        }}
+      />
 
       <StoriesPanel
         stories={stories}
         selectedStoryId={selectedStoryId}
         onSelectStory={setSelectedStoryId}
-        onHide={() => selectedStoryId && hideStory(selectedStoryId)}
-        onRepublish={() => selectedStoryId && republishStory(selectedStoryId)}
-        onFreeze={() => selectedStoryId && freezeStory(selectedStoryId)}
-        onUnfreeze={() => selectedStoryId && unfreezeStory(selectedStoryId)}
+        onPublish={() => selectedStoryId && void republishStory(selectedStoryId)}
+        onUnpublish={() => selectedStoryId && void hideStory(selectedStoryId)}
+        onHide={() => selectedStoryId && void hideStory(selectedStoryId)}
+        onFreeze={() => {
+          if (!selectedStoryId || !selectedStory) return;
+          if (selectedStory.is_frozen) {
+            void unfreezeStory(selectedStoryId);
+            return;
+          }
+          void freezeStory(selectedStoryId);
+        }}
       />
 
-      <RecentSafetyActivity logs={logs} />
-
-      <Sheet
+      <ContributorDrawer
         open={isContributorDrawerOpen}
         onOpenChange={setIsContributorDrawerOpen}
-      >
-        <SheetContent side="right" className="w-[480px]">
-          <ContributorDrawer
-            open={isContributorDrawerOpen}
-            onOpenChange={setIsContributorDrawerOpen}
-            contributor={selectedContributor || null}
-            actions={contributorLogs}
-            stories={contributorStories}
-            fraudScore={fraudScore}
-            onFraudScoreChange={setFraudScoreInput}
-            fraudLevel={fraudLevel}
-            onFraudLevelChange={setFraudLevelInput}
-            onLock={() =>
-              selectedContributorId && lockContributor(selectedContributorId)
-            }
-            onUnlock={() =>
-              selectedContributorId && unlockContributor(selectedContributorId)
-            }
-            onSetFraudScore={() => {
-              if (!selectedContributorId) return;
-              const score = parseInt(fraudScore, 10);
-              if (!isNaN(score)) setFraudScore(selectedContributorId, score);
-            }}
-            onSetFraudLevel={() => {
-              if (!selectedContributorId) return;
-              setFraudLevel(selectedContributorId, fraudLevel);
-            }}
-          />
-        </SheetContent>
-      </Sheet>
+        contributor={selectedContributor}
+        actions={[]}
+        stories={contributorStories}
+        fraudScore={fraudScoreInput}
+        onFraudScoreChange={setFraudScoreInput}
+        fraudLevel={fraudLevelInput}
+        onFraudLevelChange={setFraudLevelInput}
+        onLock={() => selectedContributorId && void lockContributor(selectedContributorId)}
+        onUnlock={() => selectedContributorId && void unlockContributor(selectedContributorId)}
+        onSetFraudScore={() => {
+          if (!selectedContributorId) return;
+          const score = Number.parseInt(fraudScoreInput, 10);
+          if (Number.isNaN(score)) return;
+          void setFraudScore(selectedContributorId, score);
+        }}
+        onSetFraudLevel={() => {
+          if (!selectedContributorId) return;
+          void setFraudLevel(selectedContributorId, fraudLevelInput);
+        }}
+      />
     </div>
   );
 }

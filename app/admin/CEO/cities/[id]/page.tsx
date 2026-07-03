@@ -16,9 +16,23 @@ export default async function EditCityPage({ params }: { params: { id: string } 
 
   const { data: city, error } = await supabase
     .from("cities")
-    .select("id, name, slug")
+    .select(`
+      id,
+      name,
+      slug,
+      domain,
+      status,
+      incorporated_year,
+      electrum_year,
+      description,
+      country,
+      state_province,
+      latitude,
+      longitude,
+      population
+    `)
     .eq("id", params.id)
-    .single<CityRow>();
+    .single();
 
   if (error || !city) {
     return (

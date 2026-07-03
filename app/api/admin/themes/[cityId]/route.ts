@@ -8,16 +8,23 @@ export async function PATCH(
   const supabase = createSupabaseServerClient();
   const body = await req.json();
 
-  const { theme, status } = body;
+  const { draft_theme, published_theme } = body;
+
+  const payload: Record<string, unknown> = {
+    city_id: params.cityId,
+  };
+
+  if (draft_theme !== undefined) {
+    payload.draft_theme = draft_theme;
+  }
+
+  if (published_theme !== undefined) {
+    payload.published_theme = published_theme;
+  }
 
   const { error } = await supabase
-    .from("cities")
-    .update({
-      theme,
-      theme_status: status,
-      theme_updated_at: new Date().toISOString(),
-    })
-    .eq("id", params.cityId);
+    .from("city_themes")
+    .upsert(payload, { onConflict: "city_id" });
 
   if (error) {
     console.error("Failed to update theme:", error);

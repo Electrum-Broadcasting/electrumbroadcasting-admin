@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { ToastTrigger } from "@/components/ui/ToastTrigger";
 import { ToastBoundary } from "@/components/ui/ToastBoundary";
+import { CeoUsersHeader } from "@/components/admin/CEO/users/CeoUsersHeader";
 
 // Types for strict mode
 type AdminUserRow = {
@@ -65,17 +66,7 @@ export default async function UsersPage({
           <ToastTrigger message={decodeURIComponent(searchParams.toast)} />
         )}
 
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-xl font-semibold text-ink">Users</h1>
-
-          {/* Updated button styling (Option A) */}
-          <Link
-            href="/admin/CEO/users/new"
-            className="bg-ink text-white px-4 py-2 rounded-md text-sm border border-ink/20 hover:bg-ink/80"
-          >
-            Create New User
-          </Link>
-        </div>
+        <CeoUsersHeader />
 
         <div className="overflow-x-auto border border-slate-200 rounded-lg">
           <table className="min-w-full divide-y divide-slate-200">

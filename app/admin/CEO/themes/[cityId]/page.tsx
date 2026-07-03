@@ -2,18 +2,23 @@ import { AdminShell } from "@/components/admin/AdminShell";
 import { ThemeForm } from "@/components/admin/themes/ThemeForm";
 import { getAdminContext } from "@/lib/admin/getAdminContext";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { loadMergedTheme } from "@/lib/themes/loadTheme";
 
 export default async function ThemeEditorPage({ params }: { params: { cityId: string } }) {
   const { email, role } = await getAdminContext();
   const supabase = createSupabaseServerClient();
 
-  // 1. Load the city FIRST
-  const { data: city, error } = await supabase
-    .from("cities")
-    .select("id, name, theme, theme_status")
-    .eq("id", params.cityId)
-    .single();
+  const [{ data: city, error }, { data: themeRow }] = await Promise.all([
+    supabase
+      .from("cities")
+      .select("id, name")
+      .eq("id", params.cityId)
+      .single(),
+    supabase
+      .from("city_themes")
+      .select("city_id, draft_theme, published_theme")
+      .eq("city_id", params.cityId)
+      .maybeSingle(),
+  ]);
 
   if (error || !city) {
     return (
@@ -23,12 +28,13 @@ export default async function ThemeEditorPage({ params }: { params: { cityId: st
     );
   }
 
-  // 2. THEN merge the theme
-  const mergedTheme = loadMergedTheme(city.theme);
-
   return (
     <AdminShell email={email} role={role} title={`${city.name} Theme`}>
-      <ThemeForm city={city} theme={mergedTheme} />
+      <ThemeForm
+        city={city}
+        draftTheme={themeRow?.draft_theme ?? null}
+        publishedTheme={themeRow?.published_theme ?? null}
+      />
     </AdminShell>
   );
 }

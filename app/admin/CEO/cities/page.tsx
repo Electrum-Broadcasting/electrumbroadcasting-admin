@@ -1,6 +1,10 @@
 import { AdminShell } from "@/components/admin/AdminShell";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { CitiesTable  } from "@/components/admin/cities/CitiesTable";
+import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
+import { CitiesHeader } from "./CitiesHeader";
+
 
 export default async function CEOCitiesPage() {
   const supabase = createSupabaseServerClient();
@@ -24,18 +28,9 @@ export default async function CEOCitiesPage() {
 
   return (
     <AdminShell email={email} role={role} title="Cities">
-      <div className="space-y-8">
-        <section>
-          <h2 className="text-lg font-semibold text-ink mb-3">
-            Manage Cities
-          </h2>
-          <p className="text-sm text-slate-600 mb-6">
-            View and manage all cities across the Electrum platform.
-          </p>
+  <CitiesHeader />
+  <CitiesTable />
+</AdminShell>
 
-          <CitiesTable />
-        </section>
-      </div>
-    </AdminShell>
   );
 }

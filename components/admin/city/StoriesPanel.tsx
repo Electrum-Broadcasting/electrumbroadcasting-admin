@@ -5,26 +5,26 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/badge";
 
-import type { StoryRow } from "@/lib/admin/types";
+import type { StoryRow } from "./useStories";
 
 interface StoriesPanelProps {
   stories: StoryRow[];
   selectedStoryId: string;
   onSelectStory: (id: string) => void;
+  onPublish: () => void;
+  onUnpublish: () => void;
   onHide: () => void;
-  onRepublish: () => void;
   onFreeze: () => void;
-  onUnfreeze: () => void;
 }
 
 export function StoriesPanel({
   stories,
   selectedStoryId,
   onSelectStory,
+  onPublish,
+  onUnpublish,
   onHide,
-  onRepublish,
   onFreeze,
-  onUnfreeze,
 }: StoriesPanelProps) {
   const selectedStory = useMemo(
     () => stories.find((s) => s.id === selectedStoryId) ?? null,
@@ -65,10 +65,12 @@ export function StoriesPanel({
           </SelectContent>
         </Select>
 
-        <Button onClick={onHide}>Hide Story</Button>
-        <Button onClick={onRepublish}>Republish Story</Button>
-        <Button onClick={onFreeze}>Freeze Story</Button>
-        <Button onClick={onUnfreeze}>Unfreeze Story</Button>
+        <Button onClick={onPublish}>Publish</Button>
+        <Button onClick={onUnpublish} variant="secondary">Unpublish</Button>
+        <Button onClick={onHide} variant="secondary">Hide</Button>
+        <Button onClick={onFreeze}>
+          {selectedStory?.is_frozen ? "Unfreeze" : "Freeze"}
+        </Button>
       </div>
 
       {selectedStory && (
