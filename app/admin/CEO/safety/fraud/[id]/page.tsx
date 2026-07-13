@@ -1,6 +1,6 @@
 import { AdminShell } from "@/components/admin/AdminShell";
-import { getAdminContext } from "@/lib/admin/getAdminContext";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getAdminContext } from "@/lib/admin/context";
+import { createSupabasePublicClient } from "@/lib/supabase/server";
 
 type FraudSignal = {
   id: string;
@@ -10,15 +10,15 @@ type FraudSignal = {
   signal_value: number;
   metadata: any | null;
   created_at: string;
-   user: {
+  user: {
     id: string;
     email: string;
     display_name: string;
-  } | null;
+  }[] | null;
   city: {
     id: string;
     name: string;
-  } | null;
+  }[] | null;
 };
 
 export default async function FraudSignalDetailPage({
@@ -27,7 +27,7 @@ export default async function FraudSignalDetailPage({
   params: { id: string };
 }) {
   const { email, role } = await getAdminContext();
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabasePublicClient();
 
   const { data: signal, error } = await supabase
   .from("fraud_signals")
@@ -70,8 +70,8 @@ export default async function FraudSignalDetailPage({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Detail label="Signal Type" value={signal.signal_type} />
           <Detail label="Value" value={signal.signal_value} />
-          <Detail label="User" value={signal.user?.display_name ?? "Unknown"} />
-          <Detail label="City" value={signal.city?.name ?? "—"} />
+          <Detail label="User" value={signal.user?.[0]?.display_name ?? "Unknown"} />
+          <Detail label="City" value={signal.city?.[0]?.name ?? "—"} />
           <Detail
             label="Detected"
             value={new Date(signal.created_at).toLocaleString()}

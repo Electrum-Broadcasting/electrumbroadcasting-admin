@@ -1,5 +1,5 @@
 import { AdminShell } from "@/components/admin/AdminShell";
-import { getAdminContext } from "@/lib/admin/getAdminContext";
+import { getAdminContext } from "@/lib/admin/context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function ModerationQueuePage() {
@@ -43,7 +43,7 @@ export default async function ModerationQueuePage() {
                 <td className="px-4 py-2 text-sm">{item.content_type}</td>
                 <td className="px-4 py-2 text-sm">{item.content_id}</td>
                 <td className="px-4 py-2 text-sm">{item.reason}</td>
-                <td className="px-4 py-2 text-sm">{item.city?.name ?? "—"}</td>
+                <td className="px-4 py-2 text-sm">{item.city?.[0]?.name ?? "—"}</td>
                 <td className="px-4 py-2 text-sm capitalize">{item.status}</td>
                 <td className="px-4 py-2 text-sm">
                   {new Date(item.created_at).toLocaleDateString()}

@@ -1,5 +1,5 @@
 import { AdminShell } from "@/components/admin/AdminShell";
-import { getAdminContext } from "@/lib/admin/getAdminContext";
+import { getAdminContext } from "@/lib/admin/context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type AuditLog = {

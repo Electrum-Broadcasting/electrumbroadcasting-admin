@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AuthCard } from "@/components/admin/AuthCard";
-import { loginAction } from "@/app/(auth)/actions";
+import { loginAdminAction } from "@/app/admin/(auth)/actions";
 
 interface LoginPageProps {
   searchParams?: {
@@ -14,12 +14,11 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
   return (
     <AuthCard
       title="Admin Login"
-      description="Sign in with your Supabase account to access administration modules."
-      footerLinkHref="/create-account"
-      footerLinkLabel="Create Account"
+      description="Enter your admin credentials to access Electrum administration modules."
     >
-      <form action={loginAction} className="space-y-4">
+      <form action={loginAdminAction} method="post" className="space-y-4">
         <input type="hidden" name="next" value={searchParams?.next ?? "/admin"} />
+
         <div>
           <label htmlFor="email" className="mb-1 block text-sm font-medium text-slate-700">
             Email
@@ -32,6 +31,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
             className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
           />
         </div>
+
         <div>
           <label htmlFor="password" className="mb-1 block text-sm font-medium text-slate-700">
             Password
@@ -44,14 +44,22 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
             className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
           />
         </div>
-        {searchParams?.error ? <p className="text-sm text-danger">{searchParams.error}</p> : null}
-        {searchParams?.success ? <p className="text-sm text-green-700">{searchParams.success}</p> : null}
+
+        {searchParams?.error ? (
+          <p className="text-sm text-danger">{searchParams.error}</p>
+        ) : null}
+
+        {searchParams?.success ? (
+          <p className="text-sm text-green-700">{searchParams.success}</p>
+        ) : null}
+
         <button type="submit" className="w-full rounded-md bg-ink px-4 py-2 text-sm font-semibold text-paper">
           Sign In
         </button>
       </form>
+
       <div className="mt-4 text-sm text-slate-600">
-        <Link href="/reset-password" className="font-medium hover:underline">
+        <Link href="/admin/(auth)/forgot-password" className="font-medium hover:underline">
           Forgot password?
         </Link>
       </div>

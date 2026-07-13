@@ -1,7 +1,7 @@
 import { AdminShell } from "@/components/admin/AdminShell";
-import { getAdminContext } from "@/lib/admin/getAdminContext";
+import { getAdminContext } from "@/lib/admin/context";
 import { redirect } from "next/navigation";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { supabasePublic } from "@/lib/supabase/public";
 
 export default async function SafetyPage() {
   const admin = await getAdminContext();
@@ -11,7 +11,11 @@ export default async function SafetyPage() {
     redirect("/admin");
   }
 
-  const supabase = createSupabaseServerClient();
+  const supabase = supabasePublic;
+
+  console.log("SAFETY PAGE LOADED");
+  console.log("SUPABASE CLIENT CREATED");
+  console.log("ADMIN CONTEXT:", admin);
 
   // 1. Recent moderation events (unified feed)
   const { data: recentFlags } = await supabase
@@ -89,11 +93,11 @@ export default async function SafetyPage() {
                 {recentFlags?.map((f) => (
                   <tr key={f.id} className="hover:bg-slate-50">
                     <td className="px-4 py-2 text-sm">
-                      {f.entity_type} — {f.target?.email ?? f.entity_id}
+                      {f.entity_type} — {f.target?.[0]?.email ?? f.entity_id}
                     </td>
-                    <td className="px-4 py-2 text-sm">{f.reporter?.email ?? "Unknown"}</td>
+                    <td className="px-4 py-2 text-sm">{f.reporter?.[0]?.email ?? "Unknown"}</td>
                     <td className="px-4 py-2 text-sm">{f.reason}</td>
-                    <td className="px-4 py-2 text-sm">{f.city?.name ?? "—"}</td>
+                    <td className="px-4 py-2 text-sm">{f.city?.[0]?.name ?? "—"}</td>
                     <td className="px-4 py-2 text-sm">
                       {new Date(f.created_at).toLocaleString()}
                     </td>
@@ -121,8 +125,8 @@ export default async function SafetyPage() {
               <tbody className="divide-y divide-slate-200">
                 {riskyContributors?.map((c) => (
                   <tr key={c.contributor_id} className="hover:bg-slate-50">
-                    <td className="px-4 py-2 text-sm">{c.user?.email ?? c.contributor_id}</td>
-                    <td className="px-4 py-2 text-sm">{c.city?.name ?? "—"}</td>
+                    <td className="px-4 py-2 text-sm">{c.user?.[0]?.email ?? c.contributor_id}</td>
+                    <td className="px-4 py-2 text-sm">{c.city?.[0]?.name ?? "—"}</td>
                     <td className="px-4 py-2 text-sm">{c.fraud_score}</td>
                     <td className="px-4 py-2 text-sm capitalize">{c.fraud_level}</td>
                     <td className="px-4 py-2 text-sm">{c.signal_count}</td>
@@ -150,7 +154,7 @@ export default async function SafetyPage() {
               <tbody className="divide-y divide-slate-200">
                 {signals?.map((s) => (
                   <tr key={s.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-2 text-sm">{s.user?.email ?? s.user_id}</td>
+                    <td className="px-4 py-2 text-sm">{s.user?.[0]?.email ?? s.user_id}</td>
                     <td className="px-4 py-2 text-sm">{s.signal_type}</td>
                     <td className="px-4 py-2 text-sm capitalize">{s.severity}</td>
                     <td className="px-4 py-2 text-sm">{s.score_impact}</td>

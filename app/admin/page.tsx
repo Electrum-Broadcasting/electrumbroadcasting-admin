@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getAdminContext } from "@/lib/admin/auth";
+import { getAdminContext } from "@/lib/admin/context";
 
 export default async function AdminLandingPage() {
   const { role, cityIds } = await getAdminContext();

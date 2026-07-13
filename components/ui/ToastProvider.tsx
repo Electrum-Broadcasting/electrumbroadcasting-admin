@@ -19,7 +19,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-        {message && <Toast message={message} onClose={() => setMessage(null)} />}
+      {message && <Toast message={message} onClose={() => setMessage(null)} />}
     </ToastContext.Provider>
   );
 }
@@ -29,3 +29,5 @@ export function useToastContext() {
   if (!ctx) throw new Error("useToastContext must be used inside ToastProvider");
   return ctx;
 }
+
+export default ToastProvider;

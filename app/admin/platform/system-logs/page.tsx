@@ -1,13 +1,13 @@
 // /app/admin/platform/system-logs/page.tsx
 
 import Link from "next/link";
-
-export const dynamic = "force-dynamic";
+import { headers } from "next/headers";
 
 async function getSystemLogs() {
   try {
-    const base = process.env.NEXT_PUBLIC_BASE_URL ?? "";
-    const url = `${base}/api/system-logs`;
+    const host = headers().get("host");
+    const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
+    const url = `${protocol}://${host}/api/system-logs`;
 
     const res = await fetch(url, { cache: "no-store" });
 

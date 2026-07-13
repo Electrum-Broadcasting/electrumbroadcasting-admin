@@ -1,6 +1,6 @@
 import { AdminShell } from "@/components/admin/AdminShell";
 import { ThemeForm } from "@/components/admin/themes/ThemeForm";
-import { getAdminContext } from "@/lib/admin/getAdminContext";
+import { getAdminContext } from "@/lib/admin/context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function ThemeEditorPage({ params }: { params: { cityId: string } }) {

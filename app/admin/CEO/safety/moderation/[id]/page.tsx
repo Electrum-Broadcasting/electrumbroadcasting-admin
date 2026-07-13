@@ -1,6 +1,6 @@
 import { AdminShell } from "@/components/admin/AdminShell";
-import { getAdminContext } from "@/lib/admin/getAdminContext";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getAdminContext } from "@/lib/admin/context";
+import { createSupabasePublicClient } from "@/lib/supabase/server";
 
 export default async function ModerationItemDetailPage({
   params,
@@ -8,7 +8,7 @@ export default async function ModerationItemDetailPage({
   params: { id: string };
 }) {
   const { email, role } = await getAdminContext();
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabasePublicClient();
 
   const { data: item, error } = await supabase
     .from("moderation_queue")
@@ -46,7 +46,7 @@ export default async function ModerationItemDetailPage({
           <Detail label="Content Type" value={item.content_type} />
           <Detail label="Content ID" value={item.content_id} />
           <Detail label="Reason" value={item.reason} />
-          <Detail label="City" value={item.city?.name ?? "—"} />
+          <Detail label="City" value={item.city?.[0]?.name ?? "—"} />
           <Detail label="Status" value={item.status} />
           <Detail
             label="Created"

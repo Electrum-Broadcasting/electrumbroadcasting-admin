@@ -1,6 +1,6 @@
 import type { AdminRole } from "@/lib/admin/types";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { logoutAction } from "@/app/(auth)/actions";
+import { logoutAction } from "@/app/admin/(auth)/actions";
 
 interface AdminShellProps {
   email: string | null;
@@ -34,6 +34,16 @@ export function AdminShell({ email, role, title, cityName, children }: AdminShel
             </p>
             <h1 className="text-lg font-semibold text-ink">{title}</h1>
           </div>
+
+          {/* Change Password */}
+<div>
+  <a
+    href="/admin/update-password"
+    className="text-xs text-blue-600 hover:underline"
+  >
+    Change Password
+  </a>
+</div>
 
           {/* Right: User Info + Logout */}
           <div className="text-right text-sm space-y-1">

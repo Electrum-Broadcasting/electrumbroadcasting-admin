@@ -2,8 +2,8 @@ import Link from "next/link";
 import { DashboardCards } from "@/components/admin/DashboardCards";
 import { adminTableNames, adminTables } from "@/lib/admin/config";
 import { getTableCount } from "@/lib/admin/data";
-import { getAdminContext } from "@/lib/admin/getAdminContext";
-import { logoutAction } from "@/app/(auth)/actions";
+import { getAdminContext } from "@/lib/admin/context";
+import { logoutAction } from "@/app/admin/(auth)/actions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function AdminDashboardPage() {

@@ -43,8 +43,8 @@ export function ThemePreview({
   const theme = loadMergedTheme(isEditing ? draftTheme : (publishedTheme ?? draftTheme));
   const colors = theme.colors ?? {};
   const typography = theme.typography ?? {};
-  const selectedFontFamily = typography.font_family ?? typography.body ?? "Inter";
-  const headingFontFamily = typography.heading_font_family ?? typography.heading ?? selectedFontFamily;
+  const selectedFontFamily = typography.body ?? "Inter";
+  const headingFontFamily = typography.heading ?? selectedFontFamily;
 
   useEffect(() => {
     ensureFontLoaded(selectedFontFamily);

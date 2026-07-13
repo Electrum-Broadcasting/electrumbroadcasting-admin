@@ -1,6 +1,6 @@
 import { AdminShell } from "@/components/admin/AdminShell";
 import { CityForm } from "@/components/admin/cities/CityForm";
-import { getAdminContext } from "@/lib/admin/getAdminContext";
+import { getAdminContext } from "@/lib/admin/context";
 
 export default async function CreateCityPage() {
   const { email, role } = await getAdminContext();

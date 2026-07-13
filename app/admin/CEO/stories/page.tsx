@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { CEOStoriesPanel } from "@/components/admin/CEO/stories/StoriesPanel";
-import { getAdminContext } from "@/lib/admin/getAdminContext";
+import { getAdminContext } from "@/lib/admin/context";
 
 export default async function CEOStoriesPage() {
   const admin = await getAdminContext();

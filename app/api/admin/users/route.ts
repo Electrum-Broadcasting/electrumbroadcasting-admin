@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AdminRole } from "@/lib/admin/types";
-import { getAdminContext } from "@/lib/admin/auth";
+import { getAdminContext } from "@/lib/admin/context";
 
 export async function GET() {
   const supabase = createSupabaseServerClient();

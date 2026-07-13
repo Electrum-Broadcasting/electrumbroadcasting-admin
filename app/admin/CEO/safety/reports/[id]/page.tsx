@@ -1,6 +1,6 @@
 import { AdminShell } from "@/components/admin/AdminShell";
-import { getAdminContext } from "@/lib/admin/getAdminContext";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getAdminContext } from "@/lib/admin/context";
+import { createSupabasePublicClient } from "@/lib/supabase/server";
 
 export default async function SafetyReportDetailPage({
   params,
@@ -8,7 +8,7 @@ export default async function SafetyReportDetailPage({
   params: { id: string };
 }) {
   const { email, role } = await getAdminContext();
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabasePublicClient();
 
   // Unified moderation query: load the flag event + reporter + target + city
   const { data: report, error } = await supabase
@@ -52,9 +52,9 @@ export default async function SafetyReportDetailPage({
         <h3 className="text-lg font-semibold text-ink mb-4">Report Details</h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Detail label="Reported User" value={report.target?.email ?? "Unknown"} />
-          <Detail label="Reporter" value={report.reporter?.email ?? "Unknown"} />
-          <Detail label="City" value={report.city?.name ?? "—"} />
+          <Detail label="Reported User" value={report.target?.[0]?.email ?? "Unknown"} />
+          <Detail label="Reporter" value={report.reporter?.[0]?.email ?? "Unknown"} />
+          <Detail label="City" value={report.city?.[0]?.name ?? "—"} />
           <Detail label="Category" value={category} />
           <Detail label="Status" value={status} />
           <Detail

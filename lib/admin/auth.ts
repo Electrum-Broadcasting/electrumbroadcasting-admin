@@ -1,61 +1,46 @@
 import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
-import type { AdminContext, AdminRole } from "./types";
 
-function normalizeRole(role: string): AdminRole {
-  switch (role.toLowerCase()) {
-    case "ceo":
-      return "CEO";
-    case "platform_admin":
-      return "PLATFORM_ADMIN";
-    case "city_admin":
-      return "CITY_ADMIN";
-    case "editor":
-      return "EDITOR";
-    default:
-      throw new Error(`Unknown admin role: ${role}`);
-  }
+const ADMIN_COOKIE_NAME = "admin_session";
+
+export interface AdminSession {
+  admin_id: string;
+  role: string;
 }
 
-export async function getAdminContext(): Promise<AdminContext> {
-  const cookieStore = cookies();
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+export function setAdminSessionCookie(session: AdminSession) {
+  cookies().set(
+    ADMIN_COOKIE_NAME,
+    JSON.stringify(session),
     {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-      },
+      httpOnly: false,      // TEMP: make visible in devtools
+      secure: false,        // TEMP: avoid HTTPS requirement
+      sameSite: "lax",
+      path: "/",
     }
   );
+}
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+export function clearAdminSessionCookie() {
+  cookies().set(
+    ADMIN_COOKIE_NAME,
+    "",
+    {
+      httpOnly: false,
+      secure: false,
+      sameSite: "lax",
+      path: "/",
+      expires: new Date(0),
+    }
+  );
+}
 
-  const user = session?.user ?? null;
+export function getAdminSession(): AdminSession | null {
+  const cookie = cookies().get(ADMIN_COOKIE_NAME);
+  if (!cookie?.value) return null;
 
-  if (!user) {
-    throw new Error("Not authenticated as admin");
+  try {
+    return JSON.parse(cookie.value);
+  } catch {
+    return null;
   }
-
-  const { data: adminRow, error: adminError } = await supabase
-    .from("admin_users")
-    .select("role, city_ids, status")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (adminError || !adminRow || adminRow.status !== "active") {
-    throw new Error("Admin access denied");
-  }
-
-  return {
-    id: user.id,
-    email: user.email ?? null,
-    role: normalizeRole(adminRow.role),
-    cityIds: adminRow.city_ids ?? [],
-  };
 }

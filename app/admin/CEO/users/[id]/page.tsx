@@ -4,7 +4,7 @@ import {
   type AdminUserRow,
   type CityRow,
 } from "@/components/admin/CEO/users/UserForm";
-import { getAdminContext } from "@/lib/admin/getAdminContext";
+import { getAdminContext } from "@/lib/admin/context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import Link from "next/link";
 

@@ -2,7 +2,7 @@
 
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getAdminContext } from "@/lib/admin/auth";
+import { getAdminContext } from "@/lib/admin/context";
 import { canManageUsers } from "@/lib/admin/permissions";
 import type { AdminRole } from "@/lib/admin/types";
 

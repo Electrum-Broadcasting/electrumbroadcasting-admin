@@ -3,7 +3,7 @@ import {
   UserForm,
   type CityRow,
 } from "@/components/admin/CEO/users/UserForm";
-import { getAdminContext } from "@/lib/admin/getAdminContext";
+import { getAdminContext } from "@/lib/admin/context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 async function getCities(): Promise<CityRow[]> {
