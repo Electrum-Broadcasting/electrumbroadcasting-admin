@@ -1,17 +1,36 @@
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { createServerClient } from "@supabase/ssr";
 
-export function middleware(request: NextRequest) {
-  const adminSession = request.cookies.get("admin_session");
+export async function middleware(req: any) {
+  const res = NextResponse.next();
 
-  if (!adminSession) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("next", request.nextUrl.pathname);
-    return NextResponse.redirect(url);
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return req.cookies.get(name)?.value;
+        },
+        set(name: string, value: string, options: any) {
+          res.cookies.set(name, value, options);
+        },
+        remove(name: string, options: any) {
+          res.cookies.set(name, "", options);
+        },
+      },
+    }
+  );
+
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const isAdminRoute = req.nextUrl.pathname.startsWith("/admin");
+
+  if (isAdminRoute && !user) {
+    return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  return NextResponse.next();
+  return res;
 }
 
 export const config = {

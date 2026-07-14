@@ -18,7 +18,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
       footerLinkHref="/create-account"
       footerLinkLabel="Create Account"
     >
-      <form action={loginAdminAction} method="post" className="space-y-4">
+      <form action={loginAdminAction} className="space-y-4">
         <input type="hidden" name="next" value={searchParams?.next ?? "/admin"} />
         <div>
           <label htmlFor="email" className="mb-1 block text-sm font-medium text-slate-700">

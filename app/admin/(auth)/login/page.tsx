@@ -16,7 +16,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
       title="Admin Login"
       description="Enter your admin credentials to access Electrum administration modules."
     >
-      <form action={loginAdminAction} method="post" className="space-y-4">
+      <form action={loginAdminAction} className="space-y-4">
         <input type="hidden" name="next" value={searchParams?.next ?? "/admin"} />
 
         <div>

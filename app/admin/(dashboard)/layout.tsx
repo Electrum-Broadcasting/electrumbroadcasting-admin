@@ -1,7 +1,8 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { redirect } from "next/navigation";
 
-export async function getAdminContext() {
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = cookies();
 
   const supabase = createServerClient(
@@ -24,15 +25,11 @@ export async function getAdminContext() {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) throw new Error("Not authenticated as admin");
+  if (!user) redirect("/login");
 
   if (user.user_metadata.role !== "CEO" && user.user_metadata.role !== "CITY_ADMIN") {
-    throw new Error("Unauthorized admin role");
+    redirect("/login?error=Unauthorized");
   }
 
-  return {
-    user,
-    role: user.user_metadata.role,
-    email: user.email,
-  };
+  return <>{children}</>;
 }
