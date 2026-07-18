@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { PasswordField } from "@/components/admin/auth/PasswordField";
-import { updateAdminPasswordAction } from "./actions";
+import { updateAdminPasswordAction } from "@/app/admin/update-password/actions";
 
 export default function UpdatePasswordPageClient({ admin }: { admin: any }) {
   const [newPassword, setNewPassword] = useState("");

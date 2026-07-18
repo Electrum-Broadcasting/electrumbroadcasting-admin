@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getAdminContext } from "@/lib/admin/context";
 
 export default async function AdminLandingPage() {
-  const { role, cityIds } = await getAdminContext();
+  const { role, city_ids } = await getAdminContext();
 
   switch (role) {
     case "CEO":
@@ -12,7 +12,7 @@ export default async function AdminLandingPage() {
       redirect("/admin/platform");
 
     case "CITY_ADMIN":
-      redirect(`/admin/city/${cityIds[0]}`);
+      redirect(`/admin/city/${city_ids[0]}`);
 
     case "EDITOR":
       redirect("/admin/editor");

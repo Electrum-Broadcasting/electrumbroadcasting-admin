@@ -68,12 +68,6 @@ export function useContributors(cityId: string) {
         city_id: cityId,
       });
 
-      console.log(await supabase.auth.getSession());
-      console.log("cityId:", cityId);
-      console.log("RPC result:", result);
-      console.log("RPC error:", result.error);
-      console.log("RPC data:", result.data);
-
       if (result.error) {
         showToast("Failed to lock contributor");
         return;

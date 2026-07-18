@@ -1,38 +1,33 @@
 import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
+import { redirect } from "next/navigation";
 
 export async function getAdminContext() {
   const cookieStore = cookies();
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-        set(name: string, value: string, options: any) {
-          cookieStore.set(name, value, options);
-        },
-        remove(name: string, options: any) {
-          cookieStore.set(name, "", options);
-        },
-      },
-    }
-  );
+  // 1. Read admin_session cookie
+  const raw = cookieStore.get("admin_session")?.value;
+  if (!raw) redirect("/login?error=Not authenticated");
 
-  const { data: { user } } = await supabase.auth.getUser();
+  let session;
+  try {
+    session = JSON.parse(raw);
+  } catch {
+    redirect("/login?error=Invalid session");
+  }
 
-  if (!user) throw new Error("Not authenticated as admin");
-
-  if (user.user_metadata.role !== "CEO" && user.user_metadata.role !== "CITY_ADMIN") {
-    throw new Error("Unauthorized admin role");
+  const { email, auth_uid, role, city_ids, status, primary_city_slug } = session;
+  if (!email || !auth_uid || !role) {
+    redirect("/login?error=Invalid session");
   }
 
   return {
-    user,
-    role: user.user_metadata.role,
-    email: user.email,
+    ...session,
+    email,
+    role,
+    auth_uid,
+    user_id: session.user_id ?? auth_uid,
+    city_ids: Array.isArray(city_ids) ? city_ids : [],
+    status: status ?? "active",
+    primary_city_slug: primary_city_slug ?? null,
   };
 }

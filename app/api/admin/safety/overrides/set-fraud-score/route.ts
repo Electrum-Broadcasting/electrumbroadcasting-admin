@@ -28,26 +28,27 @@ export async function POST(req: Request) {
     );
   }
 
-  // 3. Resolve admin identity (service client version)
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  const authUserId = session?.user?.id ?? null;
-
-  let adminId: string | null = null;
-
-  if (authUserId) {
-    const { data: adminRow } = await supabase
-      .from("admin_users")
-      .select("id")
-      .eq("user_id", authUserId)
-      .single();
-
-    adminId = adminRow?.id ?? null;
+  // ⭐ 3. Secure authenticated session check
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError || !authData?.user) {
+    return NextResponse.json(
+      { error: "Session expired" },
+      { status: 401 }
+    );
   }
 
-  // 4. Insert override log entry
+  const user = authData.user;
+
+  // ⭐ 4. Resolve admin identity using auth_uid
+  const { data: adminRow } = await supabase
+    .from("admin_users")
+    .select("id")
+    .eq("auth_uid", user.id)
+    .single();
+
+  const adminId = adminRow?.id ?? null;
+
+  // 5. Insert override log entry
   const { error: logError } = await supabase
     .from("admin_override_logs")
     .insert({

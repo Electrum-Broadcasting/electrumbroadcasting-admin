@@ -10,16 +10,13 @@ export async function POST(
 
   const { reason } = await req.json();
 
-  // 1. Auth
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  const user = session?.user ?? null;
-
-  if (!user) {
+  // ⭐ 1. Auth — secure session check
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError || !authData?.user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+
+  const user = authData.user;
 
   // 2. Fetch content
   const { data: content, error: contentError } = await supabase

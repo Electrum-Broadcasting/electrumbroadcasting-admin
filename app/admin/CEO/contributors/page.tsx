@@ -1,24 +1,28 @@
 import { AdminShell } from "@/components/admin/AdminShell";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { CEOContributorsPanel } from "@/components/admin/CEO/contributors/ContributorsPanel";
+import { redirect } from "next/navigation";
 
 export default async function CEOContributorsPage() {
   const supabase = createSupabaseServerClient();
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  // ⭐ Secure authenticated session check
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError || !authData?.user) {
+    return redirect("/login?error=Session expired");
+  }
 
-  if (!session) return null;
+  const user = authData.user;
+  const email = user.email ?? null;
 
-  const email = session.user.email ?? null;
-const { data: adminUser } = await supabase
-  .from("admin_users")
-  .select("role")
-  .eq("user_id", session.user.id)
-  .single();
+  // Load canonical admin role (uppercase) from admin_users
+  const { data: adminUser } = await supabase
+    .from("admin_users")
+    .select("role")
+    .eq("auth_uid", user.id)
+    .single();
 
-const role = adminUser?.role ?? "UNKNOWN";
+  const role = adminUser?.role ?? "UNKNOWN";
 
   return (
     <AdminShell email={email} role={role} title="Contributors">

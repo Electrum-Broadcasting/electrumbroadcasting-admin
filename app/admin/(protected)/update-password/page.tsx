@@ -1,3 +1,5 @@
+"use server";
+
 import { getAdminContext } from "@/lib/admin/context";
 import UpdatePasswordPageClient from "./UpdatePasswordPageClient";
 

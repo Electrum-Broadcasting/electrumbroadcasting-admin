@@ -21,7 +21,7 @@ export default async function NewUserPage() {
   const cities = await getCities();
 
   return (
-    <AdminShell email={admin.email} role={admin.role} title="Create User">
+    <AdminShell email={admin.email ?? null} role={admin.role} title="Create User">
       <div className="max-w-xl">
         <h2 className="text-xl font-semibold text-ink mb-6">Create New User</h2>
         <UserForm mode="create" cities={cities} />

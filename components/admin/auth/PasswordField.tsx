@@ -22,6 +22,7 @@ export function PasswordField({
 
       <input
         type={visible ? "text" : "password"}
+        name="password"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-md border border-slate-300 px-3 py-2 pr-10"

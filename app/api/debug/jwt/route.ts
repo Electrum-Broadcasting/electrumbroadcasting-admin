@@ -11,11 +11,14 @@ export async function GET() {
     { cookies: cookieStore }
   );
 
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+
+  const user = authData?.user ?? null;
+  const accessToken = cookieStore.get("sb-access-token")?.value ?? null;
 
   return NextResponse.json({
-    access_token: session?.access_token ?? null,
-    user: session?.user ?? null,
-    jwt_role: session?.user?.user_metadata?.role ?? null,
+    access_token: accessToken,
+    user,
+    jwt_role: user?.user_metadata?.role ?? null,
   });
 }

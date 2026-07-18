@@ -83,16 +83,18 @@ export async function POST(req: Request) {
         ? primary_city_slug.trim()
         : null;
 
-    const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
-      email,
-      email_confirm: true,
-      user_metadata: {
-        role,
-        city_ids: normalizedCityIds,
-        status: normalizedStatus,
-        primary_city_slug: normalizedPrimaryCitySlug,
-      },
-    });
+    // 1. Create Supabase Auth user
+    const { data: authUser, error: authError } =
+      await supabase.auth.admin.createUser({
+        email,
+        email_confirm: true,
+        user_metadata: {
+          role,
+          city_ids: normalizedCityIds,
+          status: normalizedStatus,
+          primary_city_slug: normalizedPrimaryCitySlug,
+        },
+      });
 
     if (authError || !authUser?.user) {
       console.error("Failed to create auth user:", authError);
@@ -102,8 +104,10 @@ export async function POST(req: Request) {
       );
     }
 
+    // 2. Insert into admin_users with auth_uid
     const { error: insertError } = await supabase.from("admin_users").insert({
-      user_id: authUser.user.id,
+      user_id: authUser.user.id,       // existing field
+      auth_uid: authUser.user.id,      // ⭐ REQUIRED
       email,
       role,
       city_ids: normalizedCityIds,
@@ -120,6 +124,7 @@ export async function POST(req: Request) {
       );
     }
 
+    // 3. Generate recovery link (optional)
     const { error: linkError } = await supabase.auth.admin.generateLink({
       type: "recovery",
       email,

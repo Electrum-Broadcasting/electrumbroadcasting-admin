@@ -1,24 +1,25 @@
 import { AdminShell } from "@/components/admin/AdminShell";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-
 import { CEOMetrics } from "@/components/admin/CEOMetrics";
+import { redirect } from "next/navigation";
 
 export default async function CEODashboardPage() {
   const supabase = createSupabaseServerClient();
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  // ⭐ Secure authenticated session check
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError || !authData?.user) {
+    return redirect("/login?error=Session expired");
+  }
 
-  if (!session) return null;
+  const user = authData.user;
+  const email = user.email ?? null;
 
-  const email = session.user.email ?? null;
-
-  // Load admin_users.role (uppercase, canonical for UI)
+  // Load admin_users.role
   const { data: adminUser } = await supabase
     .from("admin_users")
     .select("role")
-    .eq("user_id", session.user.id)
+    .eq("auth_uid", user.id)
     .single();
 
   const role = adminUser?.role ?? "UNKNOWN";
@@ -42,19 +43,16 @@ export default async function CEODashboardPage() {
     <AdminShell email={email} role={role} title="CEO Dashboard">
       <div className="space-y-12">
 
-        {/* Quick Actions */}
         <section>
           <h2 className="text-lg font-semibold text-ink mb-3">Quick Actions</h2>
           <p className="text-sm text-slate-500">CEO-level shortcuts coming soon.</p>
         </section>
 
-        {/* Metrics */}
         <section>
           <h2 className="text-lg font-semibold text-ink mb-3">Platform Metrics</h2>
           <CEOMetrics />
         </section>
 
-        {/* Recent Stories */}
         <section>
           <h2 className="text-lg font-semibold text-ink mb-3">Recent Published Stories</h2>
           <ul className="space-y-2">
@@ -69,7 +67,6 @@ export default async function CEODashboardPage() {
           </ul>
         </section>
 
-        {/* Override Logs */}
         <section>
           <h2 className="text-lg font-semibold text-ink mb-3">Recent Admin Override Actions</h2>
           <ul className="space-y-2">
