@@ -10,7 +10,7 @@ export default async function ThemesListPage() {
 
   const [{ data: cities }, { data: themes }] = await Promise.all([
     supabase.from("cities").select("id, name, updated_at").order("name", { ascending: true }),
-    supabase.from("city_themes").select("city_id, draft_theme, published_theme"),
+    supabase.from("city_design_system").select("city_id, draft_theme, published_theme"),
   ]);
 
   const themeByCityId = new Map(

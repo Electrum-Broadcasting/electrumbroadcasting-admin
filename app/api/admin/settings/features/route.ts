@@ -2,18 +2,28 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
+function getSupabaseClient() {
+  const cookieAdapter = {
+    get: (name: string) => cookies().get(name)?.value,
+    set: () => {},
+    remove: () => {},
+  };
+
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { cookies: cookieAdapter }
+  );
+}
+
 export async function GET() {
   try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { cookies: cookieStore }
-    );
+    const supabase = getSupabaseClient();
 
     const { data, error } = await supabase
       .from("global_feature_toggles")
-      .select("*");
+      .select("*")
+      .order("feature_name");
 
     if (error) {
       console.error("Failed to fetch feature toggles:", error);
@@ -36,18 +46,13 @@ export async function GET() {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-
-    const cookieStore = cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { cookies: cookieStore }
-    );
+    const supabase = getSupabaseClient();
 
     const { error } = await supabase
       .from("global_feature_toggles")
       .update({
         enabled: body.enabled,
+        updated_at: new Date().toISOString(),
       })
       .eq("feature_name", body.feature_name);
 
@@ -72,19 +77,15 @@ export async function PATCH(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-
-    const cookieStore = cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { cookies: cookieStore }
-    );
+    const supabase = getSupabaseClient();
 
     const { error } = await supabase
       .from("global_feature_toggles")
       .insert({
         feature_name: body.feature_name,
         enabled: body.enabled ?? false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       });
 
     if (error) {

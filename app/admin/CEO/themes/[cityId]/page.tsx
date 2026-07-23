@@ -14,7 +14,7 @@ export default async function ThemeEditorPage({ params }: { params: { cityId: st
       .eq("id", params.cityId)
       .single(),
     supabase
-      .from("city_themes")
+      .from("city_design_system")
       .select("city_id, draft_theme, published_theme")
       .eq("city_id", params.cityId)
       .maybeSingle(),

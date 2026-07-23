@@ -31,11 +31,13 @@ export async function PATCH(
   if (draft_theme !== undefined) payload.draft_theme = draft_theme;
   if (published_theme !== undefined) payload.published_theme = published_theme;
 
+  console.log("UPSERT payload:", JSON.stringify(payload, null, 2));
+
   // 4. Write to DB
   const supabase = createSupabaseServerClient();
 
   const { error } = await supabase
-    .from("city_themes")
+    .from("city_design_system")
     .upsert(payload, { onConflict: "city_id" });
 
   if (error) {

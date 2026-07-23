@@ -2,7 +2,7 @@ import type { AdminTableConfig } from "@/lib/admin/types";
 
 export const adminTableNames = [
   "cities",
-  "city_themes",
+  "city_design_system",
   "places",
   "stories",
   "game_scores",
@@ -35,8 +35,8 @@ export const adminTables: AdminTablesMap = {
     ]
   },
 
-  city_themes: {
-    key: "city_themes",
+  city_design_system: {
+    key: "city_design_system",
     label: "City Themes",
     route: "/admin/city-themes",
     titleField: "city_id",

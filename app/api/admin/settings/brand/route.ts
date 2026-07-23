@@ -2,14 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
+function getSupabaseClient() {
+  const cookieAdapter = {
+    get: (name: string) => cookies().get(name)?.value,
+    set: () => {},
+    remove: () => {},
+  };
+
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { cookies: cookieAdapter }
+  );
+}
+
 export async function GET() {
   try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { cookies: cookieStore }
-    );
+    const supabase = getSupabaseClient();
 
     const { data, error } = await supabase
       .from("global_brand_settings")
@@ -37,13 +46,7 @@ export async function GET() {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-
-    const cookieStore = cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { cookies: cookieStore }
-    );
+    const supabase = getSupabaseClient();
 
     const { error } = await supabase
       .from("global_brand_settings")
@@ -58,6 +61,7 @@ export async function PATCH(request: NextRequest) {
         dark_mode_enabled: body.dark_mode_enabled,
         accessibility_defaults_json: body.accessibility_defaults_json,
         child_safety_display_rules_json: body.child_safety_display_rules_json,
+        updated_at: new Date().toISOString(),
       })
       .eq("id", body.id);
 
