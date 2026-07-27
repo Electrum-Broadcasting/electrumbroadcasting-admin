@@ -15,16 +15,40 @@ export default function CreateEraPage({ params }: { params: { citySlug: string }
     name: "",
     slug: "",
     description: "",
-    cultural_significance: "",
-    start_year: 0,
-    end_year: 0,
+    start_year: "",
+    end_year: "",
+    is_published: false,
   });
 
   async function save() {
-    await supabase.from("civic_eras").insert({
-      ...form,
-      city_slug: citySlug,
+    // Lookup city_id
+    const { data: city } = await supabase
+      .from("cities")
+      .select("id")
+      .eq("slug", citySlug)
+      .single();
+
+    if (!city) {
+      alert("City not found");
+      return;
+    }
+
+    const { error } = await supabase.from("civic_eras").insert({
+      name: form.name,
+      slug: form.slug,
+      description: form.description,
+      start_year: form.start_year ? Number(form.start_year) : null,
+      end_year: form.end_year ? Number(form.end_year) : null,
+      is_published: form.is_published,
+      city_id: city.id,
     });
+
+    if (error) {
+      console.error(error);
+      alert("Failed to save era");
+    } else {
+      alert("Era saved!");
+    }
   }
 
   return (
@@ -53,38 +77,33 @@ export default function CreateEraPage({ params }: { params: { citySlug: string }
           onChange={(e) => setForm({ ...form, description: e.target.value })}
         />
 
-        <textarea
+        <input
           className="border p-2 w-full"
-          placeholder="Cultural significance"
-          value={form.cultural_significance}
-          onChange={(e) =>
-            setForm({ ...form, cultural_significance: e.target.value })
-          }
+          placeholder="Start Year"
+          value={form.start_year}
+          onChange={(e) => setForm({ ...form, start_year: e.target.value })}
         />
 
-        <div className="flex gap-4">
-          <input
-            className="border p-2 w-full"
-            placeholder="Start year"
-            type="number"
-            value={form.start_year}
-            onChange={(e) =>
-              setForm({ ...form, start_year: Number(e.target.value) })
-            }
-          />
+        <input
+          className="border p-2 w-full"
+          placeholder="End Year"
+          value={form.end_year}
+          onChange={(e) => setForm({ ...form, end_year: e.target.value })}
+        />
 
+        <label className="flex items-center gap-2">
           <input
-            className="border p-2 w-full"
-            placeholder="End year"
-            type="number"
-            value={form.end_year}
-            onChange={(e) =>
-              setForm({ ...form, end_year: Number(e.target.value) })
-            }
+            type="checkbox"
+            checked={form.is_published}
+            onChange={(e) => setForm({ ...form, is_published: e.target.checked })}
           />
-        </div>
+          Published
+        </label>
 
-        <button className="bg-blue-600 text-white px-4 py-2 rounded" onClick={save}>
+        <button
+          className="bg-blue-600 text-white px-4 py-2 rounded"
+          onClick={save}
+        >
           Save Era
         </button>
       </div>

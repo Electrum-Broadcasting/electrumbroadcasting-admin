@@ -1,79 +1,66 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
 
-const supabase = createClient(
+const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-interface Event {
-  title: string;
-  date?: string;
-  description: string;
-  severity?: string;
-  casualties?: number;
-  economic_impact?: number;
-}
+export default function EventDetailPage({
+  params,
+}: {
+  params: { citySlug: string; eventSlug: string };
+}) {
+  const { citySlug, eventSlug } = params;
 
-export default function EventAdminDetailPage({ params }: { params: { eventSlug: string } }) {
-  const { eventSlug } = params;
-
-  const [event, setEvent] = useState<Event | null>(null);
+  const [event, setEvent] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
+      const { data: city } = await supabase
+        .from("cities")
+        .select("id")
+        .eq("slug", citySlug)
+        .single();
+
+      if (!city) {
+        setLoading(false);
+        return;
+      }
+
       const { data } = await supabase
-        .from("events")
+        .from("civic_events")
         .select("*")
         .eq("slug", eventSlug)
+        .eq("city_id", city.id)
         .single();
 
       setEvent(data);
+      setLoading(false);
     }
 
     load();
-  }, [eventSlug]);
+  }, [citySlug, eventSlug]);
 
-  if (!event) return <div className="p-6">Loading…</div>;
+  if (loading) return <div className="p-6">Loading…</div>;
+  if (!event) return <div className="p-6">Event not found</div>;
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-3xl font-bold">{event.title}</h1>
-
-      {event.date && (
-        <p className="text-gray-600">
-          {new Date(event.date).toLocaleDateString()}
-        </p>
-      )}
+      <h1 className="text-3xl font-bold">{event.name}</h1>
 
       <p className="text-gray-700">{event.description}</p>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {event.severity && (
-          <div className="border p-4 rounded">
-            <div className="text-sm text-gray-500">Severity</div>
-            <div className="text-xl font-semibold">{event.severity}</div>
-          </div>
-        )}
+      <p className="text-gray-500">
+        {event.start_date || "—"} → {event.end_date || "—"}
+      </p>
 
-        {event.casualties && (
-          <div className="border p-4 rounded">
-            <div className="text-sm text-gray-500">Casualties</div>
-            <div className="text-xl font-semibold">{event.casualties}</div>
-          </div>
-        )}
-
-        {event.economic_impact && (
-          <div className="border p-4 rounded">
-            <div className="text-sm text-gray-500">Economic Impact</div>
-            <div className="text-xl font-semibold">
-              ${event.economic_impact.toLocaleString()}
-            </div>
-          </div>
-        )}
-      </div>
+      <p className="text-gray-500">Severity: {event.severity || "—"}</p>
+      <p className="text-gray-500">Casualties: {event.casualties || "—"}</p>
+      <p className="text-gray-500">Economic Impact: {event.economic_impact || "—"}</p>
     </div>
   );
 }
