@@ -2,47 +2,102 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { createClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
 
-const supabase = createClient(
+const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-export default function PlaceAdminListPage({ params }: { params: { citySlug: string } }) {
+export default function PlacesAdminListPage({ params }: { params: { citySlug: string } }) {
   const { citySlug } = params;
   const [places, setPlaces] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
+      const { data: city } = await supabase
+        .from("cities")
+        .select("id")
+        .eq("slug", citySlug)
+        .single();
+
+      if (!city) {
+        setLoading(false);
+        return;
+      }
+
       const { data } = await supabase
         .from("civic_places")
         .select("*")
-        .eq("city_slug", citySlug);
+        .eq("city_id", city.id)
+        .order("name", { ascending: true });
 
       setPlaces(data || []);
+      setLoading(false);
     }
 
     load();
   }, [citySlug]);
 
+  if (loading) return <div className="p-6">Loading…</div>;
+
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-3xl font-bold">Places</h1>
 
-      <Link href={`/${citySlug}/places/create`}
-        className="inline-block bg-blue-600 text-white px-4 py-2 rounded">
+      <Link
+        href={`/${citySlug}/places/create`}
+        className="inline-block bg-blue-600 text-white px-4 py-2 rounded"
+      >
         Create Place
       </Link>
 
-      <div className="space-y-4">
-        {places.map((place) => (
-          <Link key={place.id}
-            href={`/${citySlug}/places/${place.slug}/edit`}
-            className="block border rounded p-4 hover:bg-gray-50">
-            <div className="text-xl font-semibold">{place.name}</div>
-          </Link>
-        ))}
+      <div className="mt-6 border rounded-lg">
+        <table className="w-full text-left">
+          <thead className="bg-gray-100">
+            <tr>
+              <th className="p-3">Name</th>
+              <th className="p-3">Type</th>
+              <th className="p-3">Neighborhood</th>
+              <th className="p-3">Published</th>
+              <th className="p-3">Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {places.map((p) => (
+              <tr key={p.id} className="border-t">
+                <td className="p-3">{p.name}</td>
+                <td className="p-3">{p.place_type || "—"}</td>
+                <td className="p-3">{p.neighborhood || "—"}</td>
+                <td className="p-3">{p.is_published ? "Yes" : "No"}</td>
+                <td className="p-3 space-x-3">
+                  <Link
+                    href={`/${citySlug}/places/${p.slug}`}
+                    className="text-blue-600 underline"
+                  >
+                    View
+                  </Link>
+                  <Link
+                    href={`/${citySlug}/places/${p.slug}/edit`}
+                    className="text-blue-600 underline"
+                  >
+                    Edit
+                  </Link>
+                </td>
+              </tr>
+            ))}
+
+            {places.length === 0 && (
+              <tr>
+                <td className="p-3 text-gray-500" colSpan={5}>
+                  No places found.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );

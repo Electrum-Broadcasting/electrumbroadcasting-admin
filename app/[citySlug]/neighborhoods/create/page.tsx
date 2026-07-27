@@ -15,14 +15,35 @@ export default function CreateNeighborhoodPage({ params }: { params: { citySlug:
     name: "",
     slug: "",
     description: "",
-    image_url: "",
+    is_published: false,
   });
 
   async function save() {
-    await supabase.from("civic_neighborhoods").insert({
-      ...form,
-      city_slug: citySlug,
+    const { data: city } = await supabase
+      .from("cities")
+      .select("id")
+      .eq("slug", citySlug)
+      .single();
+
+    if (!city) {
+      alert("City not found");
+      return;
+    }
+
+    const { error } = await supabase.from("civic_neighborhoods").insert({
+      name: form.name,
+      slug: form.slug || form.name.toLowerCase().replace(/ /g, "-"),
+      description: form.description,
+      is_published: form.is_published,
+      city_id: city.id,
     });
+
+    if (error) {
+      console.error(error);
+      alert("Failed to save neighborhood");
+    } else {
+      alert("Neighborhood saved!");
+    }
   }
 
   return (
@@ -51,14 +72,19 @@ export default function CreateNeighborhoodPage({ params }: { params: { citySlug:
           onChange={(e) => setForm({ ...form, description: e.target.value })}
         />
 
-        <input
-          className="border p-2 w-full"
-          placeholder="Image URL"
-          value={form.image_url}
-          onChange={(e) => setForm({ ...form, image_url: e.target.value })}
-        />
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={form.is_published}
+            onChange={(e) => setForm({ ...form, is_published: e.target.checked })}
+          />
+          Published
+        </label>
 
-        <button className="bg-blue-600 text-white px-4 py-2 rounded" onClick={save}>
+        <button
+          className="bg-blue-600 text-white px-4 py-2 rounded"
+          onClick={save}
+        >
           Save Neighborhood
         </button>
       </div>

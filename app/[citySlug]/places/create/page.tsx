@@ -14,16 +14,48 @@ export default function CreatePlacePage({ params }: { params: { citySlug: string
   const [form, setForm] = useState({
     name: "",
     slug: "",
+    place_type: "",
     description: "",
-    address: "",
-    image_url: "",
+    latitude: "",
+    longitude: "",
+    year_built: "",
+    year_demolished: "",
+    neighborhood: "",
+    is_published: false,
   });
 
   async function save() {
-    await supabase.from("civic_places").insert({
-      ...form,
-      city_slug: citySlug,
+    const { data: city } = await supabase
+      .from("cities")
+      .select("id")
+      .eq("slug", citySlug)
+      .single();
+
+    if (!city) {
+      alert("City not found");
+      return;
+    }
+
+    const { error } = await supabase.from("civic_places").insert({
+      name: form.name,
+      slug: form.slug || form.name.toLowerCase().replace(/ /g, "-"),
+      place_type: form.place_type,
+      description: form.description,
+      latitude: form.latitude ? Number(form.latitude) : null,
+      longitude: form.longitude ? Number(form.longitude) : null,
+      year_built: form.year_built ? Number(form.year_built) : null,
+      year_demolished: form.year_demolished ? Number(form.year_demolished) : null,
+      neighborhood: form.neighborhood,
+      is_published: form.is_published,
+      city_id: city.id,
     });
+
+    if (error) {
+      console.error(error);
+      alert("Failed to save place");
+    } else {
+      alert("Place saved!");
+    }
   }
 
   return (
@@ -37,14 +69,32 @@ export default function CreatePlacePage({ params }: { params: { citySlug: string
         <input className="border p-2 w-full" placeholder="Slug"
           value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
 
+        <input className="border p-2 w-full" placeholder="Place Type"
+          value={form.place_type} onChange={(e) => setForm({ ...form, place_type: e.target.value })} />
+
         <textarea className="border p-2 w-full" placeholder="Description"
           value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
 
-        <input className="border p-2 w-full" placeholder="Address"
-          value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+        <input className="border p-2 w-full" placeholder="Latitude"
+          value={form.latitude} onChange={(e) => setForm({ ...form, latitude: e.target.value })} />
 
-        <input className="border p-2 w-full" placeholder="Image URL"
-          value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} />
+        <input className="border p-2 w-full" placeholder="Longitude"
+          value={form.longitude} onChange={(e) => setForm({ ...form, longitude: e.target.value })} />
+
+        <input className="border p-2 w-full" placeholder="Year Built"
+          value={form.year_built} onChange={(e) => setForm({ ...form, year_built: e.target.value })} />
+
+        <input className="border p-2 w-full" placeholder="Year Demolished"
+          value={form.year_demolished} onChange={(e) => setForm({ ...form, year_demolished: e.target.value })} />
+
+        <input className="border p-2 w-full" placeholder="Neighborhood"
+          value={form.neighborhood} onChange={(e) => setForm({ ...form, neighborhood: e.target.value })} />
+
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={form.is_published}
+            onChange={(e) => setForm({ ...form, is_published: e.target.checked })} />
+          Published
+        </label>
 
         <button className="bg-blue-600 text-white px-4 py-2 rounded" onClick={save}>
           Save Place
