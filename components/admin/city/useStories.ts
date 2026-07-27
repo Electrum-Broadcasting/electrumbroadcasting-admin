@@ -11,7 +11,7 @@ export type StoryRow = {
   summary: string | null;
   author_name: string | null;
   contributor_id: string | null;
-  primary_city_id: string | null;
+  city_id: string | null;
   slug: string | null;
   category: string | null;
   city: string | null;
@@ -46,7 +46,7 @@ export function useStories(cityId: string) {
     const { data, error } = await supabase
       .from("civic_stories_public")
       .select("*")
-      .eq("primary_city_id", cityId);
+      .eq("city_id", cityId);
 
     if (error) {
       console.error("loadStories error:", error);

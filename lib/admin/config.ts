@@ -3,7 +3,7 @@ import type { AdminTableConfig } from "@/lib/admin/types";
 export const adminTableNames = [
   "cities",
   "city_design_system",
-  "places",
+  "civic_places",
   "stories",
   "game_scores",
   "media_assets",

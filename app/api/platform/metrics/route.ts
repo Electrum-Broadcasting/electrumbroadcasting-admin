@@ -39,7 +39,7 @@ export async function GET() {
       count("cities"),
       count("stories"),
       count("entities"),
-      count("places"),
+      count("civic_places"),
       count("moments"),
       count("users"),
       count("ads"),

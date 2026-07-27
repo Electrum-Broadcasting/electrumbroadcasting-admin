@@ -23,7 +23,7 @@ export type StoryRow = {
   summary: string | null;
   author_name: string | null;
   contributor_id: string | null;
-  primary_city_id: string | null;
+  city_id: string | null;
   slug: string | null;
   category: string | null;
   city: string | null;
@@ -69,7 +69,7 @@ export async function loadStories(cityId: string) {
   return supabase
       .from("civic_stories")
     .select("*")
-    .eq("primary_city_id", cityId);
+    .eq("city_id", cityId);
 }
 
 export async function loadLogs(cityId: string) {

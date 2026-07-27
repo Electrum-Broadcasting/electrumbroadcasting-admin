@@ -63,7 +63,7 @@ export interface StoryRow {
   summary: string | null;
   author_name: string | null;
   published_at: string | null;
-  primary_city_id: string | null;
+  city_id: string | null;
   created_at: string;
   updated_at: string;
   slug: string | null;
