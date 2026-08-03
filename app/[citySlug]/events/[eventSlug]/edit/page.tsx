@@ -1,120 +1,149 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createBrowserClient } from "@supabase/ssr";
+import { useRouter } from "next/navigation";
+import { useLoadEvent } from "@/hooks/useLoadEvent";
+import { saveEvent } from "@/lib/events/saveEvent";
 
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import EventBasicsForm from "@/components/events/EventBasicsForm";
+import EventDatesForm from "@/components/events/EventDatesForm";
+import EventErasForm from "@/components/events/EventErasForm";
+import EventMetadataForm from "@/components/events/EventMetadataForm";
+import RelationshipSelector from "@/components/relationships/RelationshipSelector";
 
-export default function EditEventPage({
-  params,
-}: {
-  params: { citySlug: string; eventSlug: string };
-}) {
+export default function EditEventPage({ params }) {
   const { citySlug, eventSlug } = params;
+  const router = useRouter();
 
-  const [event, setEvent] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const {
+    loading,
+    event,
+    cityId,
 
-  useEffect(() => {
-    async function load() {
-      const { data: city } = await supabase
-        .from("cities")
-        .select("id")
-        .eq("slug", citySlug)
-        .single();
+    // Form fields
+    name,
+    setName,
+    slug,
+    setSlug,
+    eventType,
+    setEventType,
+    description,
+    setDescription,
+    startDate,
+    setStartDate,
+    endDate,
+    setEndDate,
+    tags,
+    setTags,
+    thumbnail360Url,
+    setThumbnail360Url,
+    isPublished,
+    setIsPublished,
 
-      if (!city) {
-        setLoading(false);
-        return;
-      }
+    // Eras
+    eras,
+    selectedEraIds,
+    setSelectedEraIds,
 
-      const { data } = await supabase
-        .from("civic_events")
-        .select("*")
-        .eq("slug", eventSlug)
-        .eq("city_id", city.id)
-        .single();
-
-      setEvent(data);
-      setLoading(false);
-    }
-
-    load();
-  }, [citySlug, eventSlug]);
+    // Relationships
+    entities,
+    artifacts,
+    stories,
+    existingRelationships,
+    setExistingRelationships,
+  } = useLoadEvent(citySlug, eventSlug);
 
   if (loading) return <div className="p-6">Loading…</div>;
   if (!event) return <div className="p-6">Event not found</div>;
 
-  async function save() {
-    const casualties = Number(event.casualties);
-    const economicImpact = Number(event.economic_impact);
+  async function handleSave() {
+    await saveEvent({
+      eventId: event.id,
+      citySlug,
+      router,
 
-    const { error } = await supabase
-      .from("civic_events")
-      .update({
-        name: event.name,
-        slug: event.slug,
-        event_type: event.event_type,
-        description: event.description,
-        start_date: event.start_date,
-        end_date: event.end_date,
-        severity: event.severity,
-        casualties: isNaN(casualties) ? null : casualties,
-        economic_impact: isNaN(economicImpact) ? null : economicImpact,
-        is_published: event.is_published,
-      })
-      .eq("id", event.id);
+      // Form fields
+      name,
+      slug,
+      eventType,
+      description,
+      startDate,
+      endDate,
+      tags,
+      thumbnail360Url,
+      isPublished,
 
-    if (error) {
-      console.error(error);
-      alert("Failed to save changes");
-    } else {
-      alert("Event updated!");
-    }
+      // Eras
+      eras,
+      selectedEraIds,
+
+      // Unified relationships
+      existingRelationships,
+    });
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 max-w-3xl">
       <h1 className="text-3xl font-bold">Edit Event</h1>
 
-      <div className="space-y-4">
-        <input className="border p-2 w-full" value={event.name}
-          onChange={(e) => setEvent({ ...event, name: e.target.value })} />
+      <div className="space-y-8">
+        <EventBasicsForm
+          name={name}
+          setName={setName}
+          slug={slug}
+          setSlug={setSlug}
+          eventType={eventType}
+          setEventType={setEventType}
+          description={description}
+          setDescription={setDescription}
+          eventTypeOptions={[
+            "Historical",
+            "Cultural",
+            "Political",
+            "Weather",
+            "Sports",
+            "Entertainment",
+            "Celestial",
+          ]}
+        />
 
-        <input className="border p-2 w-full" value={event.slug}
-          onChange={(e) => setEvent({ ...event, slug: e.target.value })} />
+        <EventDatesForm
+          startDate={startDate}
+          setStartDate={setStartDate}
+          endDate={endDate}
+          setEndDate={setEndDate}
+        />
 
-        <input className="border p-2 w-full" value={event.event_type}
-          onChange={(e) => setEvent({ ...event, event_type: e.target.value })} />
+        <EventErasForm
+          eras={eras}
+          selectedEraIds={selectedEraIds}
+          setSelectedEraIds={setSelectedEraIds}
+        />
 
-        <textarea className="border p-2 w-full" value={event.description}
-          onChange={(e) => setEvent({ ...event, description: e.target.value })} />
+        <EventMetadataForm
+          tags={tags}
+          setTags={setTags}
+          thumbnail360Url={thumbnail360Url}
+          setThumbnail360Url={setThumbnail360Url}
+          isPublished={isPublished}
+          setIsPublished={setIsPublished}
+        />
 
-        <input className="border p-2 w-full" type="date" value={event.start_date || ""}
-          onChange={(e) => setEvent({ ...event, start_date: e.target.value })} />
+        <RelationshipSelector
+          fromType="event"
+          fromId={event.id}
+          availableTargets={[
+            { type: "entity", label: "Entities", items: entities },
+            { type: "artifact", label: "Artifacts", items: artifacts },
+            { type: "story", label: "Stories", items: stories },
+          ]}
+          initialRelationships={existingRelationships}
+          onChange={setExistingRelationships}
+        />
 
-        <input className="border p-2 w-full" type="date" value={event.end_date || ""}
-          onChange={(e) => setEvent({ ...event, end_date: e.target.value })} />
-
-        <input className="border p-2 w-full" value={event.severity}
-          onChange={(e) => setEvent({ ...event, severity: e.target.value })} />
-
-        <input className="border p-2 w-full" value={event.casualties || ""}
-          onChange={(e) => setEvent({ ...event, casualties: Number(e.target.value) })} />
-
-        <input className="border p-2 w-full" value={event.economic_impact || ""}
-          onChange={(e) => setEvent({ ...event, economic_impact: Number(e.target.value) })} />
-
-        <label className="flex items-center gap-2">
-          <input type="checkbox" checked={event.is_published}
-            onChange={(e) => setEvent({ ...event, is_published: e.target.checked })} />
-          Published
-        </label>
-
-        <button className="bg-blue-600 text-white px-4 py-2 rounded" onClick={save}>
+        <button
+          onClick={handleSave}
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+        >
           Save Changes
         </button>
       </div>

@@ -1,107 +1,99 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createBrowserClient } from "@supabase/ssr";
+import { useRouter } from "next/navigation";
+import { useLoadNeighborhood } from "@/hooks/useLoadNeighborhood";
+import { saveNeighborhood } from "@/lib/neighborhoods/saveNeighborhood";
 
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+interface EditNeighborhoodPageProps {
+  params: {
+    citySlug: string;
+    neighborhoodSlug: string;
+  };
+}
 
-export default function EditNeighborhoodPage({
-  params,
-}: {
-  params: { citySlug: string; neighborhoodSlug: string };
-}) {
+export default function EditNeighborhoodPage({ params }: EditNeighborhoodPageProps) {
   const { citySlug, neighborhoodSlug } = params;
+  const router = useRouter();
 
-  const [neighborhood, setNeighborhood] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const {
+    loading,
+    neighborhood,
+    cityId,
 
-  useEffect(() => {
-    async function load() {
-      const { data: city } = await supabase
-        .from("cities")
-        .select("id")
-        .eq("slug", citySlug)
-        .single();
-
-      if (!city) {
-        setLoading(false);
-        return;
-      }
-
-      const { data } = await supabase
-        .from("civic_neighborhoods")
-        .select("*")
-        .eq("slug", neighborhoodSlug)
-        .eq("city_id", city.id)
-        .single();
-
-      setNeighborhood(data);
-      setLoading(false);
-    }
-
-    load();
-  }, [citySlug, neighborhoodSlug]);
+    name,
+    setName,
+    slug,
+    setSlug,
+    description,
+    setDescription,
+    thumbnailUrl,
+    setThumbnailUrl,
+    isPublished,
+    setIsPublished,
+  } = useLoadNeighborhood(citySlug, neighborhoodSlug);
 
   if (loading) return <div className="p-6">Loading…</div>;
   if (!neighborhood) return <div className="p-6">Neighborhood not found</div>;
 
-  async function save() {
-    const { error } = await supabase
-      .from("civic_neighborhoods")
-      .update({
-        name: neighborhood.name,
-        slug: neighborhood.slug,
-        description: neighborhood.description,
-        is_published: neighborhood.is_published,
-      })
-      .eq("id", neighborhood.id);
+  async function handleSave() {
+    await saveNeighborhood({
+      neighborhoodId: neighborhood.id,
+      citySlug,
+      router,
 
-    if (error) {
-      console.error(error);
-      alert("Failed to save changes");
-    } else {
-      alert("Neighborhood updated!");
-    }
+      name,
+      slug,
+      description,
+      thumbnailUrl,
+      isPublished,
+    });
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 max-w-3xl">
       <h1 className="text-3xl font-bold">Edit Neighborhood</h1>
 
-      <div className="space-y-4">
+      <div className="space-y-8">
         <input
           className="border p-2 w-full"
-          value={neighborhood.name}
-          onChange={(e) => setNeighborhood({ ...neighborhood, name: e.target.value })}
+          placeholder="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
         />
 
         <input
           className="border p-2 w-full"
-          value={neighborhood.slug}
-          onChange={(e) => setNeighborhood({ ...neighborhood, slug: e.target.value })}
+          placeholder="Slug"
+          value={slug}
+          onChange={(e) => setSlug(e.target.value)}
         />
 
         <textarea
           className="border p-2 w-full"
-          value={neighborhood.description}
-          onChange={(e) => setNeighborhood({ ...neighborhood, description: e.target.value })}
+          placeholder="Description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+
+        <input
+          className="border p-2 w-full"
+          placeholder="Thumbnail URL"
+          value={thumbnailUrl}
+          onChange={(e) => setThumbnailUrl(e.target.value)}
         />
 
         <label className="flex items-center gap-2">
           <input
             type="checkbox"
-            checked={neighborhood.is_published}
-            onChange={(e) => setNeighborhood({ ...neighborhood, is_published: e.target.checked })}
+            checked={isPublished}
+            onChange={(e) => setIsPublished(e.target.checked)}
           />
           Published
         </label>
 
         <button
-          className="bg-blue-600 text-white px-4 py-2 rounded"
-          onClick={save}
+          onClick={handleSave}
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
         >
           Save Changes
         </button>

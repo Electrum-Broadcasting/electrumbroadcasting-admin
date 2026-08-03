@@ -1,18 +1,74 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import MomentBasicsForm from "@/components/moments/MomentBasicsForm";
+import MomentTimelineForm from "@/components/moments/MomentTimelineForm";
+import MomentSpatialForm from "@/components/moments/MomentSpatialForm";
+import Moment360Form from "@/components/moments/Moment360Form";
+import MomentPublishForm from "@/components/moments/MomentPublishForm";
+import RelationshipSelector from "@/components/relationships/RelationshipSelector";
 
-export default function MomentsAdminListPage({ params }: { params: { citySlug: string } }) {
+import {
+  replaceJoinTable,
+  replaceUnifiedRelationships,
+} from "@/lib/joinTables";
+
+function nowLocalDatetime() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+}
+
+export default function CreateMomentPage({ params }) {
   const { citySlug } = params;
-  const [moments, setMoments] = useState<any[]>([]);
+  const router = useRouter();
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
   const [loading, setLoading] = useState(true);
+  const [cityId, setCityId] = useState<string | null>(null);
+
+  // Basics
+  const [title, setTitle] = useState("");
+  const [slug, setSlug] = useState("");
+  const [body, setBody] = useState("");
+
+  // Timeline
+  const [momentTime, setMomentTime] = useState(nowLocalDatetime());
+
+  // Metadata
+  const [places, setPlaces] = useState<any[]>([]);
+  const [neighborhoods, setNeighborhoods] = useState<any[]>([]);
+  const [eras, setEras] = useState<any[]>([]);
+
+  // Selections
+  const [selectedPlaces, setSelectedPlaces] = useState<string[]>([]);
+  const [selectedNeighborhoods, setSelectedNeighborhoods] = useState<string[]>([]);
+  const [selectedEras, setSelectedEras] = useState<string[]>([]);
+
+  // Media
+  const [thumbnail360Url, setThumbnail360Url] = useState("");
+  const [inline360Urls, setInline360Urls] = useState<string[]>([]);
+
+  // Publish
+  const [isPublished, setIsPublished] = useState(false);
+
+  // Relationship targets
+  const [events, setEvents] = useState<any[]>([]);
+  const [entities, setEntities] = useState<any[]>([]);
+  const [artifacts, setArtifacts] = useState<any[]>([]);
+  const [stories, setStories] = useState<any[]>([]);
+  const [relationships, setRelationships] = useState<any[]>([]);
 
   useEffect(() => {
     async function load() {
@@ -27,78 +83,188 @@ export default function MomentsAdminListPage({ params }: { params: { citySlug: s
         return;
       }
 
-      const { data } = await supabase
-        .from("civic_moments")
-        .select("*")
-        .eq("city_id", city.id)
-        .order("moment_date", { ascending: true });
+      setCityId(city.id);
 
-      setMoments(data || []);
+      const { data: placeList } = await supabase
+        .from("civic_places")
+        .select("id, name")
+        .eq("city_id", city.id)
+        .order("name");
+
+      const { data: neighborhoodList } = await supabase
+        .from("civic_neighborhoods")
+        .select("id, name")
+        .eq("city_id", city.id)
+        .order("name");
+
+      const { data: eraList } = await supabase
+        .from("civic_eras")
+        .select("id, name")
+        .eq("city_id", city.id)
+        .order("name");
+
+      setPlaces(placeList || []);
+      setNeighborhoods(neighborhoodList || []);
+      setEras(eraList || []);
+
+      const { data: eventList } = await supabase
+        .from("civic_events")
+        .select("id, name")
+        .eq("city_id", city.id);
+
+      const { data: entityList } = await supabase
+        .from("civic_entities")
+        .select("id, name")
+        .eq("city_id", city.id);
+
+      const { data: artifactList } = await supabase
+        .from("civic_artifacts")
+        .select("id, title")
+        .eq("city_id", city.id);
+
+      const { data: storyList } = await supabase
+        .from("civic_stories")
+        .select("id, title")
+        .eq("city_id", city.id);
+
+      setEvents(eventList || []);
+      setEntities(entityList || []);
+      setArtifacts(artifactList || []);
+      setStories(storyList || []);
+
       setLoading(false);
     }
 
     load();
   }, [citySlug]);
 
+  function toTimestampZ(local: string): string | null {
+    if (!local) return null;
+    return new Date(local).toISOString();
+  }
+
+  async function handleCreate() {
+    if (!cityId) return;
+
+    const { data: inserted, error } = await supabase
+      .from("civic_moments")
+      .insert({
+        city_id: cityId,
+        title,
+        slug,
+        body,
+        moment_time: toTimestampZ(momentTime),
+        thumbnail_360_url: thumbnail360Url,
+        inline_360_urls: inline360Urls,
+        is_published: isPublished,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Moment creation failed:", error);
+      return;
+    }
+
+    const momentId = inserted.id;
+
+    await replaceJoinTable(
+      supabase,
+      "moment_places",
+      momentId,
+      "place_id",
+      selectedPlaces
+    );
+
+    await replaceJoinTable(
+      supabase,
+      "moment_neighborhoods",
+      momentId,
+      "neighborhood_id",
+      selectedNeighborhoods
+    );
+
+    await replaceJoinTable(
+      supabase,
+      "moment_eras",
+      momentId,
+      "era_id",
+      selectedEras
+    );
+
+    await replaceUnifiedRelationships(
+      supabase,
+      "moment",
+      momentId,
+      relationships
+    );
+
+    router.push(`/${citySlug}/moments/${slug}/edit`);
+  }
+
   if (loading) return <div className="p-6">Loading…</div>;
 
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-3xl font-bold">Moments</h1>
+    <div className="p-6 space-y-6 max-w-3xl">
+      <h1 className="text-3xl font-bold">Create Moment</h1>
 
-      <Link
-        href={`/${citySlug}/moments/create`}
-        className="inline-block bg-blue-600 text-white px-4 py-2 rounded"
+      <MomentBasicsForm
+        title={title}
+        setTitle={setTitle}
+        slug={slug}
+        setSlug={setSlug}
+        body={body}
+        setBody={setBody}
+      />
+
+      <MomentTimelineForm
+        momentTime={momentTime}
+        setMomentTime={setMomentTime}
+        eras={eras}
+        selectedEras={selectedEras}
+        setSelectedEras={setSelectedEras}
+      />
+
+      <MomentSpatialForm
+        places={places}
+        selectedPlaces={selectedPlaces}
+        setSelectedPlaces={setSelectedPlaces}
+        neighborhoods={neighborhoods}
+        selectedNeighborhoods={selectedNeighborhoods}
+        setSelectedNeighborhoods={setSelectedNeighborhoods}
+      />
+
+      <Moment360Form
+        thumbnail360Url={thumbnail360Url}
+        setThumbnail360Url={setThumbnail360Url}
+        inline360Urls={inline360Urls}
+        setInline360Urls={setInline360Urls}
+      />
+
+      <MomentPublishForm
+        isPublished={isPublished}
+        setIsPublished={setIsPublished}
+      />
+
+      <RelationshipSelector
+        fromType="moment"
+        fromId={null}
+        availableTargets={[
+          { type: "event", label: "Events", items: events },
+          { type: "entity", label: "Entities", items: entities },
+          { type: "artifact", label: "Artifacts", items: artifacts },
+          { type: "story", label: "Stories", items: stories },
+        ]}
+        initialRelationships={[]}
+        onChange={setRelationships}
+      />
+
+      <button
+        onClick={handleCreate}
+        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
       >
         Create Moment
-      </Link>
-
-      <div className="mt-6 border rounded-lg">
-        <table className="w-full text-left">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="p-3">Title</th>
-              <th className="p-3">Date</th>
-              <th className="p-3">Category</th>
-              <th className="p-3">Published</th>
-              <th className="p-3">Actions</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {moments.map((moment) => (
-              <tr key={moment.id} className="border-t">
-                <td className="p-3">{moment.title}</td>
-                <td className="p-3">{moment.moment_date || moment.moment_year || "—"}</td>
-                <td className="p-3">{moment.category || "—"}</td>
-                <td className="p-3">{moment.is_published ? "Yes" : "No"}</td>
-                <td className="p-3 space-x-3">
-                  <Link
-                    href={`/${citySlug}/moments/${moment.slug}`}
-                    className="text-blue-600 underline"
-                  >
-                    View
-                  </Link>
-                  <Link
-                    href={`/${citySlug}/moments/${moment.slug}/edit`}
-                    className="text-blue-600 underline"
-                  >
-                    Edit
-                  </Link>
-                </td>
-              </tr>
-            ))}
-
-            {moments.length === 0 && (
-              <tr>
-                <td className="p-3 text-gray-500" colSpan={5}>
-                  No moments found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      </button>
     </div>
   );
 }

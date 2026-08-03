@@ -1,126 +1,195 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createBrowserClient } from "@supabase/ssr";
+import { useRouter } from "next/navigation";
+import { flushSync } from "react-dom";
 
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { useEditMomentForm } from "@/lib/moments/useEditMomentForm";
+import { saveMoment } from "@/lib/moments/saveMoment";
 
-export default function EditMomentPage({
-  params,
-}: {
-  params: { citySlug: string; momentSlug: string };
-}) {
+import MomentBasicsForm from "@/components/moments/MomentBasicsForm";
+import MomentTimelineForm from "@/components/moments/MomentTimelineForm";
+import MomentSpatialForm from "@/components/moments/MomentSpatialForm";
+import Moment360Form from "@/components/moments/Moment360Form";
+import MomentPublishForm from "@/components/moments/MomentPublishForm";
+import RelationshipSelector from "@/components/relationships/RelationshipSelector";
+
+interface EditMomentPageProps {
+  params: {
+    citySlug: string;
+    momentSlug: string;
+  };
+}
+
+export default function EditMomentPage({ params }: EditMomentPageProps) {
   const { citySlug, momentSlug } = params;
+  const router = useRouter();
 
-  const [moment, setMoment] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  // Load everything once — moment, metadata, join tables, relationships, and initialize state
+  const {
+    loading,
+    moment,
+    cityId,
 
-  useEffect(() => {
-    async function load() {
-      const { data: city } = await supabase
-        .from("cities")
-        .select("id")
-        .eq("slug", citySlug)
-        .single();
+    // Basics
+    title,
+    setTitle,
+    slug,
+    setSlug,
+    body,
+    setBody,
 
-      if (!city) {
-        setLoading(false);
-        return;
-      }
+    // Timeline
+    momentYear,
+    setMomentYear,
+    momentDate,
+    setMomentDate,
+    momentTime,
+    setMomentTime,
 
-      const { data } = await supabase
-        .from("civic_moments")
-        .select("*")
-        .eq("slug", momentSlug)
-        .eq("city_id", city.id)
-        .single();
+    // Spatial metadata
+    places,
+    neighborhoods,
+    eras,
 
-      setMoment(data);
-      setLoading(false);
-    }
+    // Spatial selections
+    selectedPlaces,
+    setSelectedPlaces,
+    selectedNeighborhoods,
+    setSelectedNeighborhoods,
 
-    load();
-  }, [citySlug, momentSlug]);
+    // Eras selections
+    selectedEras,
+    setSelectedEras,
+
+    // Media
+    thumbnail360Url,
+    setThumbnail360Url,
+    inline360Urls,
+    setInline360Urls,
+
+    // Publish
+    isPublished,
+    setIsPublished,
+
+    // Relationship targets
+    events,
+    entities,
+    artifacts,
+    stories,
+
+    // Unified relationships
+    existingRelationships,
+  } = useEditMomentForm(citySlug, momentSlug);
 
   if (loading) return <div className="p-6">Loading…</div>;
   if (!moment) return <div className="p-6">Moment not found</div>;
 
-  async function save() {
-    const momentYear = Number(moment.moment_year);
+  async function handleSave() {
+    console.log("handleSave executing");
 
-    const { error } = await supabase
-      .from("civic_moments")
-      .update({
-        title: moment.title,
-        slug: moment.slug,
-        description: moment.description,
-        moment_date: moment.moment_date,
-        moment_year: isNaN(momentYear) ? null : momentYear,
-        source: moment.source,
-        author: moment.author,
-        category: moment.category,
-        related_story_id: moment.related_story_id || null,
-        related_place_id: moment.related_place_id || null,
-        related_entity_ids: moment.related_entity_ids || [],
-        tags: moment.tags || [],
-        image_description: moment.image_description,
-        is_published: moment.is_published,
-      })
-      .eq("id", moment.id);
+    await saveMoment({
+      momentId: moment.id,
+      citySlug,
+      router,
 
-    if (error) {
-      console.error(error);
-      alert("Failed to save changes");
-    } else {
-      alert("Moment updated!");
-    }
+      // Basics
+      title,
+      slug,
+      body,
+
+      // Timeline
+      momentYear,
+      momentDate,
+      momentTime,
+
+      // Spatial
+      selectedPlaces,
+      selectedNeighborhoods,
+
+      // Media
+      thumbnail360Url,
+      inline360Urls,
+
+      // Publish
+      isPublished,
+
+      // Eras
+      selectedEras,
+
+      // Unified relationships
+      existingRelationships,
+    });
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 max-w-3xl">
       <h1 className="text-3xl font-bold">Edit Moment</h1>
 
-      <div className="space-y-4">
-        <input className="border p-2 w-full" value={moment.title}
-          onChange={(e) => setMoment({ ...moment, title: e.target.value })} />
+      <MomentBasicsForm
+        title={title}
+        setTitle={setTitle}
+        slug={slug}
+        setSlug={setSlug}
+        body={body}
+        setBody={setBody}
+      />
 
-        <input className="border p-2 w-full" value={moment.slug}
-          onChange={(e) => setMoment({ ...moment, slug: e.target.value })} />
+      <MomentTimelineForm
+        momentYear={momentYear}
+        setMomentYear={setMomentYear}
+        momentDate={momentDate}
+        setMomentDate={setMomentDate}
+        momentTime={momentTime}
+        setMomentTime={setMomentTime}
+        eras={eras ?? []}
+        selectedEras={selectedEras}
+        setSelectedEras={setSelectedEras}
+      />
 
-        <textarea className="border p-2 w-full" value={moment.description}
-          onChange={(e) => setMoment({ ...moment, description: e.target.value })} />
+      <MomentSpatialForm
+        places={places ?? []}
+        selectedPlaces={selectedPlaces}
+        setSelectedPlaces={setSelectedPlaces as (places: (string | number)[]) => void}
+        neighborhoods={neighborhoods ?? []}
+        selectedNeighborhoods={selectedNeighborhoods}
+        setSelectedNeighborhoods={setSelectedNeighborhoods as (neighborhoods: (string | number)[]) => void}
+      />
 
-        <input className="border p-2 w-full" type="date" value={moment.moment_date || ""}
-          onChange={(e) => setMoment({ ...moment, moment_date: e.target.value })} />
+      <Moment360Form
+        thumbnail360Url={thumbnail360Url}
+        setThumbnail360Url={setThumbnail360Url}
+        inline360Urls={inline360Urls}
+        setInline360Urls={setInline360Urls}
+      />
 
-        <input className="border p-2 w-full" value={moment.moment_year || ""}
-          onChange={(e) => setMoment({ ...moment, moment_year: Number(e.target.value) })} />
+      <MomentPublishForm
+        isPublished={isPublished}
+        setIsPublished={setIsPublished}
+      />
 
-        <input className="border p-2 w-full" value={moment.source}
-          onChange={(e) => setMoment({ ...moment, source: e.target.value })} />
+      <RelationshipSelector
+        fromType="moment"
+        fromId={moment.id}
+        availableTargets={[
+          { type: "event", label: "Events", items: events },
+          { type: "entity", label: "Entities", items: entities },
+          { type: "artifact", label: "Artifacts", items: artifacts },
+          { type: "story", label: "Stories", items: stories },
+        ]}
+        initialRelationships={existingRelationships}
+        onChange={setSelectedRelationships}
+      />
 
-        <input className="border p-2 w-full" value={moment.author}
-          onChange={(e) => setMoment({ ...moment, author: e.target.value })} />
-
-        <input className="border p-2 w-full" value={moment.category}
-          onChange={(e) => setMoment({ ...moment, category: e.target.value })} />
-
-        <input className="border p-2 w-full" value={moment.image_description || ""}
-          onChange={(e) => setMoment({ ...moment, image_description: e.target.value })} />
-
-        <label className="flex items-center space-x-2">
-          <input type="checkbox" checked={moment.is_published}
-            onChange={(e) => setMoment({ ...moment, is_published: e.target.checked })} />
-          <span>Published</span>
-        </label>
-
-        <button onClick={save} className="bg-blue-500 text-white p-2 rounded">
-          Save Changes
-        </button>
-      </div>
+      <button
+        onClick={() => {
+          console.log("Save button clicked");
+          flushSync(() => {});
+          handleSave();
+        }}
+        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+      >
+        Save Moment
+      </button>
     </div>
   );
 }

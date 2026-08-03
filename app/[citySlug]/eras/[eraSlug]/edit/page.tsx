@@ -1,123 +1,111 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createBrowserClient } from "@supabase/ssr";
+import { useRouter } from "next/navigation";
+import { useLoadEra } from "@/hooks/useLoadEra";
+import { saveEra } from "@/lib/eras/saveEra";
 
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+interface EditEraPageProps {
+  params: {
+    citySlug: string;
+    eraSlug: string;
+  };
+}
 
-export default function EditEraPage({
-  params,
-}: {
-  params: { citySlug: string; eraSlug: string };
-}) {
+export default function EditEraPage({ params }: EditEraPageProps) {
   const { citySlug, eraSlug } = params;
+  const router = useRouter();
 
-  const [era, setEra] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const {
+    loading,
+    era,
+    cityId,
 
-  useEffect(() => {
-    async function load() {
-      // Lookup city_id
-      const { data: city } = await supabase
-        .from("cities")
-        .select("id")
-        .eq("slug", citySlug)
-        .single();
-
-      if (!city) {
-        setLoading(false);
-        return;
-      }
-
-      // Load era
-      const { data } = await supabase
-        .from("civic_eras")
-        .select("*")
-        .eq("slug", eraSlug)
-        .eq("city_id", city.id)
-        .single();
-
-      setEra(data);
-      setLoading(false);
-    }
-
-    load();
-  }, [citySlug, eraSlug]);
+    name,
+    setName,
+    slug,
+    setSlug,
+    startYear,
+    setStartYear,
+    endYear,
+    setEndYear,
+    description,
+    setDescription,
+    isPublished,
+    setIsPublished,
+  } = useLoadEra(citySlug, eraSlug);
 
   if (loading) return <div className="p-6">Loading…</div>;
   if (!era) return <div className="p-6">Era not found</div>;
 
-  async function save() {
-    const { error } = await supabase
-      .from("civic_eras")
-      .update({
-        name: era.name,
-        slug: era.slug,
-        description: era.description,
-        start_year: era.start_year,
-        end_year: era.end_year,
-        is_published: era.is_published,
-      })
-      .eq("id", era.id);
+  async function handleSave() {
+    await saveEra({
+      eraId: era.id,
+      citySlug,
+      router,
 
-    if (error) {
-      console.error(error);
-      alert("Failed to save changes");
-    } else {
-      alert("Era updated!");
-    }
+      name,
+      slug,
+      startYear: startYear ?? 0,
+      endYear: endYear ?? 0,
+      description,
+      isPublished,
+    });
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 max-w-3xl">
       <h1 className="text-3xl font-bold">Edit Era</h1>
 
-      <div className="space-y-4">
+      <div className="space-y-8">
         <input
           className="border p-2 w-full"
-          value={era.name}
-          onChange={(e) => setEra({ ...era, name: e.target.value })}
+          placeholder="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
         />
 
         <input
           className="border p-2 w-full"
-          value={era.slug}
-          onChange={(e) => setEra({ ...era, slug: e.target.value })}
+          placeholder="Slug"
+          value={slug}
+          onChange={(e) => setSlug(e.target.value)}
+        />
+
+        <input
+          className="border p-2 w-full"
+          placeholder="Start Year"
+          type="number"
+          value={startYear ?? ""}
+          onChange={(e) => setStartYear(Number(e.target.value))}
+        />
+
+        <input
+          className="border p-2 w-full"
+          placeholder="End Year"
+          type="number"
+          value={endYear ?? ""}
+          onChange={(e) => setEndYear(Number(e.target.value))}
         />
 
         <textarea
           className="border p-2 w-full"
-          value={era.description}
-          onChange={(e) => setEra({ ...era, description: e.target.value })}
-        />
-
-        <input
-          className="border p-2 w-full"
-          value={era.start_year || ""}
-          onChange={(e) => setEra({ ...era, start_year: Number(e.target.value) })}
-        />
-
-        <input
-          className="border p-2 w-full"
-          value={era.end_year || ""}
-          onChange={(e) => setEra({ ...era, end_year: Number(e.target.value) })}
+          placeholder="Description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
         />
 
         <label className="flex items-center gap-2">
           <input
             type="checkbox"
-            checked={era.is_published}
-            onChange={(e) => setEra({ ...era, is_published: e.target.checked })}
+            checked={isPublished}
+            onChange={(e) => setIsPublished(e.target.checked)}
           />
           Published
         </label>
 
         <button
-          className="bg-blue-600 text-white px-4 py-2 rounded"
-          onClick={save}
+          onClick={handleSave}
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
         >
           Save Changes
         </button>

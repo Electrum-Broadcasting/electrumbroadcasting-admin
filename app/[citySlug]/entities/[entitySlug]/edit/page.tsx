@@ -1,113 +1,138 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createBrowserClient } from "@supabase/ssr";
+import { useRouter } from "next/navigation";
+import { useLoadEntity } from "@/hooks/useLoadEntity";
+import { saveEntity } from "@/lib/entities/saveEntity";
 
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import RelationshipSelector from "@/components/relationships/RelationshipSelector";
 
-export default function EditEntityPage({
-  params,
-}: {
-  params: { citySlug: string; entitySlug: string };
-}) {
+interface EditEntityPageProps {
+  params: {
+    citySlug: string;
+    entitySlug: string;
+  };
+}
+
+export default function EditEntityPage({ params }: EditEntityPageProps) {
   const { citySlug, entitySlug } = params;
+  const router = useRouter();
 
-  const [entity, setEntity] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const {
+    loading,
+    entity,
+    cityId,
 
-  useEffect(() => {
-    async function load() {
-      const { data: city } = await supabase
-        .from("cities")
-        .select("id")
-        .eq("slug", citySlug)
-        .single();
+    // Form fields
+    name,
+    setName,
+    slug,
+    setSlug,
+    entityType,
+    setEntityType,
+    description,
+    setDescription,
+    thumbnailUrl,
+    setThumbnailUrl,
+    isPublished,
+    setIsPublished,
 
-      if (!city) {
-        setLoading(false);
-        return;
-      }
+    // Relationship targets
+    events,
+    artifacts,
+    stories,
 
-      const { data } = await supabase
-        .from("civic_entities")
-        .select("*")
-        .eq("slug", entitySlug)
-        .eq("city_id", city.id)
-        .single();
-
-      setEntity(data);
-      setLoading(false);
-    }
-
-    load();
-  }, [citySlug, entitySlug]);
+    // Unified relationships
+    existingRelationships,
+    setExistingRelationships,
+  } = useLoadEntity(citySlug, entitySlug);
 
   if (loading) return <div className="p-6">Loading…</div>;
   if (!entity) return <div className="p-6">Entity not found</div>;
 
-  async function save() {
-    const { error } = await supabase
-      .from("civic_entities")
-      .update({
-        name: entity.name,
-        slug: entity.slug,
-        entity_type: entity.entity_type,
-        roles: entity.roles,
-        description: entity.description,
-        summary: entity.summary,
-        birth_year: entity.birth_year,
-        death_year: entity.death_year,
-        is_published: entity.is_published,
-      })
-      .eq("id", entity.id);
+  async function handleSave() {
+    await saveEntity({
+      entityId: entity.id,
+      citySlug,
+      router,
 
-    if (error) {
-      console.error(error);
-      alert("Failed to save changes");
-    } else {
-      alert("Entity updated!");
-    }
+      // Form fields
+      name,
+      slug,
+      entityType,
+      description,
+      thumbnailUrl,
+      isPublished,
+
+      // Unified relationships
+      existingRelationships,
+    });
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 max-w-3xl">
       <h1 className="text-3xl font-bold">Edit Entity</h1>
 
-      <div className="space-y-4">
-        <input className="border p-2 w-full" value={entity.name}
-          onChange={(e) => setEntity({ ...entity, name: e.target.value })} />
+      <div className="space-y-8">
+        <input
+          className="border p-2 w-full"
+          placeholder="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
 
-        <input className="border p-2 w-full" value={entity.slug}
-          onChange={(e) => setEntity({ ...entity, slug: e.target.value })} />
+        <input
+          className="border p-2 w-full"
+          placeholder="Slug"
+          value={slug}
+          onChange={(e) => setSlug(e.target.value)}
+        />
 
-        <input className="border p-2 w-full" value={entity.entity_type}
-          onChange={(e) => setEntity({ ...entity, entity_type: e.target.value })} />
+        <input
+          className="border p-2 w-full"
+          placeholder="Entity Type"
+          value={entityType}
+          onChange={(e) => setEntityType(e.target.value)}
+        />
 
-        <input className="border p-2 w-full" value={entity.roles}
-          onChange={(e) => setEntity({ ...entity, roles: e.target.value })} />
+        <textarea
+          className="border p-2 w-full"
+          placeholder="Description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
 
-        <textarea className="border p-2 w-full" value={entity.description}
-          onChange={(e) => setEntity({ ...entity, description: e.target.value })} />
-
-        <textarea className="border p-2 w-full" value={entity.summary}
-          onChange={(e) => setEntity({ ...entity, summary: e.target.value })} />
-
-        <input className="border p-2 w-full" value={entity.birth_year || ""}
-          onChange={(e) => setEntity({ ...entity, birth_year: Number(e.target.value) })} />
-
-        <input className="border p-2 w-full" value={entity.death_year || ""}
-          onChange={(e) => setEntity({ ...entity, death_year: Number(e.target.value) })} />
+        <input
+          className="border p-2 w-full"
+          placeholder="Thumbnail URL"
+          value={thumbnailUrl}
+          onChange={(e) => setThumbnailUrl(e.target.value)}
+        />
 
         <label className="flex items-center gap-2">
-          <input type="checkbox" checked={entity.is_published}
-            onChange={(e) => setEntity({ ...entity, is_published: e.target.checked })} />
+          <input
+            type="checkbox"
+            checked={isPublished}
+            onChange={(e) => setIsPublished(e.target.checked)}
+          />
           Published
         </label>
 
-        <button className="bg-blue-600 text-white px-4 py-2 rounded" onClick={save}>
+        <RelationshipSelector
+          fromType="entity"
+          fromId={entity.id}
+          availableTargets={[
+            { type: "event", label: "Events", items: events },
+            { type: "artifact", label: "Artifacts", items: artifacts },
+            { type: "story", label: "Stories", items: stories },
+          ]}
+          initialRelationships={existingRelationships}
+          onChange={setExistingRelationships}
+        />
+
+        <button
+          onClick={handleSave}
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+        >
           Save Changes
         </button>
       </div>

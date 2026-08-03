@@ -1,91 +1,137 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createBrowserClient } from "@supabase/ssr";
+import { useRouter } from "next/navigation";
+import { useLoadArtifact } from "@/hooks/useLoadArtifact";
+import { saveArtifact } from "@/lib/artifacts/saveArtifact";
 
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import RelationshipSelector from "@/components/relationships/RelationshipSelector";
 
-export default function EditArtifactPage({
-  params,
-}: {
-  params: { citySlug: string; artifactSlug: string };
-}) {
+interface EditArtifactPageProps {
+  params: {
+    citySlug: string;
+    artifactSlug: string;
+  };
+}
+
+export default function EditArtifactPage({ params }: EditArtifactPageProps) {
   const { citySlug, artifactSlug } = params;
+  const router = useRouter();
 
-  const [artifact, setArtifact] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const {
+    loading,
+    artifact,
+    cityId,
 
-  useEffect(() => {
-    async function load() {
-      // 1. Lookup city_id
-      const { data: city } = await supabase
-        .from("cities")
-        .select("id")
-        .eq("slug", citySlug)
-        .single();
+    // Form fields
+    title,
+    setTitle,
+    slug,
+    setSlug,
+    description,
+    setDescription,
+    artifactType,
+    setArtifactType,
+    thumbnailUrl,
+    setThumbnailUrl,
+    isPublished,
+    setIsPublished,
 
-      if (!city) {
-        console.error("City not found");
-        setLoading(false);
-        return;
-      }
+    // Relationship targets
+    events,
+    entities,
+    stories,
 
-      // 2. Load artifact
-      const { data } = await supabase
-        .from("civic_artifacts")
-        .select("*")
-        .eq("slug", artifactSlug)
-        .eq("city_id", city.id)
-        .single();
-
-      setArtifact(data);
-      setLoading(false);
-    }
-
-    load();
-  }, [citySlug, artifactSlug]);
+    // Unified relationships
+    existingRelationships,
+  } = useLoadArtifact(citySlug, artifactSlug);
 
   if (loading) return <div className="p-6">Loading…</div>;
   if (!artifact) return <div className="p-6">Artifact not found</div>;
 
-  async function save() {
-    await supabase
-      .from("civic_artifacts")
-      .update({
-        name: artifact.name,
-        description: artifact.description,
-        image_url: artifact.image_url,
-      })
-      .eq("id", artifact.id);
+  async function handleSave() {
+    await saveArtifact({
+      artifactId: artifact.id,
+      citySlug,
+      router,
+
+      // Form fields
+      title,
+      slug,
+      description,
+      artifactType,
+      thumbnailUrl,
+      isPublished,
+
+      // Unified relationships
+      existingRelationships,
+    });
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 max-w-3xl">
       <h1 className="text-3xl font-bold">Edit Artifact</h1>
 
-      <div className="space-y-4">
+      <div className="space-y-8">
         <input
           className="border p-2 w-full"
-          value={artifact.name}
-          onChange={(e) => setArtifact({ ...artifact, name: e.target.value })}
+          placeholder="Title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+
+        <input
+          className="border p-2 w-full"
+          placeholder="Slug"
+          value={slug}
+          onChange={(e) => setSlug(e.target.value)}
         />
 
         <textarea
           className="border p-2 w-full"
-          value={artifact.description || ""}
-          onChange={(e) => setArtifact({ ...artifact, description: e.target.value })}
+          placeholder="Description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
         />
 
         <input
           className="border p-2 w-full"
-          value={artifact.image_url || ""}
-          onChange={(e) => setArtifact({ ...artifact, image_url: e.target.value })}
+          placeholder="Artifact Type"
+          value={artifactType}
+          onChange={(e) => setArtifactType(e.target.value)}
         />
 
-        <button className="bg-blue-600 text-white px-4 py-2 rounded" onClick={save}>
+        <input
+          className="border p-2 w-full"
+          placeholder="Thumbnail URL"
+          value={thumbnailUrl}
+          onChange={(e) => setThumbnailUrl(e.target.value)}
+        />
+
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={isPublished}
+            onChange={(e) => setIsPublished(e.target.checked)}
+          />
+          Published
+        </label>
+
+        <RelationshipSelector
+          fromType="artifact"
+          fromId={artifact.id}
+          availableTargets={[
+            { type: "event", label: "Events", items: events },
+            { type: "entity", label: "Entities", items: entities },
+            { type: "story", label: "Stories", items: stories },
+          ]}
+          initialRelationships={existingRelationships}
+          onChange={setExistingRelationships}
+        />
+
+        <button
+          onClick={handleSave}
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+        >
           Save Changes
         </button>
       </div>

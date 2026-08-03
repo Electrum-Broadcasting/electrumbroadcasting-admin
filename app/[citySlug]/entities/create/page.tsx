@@ -1,99 +1,193 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import RelationshipSelector from "@/components/relationships/RelationshipSelector";
+import { replaceUnifiedRelationships } from "@/lib/joinTables";
 
-export default function CreateEntityPage({ params }: { params: { citySlug: string } }) {
+interface CreateEntityPageProps {
+  params: {
+    citySlug: string;
+  };
+}
+
+export default function CreateEntityPage({ params }: CreateEntityPageProps) {
   const { citySlug } = params;
+  const router = useRouter();
 
-  const [form, setForm] = useState({
-    name: "",
-    slug: "",
-    entity_type: "",
-    roles: "",
-    description: "",
-    summary: "",
-    birth_year: "",
-    death_year: "",
-    is_published: false,
-  });
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
-  async function save() {
-    // Lookup city_id
-    const { data: city } = await supabase
-      .from("cities")
-      .select("id")
-      .eq("slug", citySlug)
+  const [loading, setLoading] = useState(true);
+  const [cityId, setCityId] = useState<string | null>(null);
+
+  // Form fields
+  const [name, setName] = useState("");
+  const [slug, setSlug] = useState("");
+  const [entityType, setEntityType] = useState("");
+  const [description, setDescription] = useState("");
+  const [thumbnailUrl, setThumbnailUrl] = useState("");
+  const [isPublished, setIsPublished] = useState(false);
+
+  // Relationship targets
+  const [events, setEvents] = useState<any[]>([]);
+  const [artifacts, setArtifacts] = useState<any[]>([]);
+  const [stories, setStories] = useState<any[]>([]);
+
+  // Unified relationships (selected)
+  const [selectedRelationships, setSelectedRelationships] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function load() {
+      const { data: city } = await supabase
+        .from("cities")
+        .select("id")
+        .eq("slug", citySlug)
+        .single();
+
+      if (!city) {
+        setLoading(false);
+        return;
+      }
+
+      setCityId(city.id);
+
+      const { data: eventList } = await supabase
+        .from("civic_events")
+        .select("id, name")
+        .eq("city_id", city.id)
+        .order("name", { ascending: true });
+
+      setEvents(eventList || []);
+
+      const { data: artifactList } = await supabase
+        .from("civic_artifacts")
+        .select("id, title")
+        .eq("city_id", city.id)
+        .order("title", { ascending: true });
+
+      setArtifacts(artifactList || []);
+
+      const { data: storyList } = await supabase
+        .from("civic_stories")
+        .select("id, title")
+        .eq("city_id", city.id)
+        .order("title", { ascending: true });
+
+      setStories(storyList || []);
+
+      setLoading(false);
+    }
+
+    load();
+  }, [citySlug]);
+
+  async function handleCreate() {
+    if (!cityId) return;
+
+    const { data: newEntity, error } = await supabase
+      .from("civic_entities")
+      .insert({
+        city_id: cityId,
+        name,
+        slug,
+        entity_type: entityType,
+        description,
+        thumbnail_url: thumbnailUrl,
+        is_published: isPublished,
+      })
+      .select("*")
       .single();
 
-    if (!city) {
-      alert("City not found");
+    if (error || !newEntity) {
+      console.error(error);
+      alert("Error creating entity.");
       return;
     }
 
-    const { error } = await supabase.from("civic_entities").insert({
-      name: form.name,
-      slug: form.slug,
-      entity_type: form.entity_type,
-      roles: form.roles,
-      description: form.description,
-      summary: form.summary,
-      birth_year: form.birth_year ? Number(form.birth_year) : null,
-      death_year: form.death_year ? Number(form.death_year) : null,
-      is_published: form.is_published,
-      city_id: city.id,
-    });
+    // Unified relationships (WRITE)
+    await replaceUnifiedRelationships(
+      supabase,
+      "entity",
+      newEntity.id,
+      selectedRelationships
+    );
 
-    if (error) {
-      console.error(error);
-      alert("Failed to save entity");
-    } else {
-      alert("Entity saved!");
-    }
+    router.push(`/${citySlug}/entities`);
   }
 
+  if (loading) return <div className="p-6">Loading…</div>;
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 max-w-3xl">
       <h1 className="text-3xl font-bold">Create Entity</h1>
 
-      <div className="space-y-4">
-        <input className="border p-2 w-full" placeholder="Name"
-          value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+      <div className="space-y-8">
+        <input
+          className="border p-2 w-full"
+          placeholder="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
 
-        <input className="border p-2 w-full" placeholder="Slug"
-          value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
+        <input
+          className="border p-2 w-full"
+          placeholder="Slug"
+          value={slug}
+          onChange={(e) => setSlug(e.target.value)}
+        />
 
-        <input className="border p-2 w-full" placeholder="Entity Type"
-          value={form.entity_type} onChange={(e) => setForm({ ...form, entity_type: e.target.value })} />
+        <input
+          className="border p-2 w-full"
+          placeholder="Entity Type"
+          value={entityType}
+          onChange={(e) => setEntityType(e.target.value)}
+        />
 
-        <input className="border p-2 w-full" placeholder="Roles"
-          value={form.roles} onChange={(e) => setForm({ ...form, roles: e.target.value })} />
+        <textarea
+          className="border p-2 w-full"
+          placeholder="Description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
 
-        <textarea className="border p-2 w-full" placeholder="Description"
-          value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-
-        <textarea className="border p-2 w-full" placeholder="Summary"
-          value={form.summary} onChange={(e) => setForm({ ...form, summary: e.target.value })} />
-
-        <input className="border p-2 w-full" placeholder="Birth Year"
-          value={form.birth_year} onChange={(e) => setForm({ ...form, birth_year: e.target.value })} />
-
-        <input className="border p-2 w-full" placeholder="Death Year"
-          value={form.death_year} onChange={(e) => setForm({ ...form, death_year: e.target.value })} />
+        <input
+          className="border p-2 w-full"
+          placeholder="Thumbnail URL"
+          value={thumbnailUrl}
+          onChange={(e) => setThumbnailUrl(e.target.value)}
+        />
 
         <label className="flex items-center gap-2">
-          <input type="checkbox" checked={form.is_published}
-            onChange={(e) => setForm({ ...form, is_published: e.target.checked })} />
+          <input
+            type="checkbox"
+            checked={isPublished}
+            onChange={(e) => setIsPublished(e.target.checked)}
+          />
           Published
         </label>
 
-        <button className="bg-blue-600 text-white px-4 py-2 rounded" onClick={save}>
-          Save Entity
+        <RelationshipSelector
+          fromType="entity"
+          fromId={null}
+          availableTargets={[
+            { type: "event", label: "Events", items: events },
+            { type: "artifact", label: "Artifacts", items: artifacts },
+            { type: "story", label: "Stories", items: stories },
+          ]}
+          initialRelationships={[]}
+          onChange={setSelectedRelationships}
+        />
+
+        <button
+          onClick={handleCreate}
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+        >
+          Create Entity
         </button>
       </div>
     </div>
