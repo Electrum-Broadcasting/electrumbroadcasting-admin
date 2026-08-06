@@ -1,28 +1,18 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
+import { useState } from "react";
 import { useLoadArtifact } from "@/hooks/useLoadArtifact";
 import { saveArtifact } from "@/lib/artifacts/saveArtifact";
 
-import RelationshipSelector from "@/components/relationships/RelationshipSelector";
-
-interface EditArtifactPageProps {
-  params: {
-    citySlug: string;
-    artifactSlug: string;
-  };
-}
-
-export default function EditArtifactPage({ params }: EditArtifactPageProps) {
-  const { citySlug, artifactSlug } = params;
-  const router = useRouter();
+export default function EditArtifactPage() {
+  const params = useParams();
+  const citySlug = params.citySlug as string;
+  const artifactSlug = params.artifactSlug as string;
 
   const {
     loading,
     artifact,
-    cityId,
-
-    // Form fields
     title,
     setTitle,
     slug,
@@ -31,110 +21,59 @@ export default function EditArtifactPage({ params }: EditArtifactPageProps) {
     setDescription,
     artifactType,
     setArtifactType,
+    year,
+    setYear,
+    tags,
+    setTags,
+    heroImageUrl,
+    setHeroImageUrl,
+    mediaUrls,
+    setMediaUrls,
     thumbnailUrl,
     setThumbnailUrl,
     isPublished,
     setIsPublished,
-
-    // Relationship targets
-    events,
-    entities,
-    stories,
-
-    // Unified relationships
-    existingRelationships,
   } = useLoadArtifact(citySlug, artifactSlug);
 
-  if (loading) return <div className="p-6">Loading…</div>;
-  if (!artifact) return <div className="p-6">Artifact not found</div>;
+  console.log("citySlug:", citySlug);
+console.log("artifactSlug:", artifactSlug);
+
+  const [saving, setSaving] = useState(false);
+
+  if (loading) return <div>Loading...</div>;
+  if (!artifact) return <div>Artifact not found.</div>;
 
   async function handleSave() {
-    await saveArtifact({
-      artifactId: artifact.id,
+    setSaving(true);
+    const { error } = await saveArtifact({
       citySlug,
-      router,
-
-      // Form fields
+      artifactSlug: slug || artifactSlug,
       title,
-      slug,
       description,
       artifactType,
+      year,
+      tags,
+      heroImageUrl,
+      mediaUrls,
       thumbnailUrl,
       isPublished,
-
-      // Unified relationships
-      existingRelationships,
     });
+    setSaving(false);
+    if (error) {
+      console.error(error);
+      alert("Error saving artifact");
+    } else {
+      alert("Artifact saved");
+    }
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-3xl">
-      <h1 className="text-3xl font-bold">Edit Artifact</h1>
-
-      <div className="space-y-8">
-        <input
-          className="border p-2 w-full"
-          placeholder="Title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-
-        <input
-          className="border p-2 w-full"
-          placeholder="Slug"
-          value={slug}
-          onChange={(e) => setSlug(e.target.value)}
-        />
-
-        <textarea
-          className="border p-2 w-full"
-          placeholder="Description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-
-        <input
-          className="border p-2 w-full"
-          placeholder="Artifact Type"
-          value={artifactType}
-          onChange={(e) => setArtifactType(e.target.value)}
-        />
-
-        <input
-          className="border p-2 w-full"
-          placeholder="Thumbnail URL"
-          value={thumbnailUrl}
-          onChange={(e) => setThumbnailUrl(e.target.value)}
-        />
-
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={isPublished}
-            onChange={(e) => setIsPublished(e.target.checked)}
-          />
-          Published
-        </label>
-
-        <RelationshipSelector
-          fromType="artifact"
-          fromId={artifact.id}
-          availableTargets={[
-            { type: "event", label: "Events", items: events },
-            { type: "entity", label: "Entities", items: entities },
-            { type: "story", label: "Stories", items: stories },
-          ]}
-          initialRelationships={existingRelationships}
-          onChange={setExistingRelationships}
-        />
-
-        <button
-          onClick={handleSave}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-        >
-          Save Changes
-        </button>
-      </div>
+    <div>
+      <h1>Edit Artifact</h1>
+      {/* plug in your existing forms here */}
+      <button onClick={handleSave} disabled={saving}>
+        {saving ? "Saving..." : "Save"}
+      </button>
     </div>
   );
 }

@@ -16,9 +16,8 @@
     "plugins": [{ "name": "next" }],
     "ignoreDeprecations": "6.0",
     "baseUrl": ".",
-    "paths": {
-  "@/*": ["./*"],
-  "@/lib/*": ["lib/*"]
+"paths": {
+  "@/*": ["./*"]
 }
 
   },

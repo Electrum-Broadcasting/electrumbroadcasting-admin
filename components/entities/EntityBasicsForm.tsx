@@ -3,8 +3,10 @@
 console.log("Rendering EntityBasicsForm");
 
 import React from "react";
+import EntityRichTextEditor from "./EntityRichTextEditor";
 
 interface EntityBasicsFormProps {
+  citySlug: string;
   name: string;
   setName: (v: string) => void;
 
@@ -25,6 +27,7 @@ interface EntityBasicsFormProps {
 }
 
 export default function EntityBasicsForm({
+  citySlug,
   name,
   setName,
   slug,
@@ -61,12 +64,13 @@ export default function EntityBasicsForm({
       />
 
       {/* Description */}
-      <textarea
-        placeholder="Description"
-        className="w-full border p-2 rounded h-28"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-      />
+<EntityRichTextEditor
+  label="Description"
+  value={description}
+  onChange={setDescription}
+  citySlug={citySlug}
+  slug={slug}
+/>
 
       {/* Summary */}
       <textarea

@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { flushSync } from "react-dom";
 
-import { useEditMomentForm } from "@/lib/moments/useEditMomentForm";
+import { useLoadMomentInitial } from "@/hooks/useLoadMomentInitial";
+import { useMomentState } from "@/hooks/useMomentState";
 import { saveMoment } from "@/lib/moments/saveMoment";
 
 import MomentBasicsForm from "@/components/moments/MomentBasicsForm";
@@ -24,100 +25,56 @@ export default function EditMomentPage({ params }: EditMomentPageProps) {
   const { citySlug, momentSlug } = params;
   const router = useRouter();
 
-  // Load everything once — moment, metadata, join tables, relationships, and initialize state
-  const {
-    loading,
-    moment,
-    cityId,
+  const { loading, initialData } = useLoadMomentInitial(citySlug, momentSlug);
 
-    // Basics
+  // Always call hooks in the same order
+  const {
     title,
     setTitle,
     slug,
     setSlug,
     body,
     setBody,
-
-    // Timeline
-    momentYear,
-    setMomentYear,
-    momentDate,
-    setMomentDate,
     momentTime,
     setMomentTime,
-
-    // Spatial metadata
-    places,
-    neighborhoods,
-    eras,
-
-    // Spatial selections
     selectedPlaces,
     setSelectedPlaces,
     selectedNeighborhoods,
     setSelectedNeighborhoods,
-
-    // Eras selections
     selectedEras,
     setSelectedEras,
-
-    // Media
     thumbnail360Url,
     setThumbnail360Url,
     inline360Urls,
     setInline360Urls,
-
-    // Publish
     isPublished,
     setIsPublished,
-
-    // Relationship targets
-    events,
-    entities,
-    artifacts,
-    stories,
-
-    // Unified relationships
-    existingRelationships,
-  } = useEditMomentForm(citySlug, momentSlug);
+    selectedRelationships,
+    setSelectedRelationships,
+  } = useMomentState(initialData);
 
   if (loading) return <div className="p-6">Loading…</div>;
-  if (!moment) return <div className="p-6">Moment not found</div>;
+  if (!initialData || !initialData.moment)
+    return <div className="p-6">Moment not found</div>;
+
+  const moment = initialData.moment;
 
   async function handleSave() {
-    console.log("handleSave executing");
-
     await saveMoment({
       momentId: moment.id,
       citySlug,
       router,
-
-      // Basics
       title,
       slug,
       body,
-
-      // Timeline
-      momentYear,
-      momentDate,
       momentTime,
-
-      // Spatial
       selectedPlaces,
       selectedNeighborhoods,
-
-      // Media
       thumbnail360Url,
       inline360Urls,
-
-      // Publish
       isPublished,
-
-      // Eras
       selectedEras,
-
-      // Unified relationships
-      existingRelationships,
+      selectedRelationships,
     });
   }
 
@@ -135,24 +92,24 @@ export default function EditMomentPage({ params }: EditMomentPageProps) {
       />
 
       <MomentTimelineForm
-        momentYear={momentYear}
-        setMomentYear={setMomentYear}
-        momentDate={momentDate}
-        setMomentDate={setMomentDate}
         momentTime={momentTime}
         setMomentTime={setMomentTime}
-        eras={eras ?? []}
+        eras={initialData.erasTargets ?? []}
         selectedEras={selectedEras}
         setSelectedEras={setSelectedEras}
       />
 
       <MomentSpatialForm
-        places={places ?? []}
+        places={initialData.places ?? []}
         selectedPlaces={selectedPlaces}
-        setSelectedPlaces={setSelectedPlaces as (places: (string | number)[]) => void}
-        neighborhoods={neighborhoods ?? []}
+        setSelectedPlaces={
+          setSelectedPlaces as (places: (string | number)[]) => void
+        }
+        neighborhoods={initialData.neighborhoods ?? []}
         selectedNeighborhoods={selectedNeighborhoods}
-        setSelectedNeighborhoods={setSelectedNeighborhoods as (neighborhoods: (string | number)[]) => void}
+        setSelectedNeighborhoods={
+          setSelectedNeighborhoods as (neighborhoods: (string | number)[]) => void
+        }
       />
 
       <Moment360Form
@@ -171,18 +128,17 @@ export default function EditMomentPage({ params }: EditMomentPageProps) {
         fromType="moment"
         fromId={moment.id}
         availableTargets={[
-          { type: "event", label: "Events", items: events },
-          { type: "entity", label: "Entities", items: entities },
-          { type: "artifact", label: "Artifacts", items: artifacts },
-          { type: "story", label: "Stories", items: stories },
+          { type: "event", label: "Events", items: initialData.events },
+          { type: "entity", label: "Entities", items: initialData.entities },
+          { type: "artifact", label: "Artifacts", items: initialData.artifacts },
+          { type: "story", label: "Stories", items: initialData.stories },
         ]}
-        initialRelationships={existingRelationships}
+        initialRelationships={initialData.relationships}
         onChange={setSelectedRelationships}
       />
 
       <button
         onClick={() => {
-          console.log("Save button clicked");
           flushSync(() => {});
           handleSave();
         }}

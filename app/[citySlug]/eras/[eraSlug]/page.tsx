@@ -20,7 +20,6 @@ export default function EraDetailPage({
 
   useEffect(() => {
     async function load() {
-      // Lookup city_id
       const { data: city } = await supabase
         .from("cities")
         .select("id")
@@ -32,7 +31,6 @@ export default function EraDetailPage({
         return;
       }
 
-      // Load era
       const { data } = await supabase
         .from("civic_eras")
         .select("*")
@@ -54,11 +52,31 @@ export default function EraDetailPage({
     <div className="p-6 space-y-6">
       <h1 className="text-3xl font-bold">{era.name}</h1>
 
-      <p className="text-gray-700">{era.description}</p>
-
-      <p className="text-gray-500">
-        {era.start_year || "—"} – {era.end_year || "—"}
+      <p className="text-gray-700 whitespace-pre-line">
+        {era.description || "No description provided."}
       </p>
+
+      <div className="text-gray-500">
+        <span className="font-medium">Years:</span>{" "}
+        {era.start_year || "—"} – {era.end_year || "—"}
+      </div>
+
+      <div className="text-gray-500">
+        <span className="font-medium">Slug:</span> {era.slug}
+      </div>
+
+      <div className="text-gray-500">
+        <span className="font-medium">Published:</span>{" "}
+        {era.is_published ? "Yes" : "No"}
+      </div>
+
+      <div className="text-gray-400 text-sm">
+        Created: {new Date(era.created_at).toLocaleString()}
+      </div>
+
+      <div className="text-gray-400 text-sm">
+        Updated: {new Date(era.updated_at).toLocaleString()}
+      </div>
     </div>
   );
 }

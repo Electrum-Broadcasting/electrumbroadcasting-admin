@@ -7,9 +7,9 @@ export default function ArtifactMetadataForm({
   setTags,
 }: {
   year: number | null;
-  setYear: (year: number) => void;
-  tags: string;
-  setTags: (tags: string) => void;
+  setYear: (year: number | null) => void;
+  tags: string[];
+  setTags: (tags: string[]) => void;
 }) {
   return (
     <section className="space-y-4">
@@ -27,8 +27,8 @@ export default function ArtifactMetadataForm({
         type="text"
         placeholder="Tags (comma-separated)"
         className="w-full border p-2 rounded"
-        value={tags}
-        onChange={(e) => setTags(e.target.value)}
+        value={tags.join(",")}
+        onChange={(e) => setTags(e.target.value.split(",").map((tag) => tag.trim()))}
       />
     </section>
   );

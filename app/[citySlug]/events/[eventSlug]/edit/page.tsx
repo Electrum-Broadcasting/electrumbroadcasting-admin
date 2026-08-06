@@ -10,7 +10,16 @@ import EventErasForm from "@/components/events/EventErasForm";
 import EventMetadataForm from "@/components/events/EventMetadataForm";
 import RelationshipSelector from "@/components/relationships/RelationshipSelector";
 
-export default function EditEventPage({ params }) {
+interface EditEventPageParams {
+  citySlug: string;
+  eventSlug: string;
+}
+
+interface EditEventPageProps {
+  params: EditEventPageParams;
+}
+
+export default function EditEventPage({ params }: EditEventPageProps) {
   const { citySlug, eventSlug } = params;
   const router = useRouter();
 

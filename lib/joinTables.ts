@@ -1,52 +1,35 @@
 // lib/joinTables.ts
 
-export async function replaceJoinTable(
-  supabase,
-  tableName,
-  momentId,
-  columnName,
-  selectedIds
-) {
-  // Delete existing rows
-  await supabase
-    .from(tableName)
-    .delete()
-    .eq("moment_id", momentId);
-
-  // Insert new rows
-  if (selectedIds.length > 0) {
-    const rows = selectedIds.map((id) => ({
-      moment_id: momentId,
-      [columnName]: id,
-    }));
-
-    await supabase.from(tableName).insert(rows);
-  }
-}
-
 export async function replaceUnifiedRelationships(
-  supabase,
-  fromType,
-  fromId,
-  relationships
+  supabase: any,
+  fromType: any,
+  fromId: any,
+  relationships: any
 ) {
-  // Delete existing
+  // 1. Delete existing
   await supabase
     .from("civic_relationships")
     .delete()
     .eq("from_type", fromType)
     .eq("from_id", fromId);
 
-  // Insert new
-  if (relationships.length > 0) {
-    await supabase.from("civic_relationships").insert(relationships);
+  if (!relationships || relationships.length === 0) return;
+
+  // 2. Insert new
+  const { error } = await supabase
+    .from("civic_relationships")
+    .insert(relationships);
+
+  if (error) {
+    console.error("REL INSERT ERROR:", error);
+    throw error;
   }
 }
 
 export async function loadUnifiedRelationships(
-  supabase,
-  fromType,
-  fromId
+  supabase: any,
+  fromType: any,
+  fromId: any
 ) {
   const { data } = await supabase
     .from("civic_relationships")

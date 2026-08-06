@@ -14,7 +14,7 @@ import RelationshipSelector from "@/components/relationships/RelationshipSelecto
 
 import { replaceUnifiedRelationships } from "@/lib/joinTables";
 
-export default function CreateStoryPage({ params }) {
+export default function CreateStoryPage({ params }: { params: { citySlug: string } }) {
   const { citySlug } = params;
   const router = useRouter();
 

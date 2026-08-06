@@ -1,55 +1,59 @@
-"use client";
+// app/[citySlug]/artifacts/[artifactSlug]/saveArtifact.ts
+"use server";
 
-import { createBrowserClient } from "@supabase/ssr";
-import { replaceUnifiedRelationships } from "@/lib/joinTables";
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
+import { cookies } from "next/headers";
 
 export async function saveArtifact({
-  artifactId,
   citySlug,
-  router,
-
-  // Form fields
+  artifactSlug,
   title,
-  slug,
   description,
   artifactType,
+  year,
+  tags,
+  heroImageUrl,
+  mediaUrls,
   thumbnailUrl,
   isPublished,
-
-  // Unified relationships
-  existingRelationships,
+}: {
+  citySlug: string;
+  artifactSlug: string;
+  title: string;
+  description: string;
+  artifactType: string;
+  year: number | null;
+  tags: string[];
+  heroImageUrl: string | null;
+  mediaUrls: string[];
+  thumbnailUrl: string | null;
+  isPublished: boolean;
 }) {
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = createServerComponentClient({ cookies });
 
-  // Update artifact
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("civic_artifacts")
-    .update({
-      title,
-      slug,
-      description,
-      artifact_type: artifactType,
-      thumbnail_url: thumbnailUrl,
-      is_published: isPublished,
-    })
-    .eq("id", artifactId);
+    .upsert(
+      {
+        city_slug: citySlug,
+        slug: artifactSlug,
+        title,
+        description,
+        artifact_type: artifactType,
+        year,
+        tags,
+        hero_image_url: heroImageUrl,
+        media_urls: mediaUrls,
+        // thumbnail_url if you have it
+        is_published: isPublished,
+      },
+      {
+        onConflict: "city_slug,slug",
+      }
+    )
+    .select("*")
+    .single();
 
-  if (error) {
-    console.error(error);
-    alert("Failed to save artifact");
-    return;
-  }
-
-  // Unified relationships
-  await replaceUnifiedRelationships(
-    supabase,
-    "artifact",
-    artifactId,
-    existingRelationships
-  );
-
-  router.push(`/${citySlug}/artifacts`);
+  console.log("saveArtifact error:", error);
+  return { data, error };
 }

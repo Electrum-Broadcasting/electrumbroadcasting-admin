@@ -3,6 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useLoadEra } from "@/hooks/useLoadEra";
 import { saveEra } from "@/lib/eras/saveEra";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 interface EditEraPageProps {
   params: {
@@ -109,6 +115,40 @@ export default function EditEraPage({ params }: EditEraPageProps) {
         >
           Save Changes
         </button>
+
+        <button
+  onClick={async () => {
+    if (!confirm("Are you sure you want to delete this Era? This cannot be undone.")) {
+      return;
+    }
+
+    const { error } = await supabase
+      .from("civic_eras")
+      .delete()
+      .eq("id", era.id);
+
+    if (error) {
+      console.error(error);
+      alert("Error deleting era.");
+      return;
+    }
+
+    router.push(`/${citySlug}/eras`);
+  }}
+  className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+>
+  Delete Era
+</button>
+
+
+        <button
+  onClick={() => router.push(`/${citySlug}/eras`)}
+  className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400"
+>
+  Cancel
+</button>
+
+        
       </div>
     </div>
   );

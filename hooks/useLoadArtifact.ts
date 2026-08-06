@@ -1,25 +1,32 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createBrowserClient } from "@supabase/ssr";
-import { loadUnifiedRelationships } from "@/lib/joinTables";
+import { createBrowserClient } from "@/lib/supabase/client";
 
 export function useLoadArtifact(citySlug: string, artifactSlug: string) {
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = createBrowserClient();
 
   const [loading, setLoading] = useState(true);
-  const [cityId, setCityId] = useState<string | null>(null);
   const [artifact, setArtifact] = useState<any>(null);
 
-  // Form fields
+  // Basics
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
   const [artifactType, setArtifactType] = useState("");
-  const [thumbnailUrl, setThumbnailUrl] = useState("");
+
+  // Metadata
+  const [year, setYear] = useState<number | null>(null);
+  const [tags, setTags] = useState<string[]>([]);
+
+  // Thumbnail
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+
+  // Media
+  const [heroImageUrl, setHeroImageUrl] = useState<string | null>(null);
+  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
+
+  // Publish
   const [isPublished, setIsPublished] = useState(false);
 
   // Relationship targets
@@ -32,86 +39,63 @@ export function useLoadArtifact(citySlug: string, artifactSlug: string) {
 
   useEffect(() => {
     async function load() {
-      //
-      // 1. Load city
-      //
-      const { data: city } = await supabase
-        .from("cities")
-        .select("id")
-        .eq("slug", citySlug)
-        .single();
+      setLoading(true);
 
-      if (!city) {
-        setLoading(false);
-        return;
-      }
-
-      setCityId(city.id);
-
-      //
-      // 2. Load artifact
-      //
-      const { data: artifactData } = await supabase
+      // Load artifact directly using city_slug + artifact_slug
+      const { data: artifactData, error: artifactError } = await supabase
         .from("civic_artifacts")
         .select("*")
+        .eq("city_slug", citySlug)
         .eq("slug", artifactSlug)
-        .eq("city_id", city.id)
         .single();
 
+      console.log("artifactError:", artifactError);
+      console.log("artifactData:", artifactData);
+
       if (!artifactData) {
+        setArtifact(null);
         setLoading(false);
         return;
       }
 
       setArtifact(artifactData);
 
-      //
-      // 3. Populate fields
-      //
-      setTitle(artifactData.title);
-      setSlug(artifactData.slug);
-      setDescription(artifactData.description || "");
-      setArtifactType(artifactData.artifact_type || "");
-      setThumbnailUrl(artifactData.thumbnail_url || "");
-      setIsPublished(artifactData.is_published);
+      // Populate form fields
+      setTitle(artifactData.title ?? "");
+      setSlug(artifactData.slug ?? "");
+      setDescription(artifactData.description ?? "");
+      setArtifactType(artifactData.artifact_type ?? "");
 
-      //
-      // 4. Load relationship targets
-      //
-      const { data: eventList } = await supabase
-        .from("civic_events")
-        .select("id, name")
-        .eq("city_id", city.id)
-        .order("name", { ascending: true });
+      setYear(artifactData.year ?? null);
+      setTags(artifactData.tags ?? []);
 
-      setEvents(eventList || []);
+      setThumbnailUrl(artifactData.thumbnail_url ?? null);
 
-      const { data: entityList } = await supabase
-        .from("civic_entities")
-        .select("id, name")
-        .eq("city_id", city.id)
-        .order("name", { ascending: true });
+      setHeroImageUrl(artifactData.hero_image_url ?? null);
+      setMediaUrls(artifactData.media_urls ?? []);
 
-      setEntities(entityList || []);
+      setIsPublished(artifactData.is_published ?? false);
 
-      const { data: storyList } = await supabase
-        .from("civic_stories")
-        .select("id, title")
-        .eq("city_id", city.id)
-        .order("title", { ascending: true });
+      // Relationship targets by city_slug
+      const [{ data: eventData }, { data: entityData }, { data: storyData }] =
+        await Promise.all([
+          supabase.from("civic_events").select("*").eq("city_slug", citySlug),
+          supabase.from("civic_entities").select("*").eq("city_slug", citySlug),
+          supabase.from("civic_stories").select("*").eq("city_slug", citySlug),
+        ]);
 
-      setStories(storyList || []);
+      setEvents(eventData ?? []);
+      setEntities(entityData ?? []);
+      setStories(storyData ?? []);
 
-      //
-      // 5. Load unified relationships (READ ONLY)
-      //
-      const unifiedRelationships = await loadUnifiedRelationships(
-        supabase,
-        "artifact",
-        artifactData.id
-      );
+      // Existing relationships
+      const { data: relData } = await supabase
+        .from("civic_relationships")
+        .select("*")
+        .eq("from_type", "artifact")
+        .eq("from_id", artifactData.id);
 
-      setExistingRelationships(unifiedRelationships || []);
+      setExistingRelationships(relData ?? []);
 
       setLoading(false);
     }
@@ -122,9 +106,8 @@ export function useLoadArtifact(citySlug: string, artifactSlug: string) {
   return {
     loading,
     artifact,
-    cityId,
 
-    // Form fields
+    // Basics
     title,
     setTitle,
     slug,
@@ -133,8 +116,24 @@ export function useLoadArtifact(citySlug: string, artifactSlug: string) {
     setDescription,
     artifactType,
     setArtifactType,
+
+    // Metadata
+    year,
+    setYear,
+    tags,
+    setTags,
+
+    // Thumbnail
     thumbnailUrl,
     setThumbnailUrl,
+
+    // Media
+    heroImageUrl,
+    setHeroImageUrl,
+    mediaUrls,
+    setMediaUrls,
+
+    // Publish
     isPublished,
     setIsPublished,
 
@@ -145,5 +144,6 @@ export function useLoadArtifact(citySlug: string, artifactSlug: string) {
 
     // Unified relationships
     existingRelationships,
+    setExistingRelationships,
   };
 }

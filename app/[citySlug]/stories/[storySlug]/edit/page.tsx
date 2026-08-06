@@ -180,18 +180,15 @@ export default function EditStoryPage({ params }: EditStoryPageProps) {
           setSponsorAltText={setSponsorAltText}
         />
         <StoryPublishForm isPublished={isPublished} setIsPublished={setIsPublished} />
-<RelationshipSelector
-        fromType="moment"
-        fromId={moment.id}
-        availableTargets={[
-          { type: "event", label: "Events", items: events },
-          { type: "entity", label: "Entities", items: entities },
-          { type: "artifact", label: "Artifacts", items: artifacts },
-          { type: "story", label: "Stories", items: stories },
-        ]}
-        initialRelationships={existingRelationships}
-        onChange={setSelectedRelationships}
-      />      
+        <RelationshipSelector
+          fromType="story"
+          fromId={story.id}
+          availableTargets={[
+            { type: "event", label: "Events", items: events },
+          ]}
+          initialRelationships={existingRelationships}
+          onChange={() => {}}
+        />      
       
       <button
           onClick={handleSave}

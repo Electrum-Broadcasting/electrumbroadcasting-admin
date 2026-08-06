@@ -2,10 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { createBrowserClient } from "@supabase/ssr";
+import { createBrowserClient } from "@/lib/supabase/client";
 
 import RelationshipSelector from "@/components/relationships/RelationshipSelector";
 import { replaceUnifiedRelationships } from "@/lib/joinTables";
+import Story360Form from "@/components/stories/Story360Form";
+import StoryHeroImageForm from "@/components/stories/StoryHeroImageForm";
+import ThumbnailUpload from "@/components/stories/ThumbnailUpload";
 
 interface CreateEntityPageProps {
   params: {
@@ -18,8 +21,7 @@ export default function CreateEntityPage({ params }: CreateEntityPageProps) {
   const router = useRouter();
 
   const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    
   );
 
   const [loading, setLoading] = useState(true);
@@ -30,8 +32,15 @@ export default function CreateEntityPage({ params }: CreateEntityPageProps) {
   const [slug, setSlug] = useState("");
   const [entityType, setEntityType] = useState("");
   const [description, setDescription] = useState("");
+  const [summary, setSummary] = useState("");
   const [thumbnailUrl, setThumbnailUrl] = useState("");
+  const [heroImageUrl, setHeroImageUrl] = useState("");
   const [isPublished, setIsPublished] = useState(false);
+  const [hero360Url, setHero360Url] = useState("");
+  const [neighborhood360Url, setNeighborhood360Url] = useState("");
+  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
+  const [birthYear, setBirthYear] = useState<number | null>(null);
+  const [deathYear, setDeathYear] = useState<number | null>(null);
 
   // Relationship targets
   const [events, setEvents] = useState<any[]>([]);
@@ -141,12 +150,30 @@ export default function CreateEntityPage({ params }: CreateEntityPageProps) {
           onChange={(e) => setSlug(e.target.value)}
         />
 
-        <input
+        <select
           className="border p-2 w-full"
-          placeholder="Entity Type"
           value={entityType}
           onChange={(e) => setEntityType(e.target.value)}
-        />
+        >
+          <option value="">Select Entity Type</option>
+          <option value="person">Person</option>
+          <option value="organization">Organization</option>
+          <option value="landmark">Landmark</option>
+          <option value="business">Business</option>
+          <option value="institution">Institution</option>
+          <option value="cultural">Cultural</option>
+          <option value="historical">Historical</option>
+        </select>
+
+        
+
+        {/* Summary */}
+        <textarea
+  className="border p-2 w-full"
+  placeholder="Summary"
+  value={summary}
+  onChange={(e) => setSummary(e.target.value)}
+/>
 
         <textarea
           className="border p-2 w-full"
@@ -155,12 +182,59 @@ export default function CreateEntityPage({ params }: CreateEntityPageProps) {
           onChange={(e) => setDescription(e.target.value)}
         />
 
-        <input
-          className="border p-2 w-full"
-          placeholder="Thumbnail URL"
-          value={thumbnailUrl}
-          onChange={(e) => setThumbnailUrl(e.target.value)}
+        <div className="grid grid-cols-2 gap-4">
+  <div>
+    <label className="block text-sm font-medium">Birth Year</label>
+    <input
+      type="number"
+      value={birthYear ?? ""}
+      onChange={(e) => setBirthYear(Number(e.target.value))}
+      className="input"
+    />
+  </div>
+
+  <div>
+    <label className="block text-sm font-medium">Death Year</label>
+    <input
+      type="number"
+      value={deathYear ?? ""}
+      onChange={(e) => setDeathYear(Number(e.target.value))}
+      className="input"
+    />
+  </div>
+</div>
+
+
+<ThumbnailUpload
+  thumbnailUrl={thumbnailUrl}
+  setThumbnailUrl={setThumbnailUrl}
+  citySlug={citySlug}
+  slug={slug}
+/>
+
+{/* Hero Image */}
+        <StoryHeroImageForm
+          heroImageUrl={heroImageUrl}
+          setHeroImageUrl={setHeroImageUrl}
+          citySlug={citySlug}
+          slug={slug}
         />
+
+        {/* 360° Media */}
+                <Story360Form
+                  hero360Url={hero360Url}
+                  setHero360Url={setHero360Url}
+                  thumbnail360Url={thumbnailUrl}
+                  setThumbnail360Url={setThumbnailUrl}
+                  neighborhood360Url={neighborhood360Url}
+                  setNeighborhood360Url={setNeighborhood360Url}
+                  inline360Urls={mediaUrls}
+                  setInline360Urls={setMediaUrls}
+                  citySlug={citySlug}
+                  slug={slug}
+                />
+
+
 
         <label className="flex items-center gap-2">
           <input

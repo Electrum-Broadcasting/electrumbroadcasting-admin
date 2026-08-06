@@ -15,6 +15,8 @@ export function useLoadMomentInitial(citySlug: string, momentSlug: string) {
 
   useEffect(() => {
     async function load() {
+      console.log("Moment slug:", momentSlug);
+
       //
       // 1. Load city
       //
@@ -32,6 +34,13 @@ export function useLoadMomentInitial(citySlug: string, momentSlug: string) {
       //
       // 2. Load moment
       //
+      console.log(
+        "Looking up moment with slug:",
+        momentSlug,
+        "and city_id:",
+        city.id
+      );
+
       const { data: moment } = await supabase
         .from("civic_moments")
         .select("*")
@@ -39,13 +48,15 @@ export function useLoadMomentInitial(citySlug: string, momentSlug: string) {
         .eq("city_id", city.id)
         .single();
 
+      console.log("Loaded moment:", moment);
+
       if (!moment) {
         setLoading(false);
         return;
       }
 
       //
-      // 3. Load join tables (READ ONLY)
+      // 3. Load join tables
       //
       const { data: momentPlaces } = await supabase
         .from("moment_places")
@@ -63,7 +74,26 @@ export function useLoadMomentInitial(citySlug: string, momentSlug: string) {
         .eq("moment_id", moment.id);
 
       //
-      // 4. Load relationship targets
+      // 4. Load spatial metadata (THIS WAS MISSING)
+      //
+      const { data: places } = await supabase
+        .from("civic_places")
+        .select("id, name")
+        .eq("city_id", city.id);
+
+      const { data: neighborhoods } = await supabase
+        .from("civic_neighborhoods")
+        .select("id, name")
+        .eq("city_id", city.id);
+
+      const { data: erasTargets } = await supabase
+        .from("civic_eras")
+        .select("id, name")
+        .eq("city_id", city.id)
+        .order("name", { ascending: true });
+
+      //
+      // 5. Load relationship targets
       //
       const { data: events } = await supabase
         .from("civic_events")
@@ -85,36 +115,40 @@ export function useLoadMomentInitial(citySlug: string, momentSlug: string) {
         .select("id, title")
         .eq("city_id", city.id);
 
-      const { data: erasTargets } = await supabase
-        .from("civic_eras")
-        .select("id, name")
-        .eq("city_id", city.id)
-        .order("name", { ascending: true });
-
       //
-      // 5. Load unified relationships (READ ONLY)
+      // 6. Unified relationships
       //
-      const unifiedRelationships = await loadUnifiedRelationships(
+      const relationships = await loadUnifiedRelationships(
         supabase,
         "moment",
         moment.id
       );
 
       //
-      // 6. Return everything
+      // 7. Return everything
       //
       setInitialData({
         cityId: city.id,
         moment,
+
+        // join tables
         momentPlaces,
         momentNeighborhoods,
         momentEras,
+
+        // metadata
+        places,
+        neighborhoods,
+        erasTargets,
+
+        // relationship targets
         events,
         entities,
         artifacts,
         stories,
-        erasTargets,
-        relationships: unifiedRelationships,
+
+        // unified relationships
+        relationships,
       });
 
       setLoading(false);

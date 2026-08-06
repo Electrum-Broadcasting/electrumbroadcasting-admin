@@ -1,24 +1,37 @@
 "use client";
 
+import React from "react";
+import EntityRichTextEditor from "@/components/entities/EntityRichTextEditor";
+
+interface ArtifactBasicsFormProps {
+  title: string;
+  setTitle: (v: string) => void;
+
+  slug: string;
+  setSlug: (v: string) => void;
+
+  description: string;
+  setDescription: (v: string) => void;
+
+  artifactType: string;
+  setArtifactType: (v: string) => void;
+
+  citySlug: string;
+  artifactSlug: string;
+}
+
 export default function ArtifactBasicsForm({
   title,
   setTitle,
   slug,
   setSlug,
-  summary,
-  setSummary,
-  body,
-  setBody,
-}: {
-  title: string;
-  setTitle: (value: string) => void;
-  slug: string;
-  setSlug: (value: string) => void;
-  summary: string;
-  setSummary: (value: string) => void;
-  body: string;
-  setBody: (value: string) => void;
-}) {
+  description,
+  setDescription,
+  artifactType,
+  setArtifactType,
+  citySlug,
+  artifactSlug,
+}: ArtifactBasicsFormProps) {
   return (
     <section className="space-y-4">
       <h2 className="text-xl font-semibold">Artifact Basics</h2>
@@ -39,18 +52,20 @@ export default function ArtifactBasicsForm({
         onChange={(e) => setSlug(e.target.value)}
       />
 
-      <textarea
-        placeholder="Summary"
-        className="w-full border p-2 rounded"
-        value={summary}
-        onChange={(e) => setSummary(e.target.value)}
+      <EntityRichTextEditor
+        label="Description"
+        value={description}
+        onChange={setDescription}
+        citySlug={citySlug}
+        slug={artifactSlug}
       />
 
-      <textarea
-        placeholder="Body"
-        className="w-full border p-2 rounded h-40"
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
+      <input
+        type="text"
+        placeholder="Artifact Type"
+        className="w-full border p-2 rounded"
+        value={artifactType}
+        onChange={(e) => setArtifactType(e.target.value)}
       />
     </section>
   );
