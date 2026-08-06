@@ -1,6 +1,28 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+
+interface Relationship {
+  id?: string;
+  from_type: string;
+  from_id: string | null;
+  to_type: string;
+  to_id: string;
+}
+
+interface TargetGroup {
+  type: string;
+  label: string;
+  items: { id: string; name?: string; title?: string }[];
+}
+
+interface RelationshipSelectorProps {
+  fromType: string;
+  fromId: string | null;
+  availableTargets: TargetGroup[];
+  initialRelationships: Relationship[];
+  onChange: (rels: Relationship[]) => void;
+}
 
 export default function RelationshipSelector({
   fromType,
@@ -8,74 +30,61 @@ export default function RelationshipSelector({
   availableTargets,
   initialRelationships,
   onChange,
-}) {
-  const [selected, setSelected] = useState(initialRelationships || []);
+}: RelationshipSelectorProps) {
+  const [relationships, setRelationships] = useState<Relationship[]>(
+    initialRelationships || []
+  );
 
-  useEffect(() => {
-    console.log("Selector called from:", fromType, fromId, "onChange:", onChange);
-    onChange(selected);
-  }, [selected]);
-
-  function toggleRelationship(rel) {
-    const exists = selected.some(
-      (r) =>
-        r.to_type === rel.to_type &&
-        r.to_id === rel.to_id
+  function toggleRelationship(rel: Relationship) {
+    const exists = relationships.some(
+      (r) => r.to_type === rel.to_type && r.to_id === rel.to_id
     );
 
+    let updated: Relationship[];
+
     if (exists) {
-      // REMOVE
-      setSelected(selected.filter(
-        (r) =>
-          !(r.to_type === rel.to_type && r.to_id === rel.to_id)
-      ));
+      updated = relationships.filter(
+        (r) => !(r.to_type === rel.to_type && r.to_id === rel.to_id)
+      );
     } else {
-      // ADD
-      setSelected([
-        ...selected,
-        {
-          from_type: fromType,
-          from_id: fromId || null, // null during create
-          to_type: rel.to_type,
-          to_id: rel.to_id,
-        },
-      ]);
+      updated = [...relationships, rel];
     }
+
+    setRelationships(updated);
+    onChange(updated);
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <h2 className="text-xl font-semibold">Relationships</h2>
 
-      {availableTargets.map((group) => (
-        <div key={group.type}>
-          <h3 className="font-medium mb-2">{group.label}</h3>
+      {availableTargets.map((group: TargetGroup) => (
+        <div key={group.type} className="space-y-2">
+          <h3 className="font-medium">{group.label}</h3>
 
-          <div className="space-y-2">
-            {group.items.map((item) => {
-              const rel = {
-                to_type: group.type,
-                to_id: item.id,
-              };
+          {group.items.map((item) => {
+            const isSelected = relationships.some(
+              (r) => r.to_type === group.type && r.to_id === item.id
+            );
 
-              const isSelected = selected.some(
-                (r) =>
-                  r.to_type === rel.to_type &&
-                  r.to_id === rel.to_id
-              );
-
-              return (
-                <label key={item.id} className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => toggleRelationship(rel)}
-                  />
-                  {item.name || item.title}
-                </label>
-              );
-            })}
-          </div>
+            return (
+              <label key={item.id} className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() =>
+                    toggleRelationship({
+                      from_type: fromType,
+                      from_id: fromId,
+                      to_type: group.type,
+                      to_id: item.id,
+                    })
+                  }
+                />
+                {item.name || item.title}
+              </label>
+            );
+          })}
         </div>
       ))}
     </div>

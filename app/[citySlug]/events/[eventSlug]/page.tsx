@@ -52,15 +52,63 @@ export default function EventDetailPage({
     <div className="p-6 space-y-6">
       <h1 className="text-3xl font-bold">{event.name}</h1>
 
-      <p className="text-gray-700">{event.description}</p>
-
-      <p className="text-gray-500">
-        {event.start_date || "—"} → {event.end_date || "—"}
+      <p className="text-gray-700 whitespace-pre-line">
+        {event.description || "No description provided."}
       </p>
 
-      <p className="text-gray-500">Severity: {event.severity || "—"}</p>
-      <p className="text-gray-500">Casualties: {event.casualties || "—"}</p>
-      <p className="text-gray-500">Economic Impact: {event.economic_impact || "—"}</p>
+      <div className="text-gray-500">
+        <span className="font-medium">Event Type:</span> {event.event_type || "—"}
+      </div>
+
+      <div className="text-gray-500">
+        <span className="font-medium">Dates:</span>{" "}
+        {event.start_date || "—"} → {event.end_date || "—"}
+      </div>
+
+      <div className="text-gray-500">
+        <span className="font-medium">Severity:</span> {event.severity || "—"}
+      </div>
+
+      <div className="text-gray-500">
+        <span className="font-medium">Casualties:</span> {event.casualties ?? "—"}
+      </div>
+
+      <div className="text-gray-500">
+        <span className="font-medium">Economic Impact:</span>{" "}
+        {event.economic_impact ?? "—"}
+      </div>
+
+      <div className="text-gray-500">
+        <span className="font-medium">Tags:</span>{" "}
+        {Array.isArray(event.tags) && event.tags.length > 0
+          ? event.tags.join(", ")
+          : "—"}
+      </div>
+
+      <div className="text-gray-500">
+        <span className="font-medium">Slug:</span> {event.slug}
+      </div>
+
+      <div className="text-gray-500">
+        <span className="font-medium">Published:</span>{" "}
+        {event.is_published ? "Yes" : "No"}
+      </div>
+
+      {event.thumbnail_360_url && (
+        <img
+          src={event.thumbnail_360_url}
+          alt="Event thumbnail"
+          className="w-64 h-auto rounded border"
+        />
+      )}
+
+      <div className="text-gray-400 text-sm">
+        Created: {new Date(event.created_at).toLocaleString()}
+      </div>
+
+      <div className="text-gray-400 text-sm">
+        Updated: {new Date(event.updated_at).toLocaleString()}
+      </div>
     </div>
   );
 }
