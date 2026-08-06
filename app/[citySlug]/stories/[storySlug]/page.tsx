@@ -21,7 +21,6 @@ export default function StoryViewPage({
 
   useEffect(() => {
     async function load() {
-      // Load city
       const { data: city } = await supabase
         .from("cities")
         .select("id")
@@ -33,7 +32,6 @@ export default function StoryViewPage({
         return;
       }
 
-      // Load story
       const { data: storyData } = await supabase
         .from("civic_stories")
         .select("*")
@@ -81,6 +79,15 @@ export default function StoryViewPage({
           </div>
         </section>
 
+        {/* Author & Contributor */}
+        <section className="space-y-2">
+          <h2 className="text-xl font-semibold">Authorship</h2>
+
+          <p><strong>Author Name:</strong> {story.author_name || "—"}</p>
+          <p><strong>Contributor ID:</strong> {story.contributor_id || "—"}</p>
+          <p><strong>Editor ID:</strong> {story.editor_id || "—"}</p>
+        </section>
+
         {/* 360° Visuals */}
         <section className="space-y-2">
           <h2 className="text-xl font-semibold">360° Visuals</h2>
@@ -88,19 +95,6 @@ export default function StoryViewPage({
           <p><strong>Hero 360° URL:</strong> {story.hero_360_url || "—"}</p>
           <p><strong>Thumbnail 360° URL:</strong> {story.thumbnail_360_url || "—"}</p>
           <p><strong>Neighborhood 360° URL:</strong> {story.neighborhood_360_url || "—"}</p>
-
-          <div>
-            <strong>Inline 360° URLs:</strong>
-            {story.inline_360_urls && story.inline_360_urls.length > 0 ? (
-              <ul className="list-disc ml-6 mt-2">
-                {story.inline_360_urls.map((url: string, idx: number) => (
-                  <li key={idx}>{url}</li>
-                ))}
-              </ul>
-            ) : (
-              <p>—</p>
-            )}
-          </div>
         </section>
 
         {/* Civic Metadata */}
@@ -110,6 +104,84 @@ export default function StoryViewPage({
           <p><strong>Year:</strong> {story.year || "—"}</p>
           <p><strong>Date Range:</strong> {story.date_range || "—"}</p>
           <p><strong>Neighborhood:</strong> {story.neighborhood || "—"}</p>
+          <p><strong>City (string field):</strong> {story.city || "—"}</p>
+        </section>
+
+        {/* Related Civic Objects */}
+        <section className="space-y-2">
+          <h2 className="text-xl font-semibold">Related Civic Objects</h2>
+
+          <p><strong>Related Places:</strong></p>
+          {story.related_place_ids?.length ? (
+            <ul className="list-disc ml-6">
+              {story.related_place_ids.map((id: string) => (
+                <li key={id}>{id}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>—</p>
+          )}
+
+          <p><strong>Related Entities:</strong></p>
+          {story.related_entity_ids?.length ? (
+            <ul className="list-disc ml-6">
+              {story.related_entity_ids.map((id: string) => (
+                <li key={id}>{id}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>—</p>
+          )}
+
+          <p><strong>Related Moments:</strong></p>
+          {story.related_moment_ids?.length ? (
+            <ul className="list-disc ml-6">
+              {story.related_moment_ids.map((id: string) => (
+                <li key={id}>{id}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>—</p>
+          )}
+
+          <p><strong>Related Events:</strong></p>
+          {story.related_event_ids?.length ? (
+            <ul className="list-disc ml-6">
+              {story.related_event_ids.map((id: string) => (
+                <li key={id}>{id}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>—</p>
+          )}
+        </section>
+
+        {/* Cross-City Links */}
+        <section className="space-y-2">
+          <h2 className="text-xl font-semibold">Cross-City Links</h2>
+
+          {story.cross_city_links?.length ? (
+            <ul className="list-disc ml-6">
+              {story.cross_city_links.map((link: string, idx: number) => (
+                <li key={idx}>{link}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>—</p>
+          )}
+        </section>
+
+        {/* Review Workflow */}
+        <section className="space-y-2">
+          <h2 className="text-xl font-semibold">Review Workflow</h2>
+
+          <p><strong>Review Status:</strong> {story.review_status || "—"}</p>
+          <p><strong>Review Notes:</strong> {story.review_notes || "—"}</p>
+          <p><strong>Reviewed At:</strong> {story.reviewed_at || "—"}</p>
+          <p><strong>Revision Requested:</strong> {story.revision_requested ? "Yes" : "No"}</p>
+          <p><strong>Revision Notes:</strong> {story.revision_notes || "—"}</p>
+          <p><strong>Revision Submitted At:</strong> {story.revision_submitted_at || "—"}</p>
+          <p><strong>Flag Reason:</strong> {story.flag_reason || "—"}</p>
         </section>
 
         {/* Sponsorship */}
@@ -128,6 +200,10 @@ export default function StoryViewPage({
           <h2 className="text-xl font-semibold">Publication</h2>
 
           <p><strong>Published:</strong> {story.is_published ? "Yes" : "No"}</p>
+          <p><strong>Published At:</strong> {story.published_at || "—"}</p>
+          <p><strong>Created At:</strong> {story.created_at || "—"}</p>
+          <p><strong>Updated At:</strong> {story.updated_at || "—"}</p>
+          <p><strong>Frozen:</strong> {story.is_frozen ? "Yes" : "No"}</p>
         </section>
       </div>
 

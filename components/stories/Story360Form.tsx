@@ -7,8 +7,6 @@ interface Story360FormProps {
   setThumbnail360Url: (url: string) => void;
   neighborhood360Url: string;
   setNeighborhood360Url: (url: string) => void;
-  inline360Urls: string[];
-  setInline360Urls: (urls: string[]) => void;
   citySlug: string;
   slug: string;
 }
@@ -20,8 +18,6 @@ export default function Story360Form({
   setThumbnail360Url,
   neighborhood360Url,
   setNeighborhood360Url,
-  inline360Urls,
-  setInline360Urls,
   citySlug,
   slug,
 }: Story360FormProps) {
@@ -52,31 +48,6 @@ export default function Story360Form({
     }
 
     setter(url);
-  }
-
-  async function uploadInline360(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = e.target.files;
-    if (!files) return;
-
-    const urls = [];
-
-    for (const file of Array.from(files)) {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("citySlug", citySlug);
-      formData.append("slug", slug);
-      formData.append("filename", "inline360");
-
-      const res = await fetch("/api/upload/story-360", {
-        method: "POST",
-        body: formData,
-      });
-
-      const { url, error } = await res.json();
-      if (!error) urls.push(url);
-    }
-
-    setInline360Urls(urls);
   }
 
   return (
@@ -124,26 +95,6 @@ export default function Story360Form({
         />
         {neighborhood360Url && (
           <img src={neighborhood360Url} className="rounded border" />
-        )}
-      </div>
-
-      {/* Inline 360 */}
-      <div className="space-y-2">
-        <label className="font-medium">Inline 360° Images</label>
-        <input
-          type="file"
-          accept="image/*"
-          multiple
-          className="w-full border p-2 rounded"
-          onChange={uploadInline360}
-        />
-
-        {inline360Urls.length > 0 && (
-          <div className="grid grid-cols-2 gap-2">
-            {inline360Urls.map((url, i) => (
-              <img key={i} src={url} className="rounded border" />
-            ))}
-          </div>
         )}
       </div>
     </section>
