@@ -3,6 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useLoadNeighborhood } from "@/hooks/useLoadNeighborhood";
 import { saveNeighborhood } from "@/lib/neighborhoods/saveNeighborhood";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 interface EditNeighborhoodPageProps {
   params: {
@@ -26,8 +32,6 @@ export default function EditNeighborhoodPage({ params }: EditNeighborhoodPagePro
     setSlug,
     description,
     setDescription,
-    thumbnailUrl,
-    setThumbnailUrl,
     isPublished,
     setIsPublished,
   } = useLoadNeighborhood(citySlug, neighborhoodSlug);
@@ -44,7 +48,6 @@ export default function EditNeighborhoodPage({ params }: EditNeighborhoodPagePro
       name,
       slug,
       description,
-      thumbnailUrl,
       isPublished,
     });
   }
@@ -75,13 +78,6 @@ export default function EditNeighborhoodPage({ params }: EditNeighborhoodPagePro
           onChange={(e) => setDescription(e.target.value)}
         />
 
-        <input
-          className="border p-2 w-full"
-          placeholder="Thumbnail URL"
-          value={thumbnailUrl}
-          onChange={(e) => setThumbnailUrl(e.target.value)}
-        />
-
         <label className="flex items-center gap-2">
           <input
             type="checkbox"
@@ -96,6 +92,37 @@ export default function EditNeighborhoodPage({ params }: EditNeighborhoodPagePro
           className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
         >
           Save Changes
+        </button>
+
+        <button
+          onClick={async () => {
+            if (!confirm("Are you sure you want to delete this Neighborhood? This cannot be undone.")) {
+              return;
+            }
+
+            const { error } = await supabase
+              .from("civic_neighborhoods")
+              .delete()
+              .eq("id", neighborhood.id);
+
+            if (error) {
+              console.error(error);
+              alert("Error deleting neighborhood.");
+              return;
+            }
+
+            router.push(`/${citySlug}/neighborhoods`);
+          }}
+          className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+        >
+          Delete Neighborhood
+        </button>
+
+        <button
+          onClick={() => router.push(`/${citySlug}/neighborhoods`)}
+          className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400"
+        >
+          Cancel
         </button>
       </div>
     </div>

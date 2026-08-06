@@ -19,7 +19,6 @@ export default function CreateNeighborhoodPage({ params }: { params: { citySlug:
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
-  const [thumbnailUrl, setThumbnailUrl] = useState("");
   const [isPublished, setIsPublished] = useState(false);
 
   useEffect(() => {
@@ -52,7 +51,6 @@ export default function CreateNeighborhoodPage({ params }: { params: { citySlug:
         name,
         slug,
         description,
-        thumbnail_url: thumbnailUrl,
         is_published: isPublished,
       })
       .select("*")
@@ -95,13 +93,6 @@ export default function CreateNeighborhoodPage({ params }: { params: { citySlug:
           onChange={(e) => setDescription(e.target.value)}
         />
 
-        <input
-          className="border p-2 w-full"
-          placeholder="Thumbnail URL"
-          value={thumbnailUrl}
-          onChange={(e) => setThumbnailUrl(e.target.value)}
-        />
-
         <label className="flex items-center gap-2">
           <input
             type="checkbox"
@@ -116,6 +107,13 @@ export default function CreateNeighborhoodPage({ params }: { params: { citySlug:
           className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
         >
           Create Neighborhood
+        </button>
+
+        <button
+          onClick={() => router.push(`/${citySlug}/neighborhoods`)}
+          className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400"
+        >
+          Cancel
         </button>
       </div>
     </div>
