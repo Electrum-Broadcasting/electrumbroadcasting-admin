@@ -10,7 +10,7 @@ export async function saveNeighborhood({
   name,
   slug,
   description,
-  thumbnailUrl,
+ 
   isPublished,
 }: {
   neighborhoodId: string;
@@ -19,7 +19,7 @@ export async function saveNeighborhood({
   name: string;
   slug: string;
   description: string;
-  thumbnailUrl: string;
+ 
   isPublished: boolean;
 }) {
   const supabase = createBrowserClient(
@@ -33,7 +33,7 @@ export async function saveNeighborhood({
       name,
       slug,
       description,
-      thumbnail_url: thumbnailUrl,
+   
       is_published: isPublished,
     })
     .eq("id", neighborhoodId);

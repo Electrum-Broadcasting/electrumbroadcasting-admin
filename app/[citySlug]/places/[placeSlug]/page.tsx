@@ -52,19 +52,44 @@ export default function PlaceDetailPage({
     <div className="p-6 space-y-6">
       <h1 className="text-3xl font-bold">{place.name}</h1>
 
-      <p className="text-gray-700">{place.description}</p>
-
-      <p className="text-gray-500">Type: {place.place_type || "—"}</p>
-      <p className="text-gray-500">Neighborhood: {place.neighborhood || "—"}</p>
-
-      <p className="text-gray-500">
-        Coordinates: {place.latitude}, {place.longitude}
+      <p className="text-gray-700 whitespace-pre-line">
+        {place.description || "No description provided."}
       </p>
 
-      <p className="text-gray-500">
-        Built: {place.year_built || "—"}  
+      <div className="text-gray-500">
+        <span className="font-medium">Type:</span> {place.place_type || "—"}
+      </div>
+
+      <div className="text-gray-500">
+        <span className="font-medium">Neighborhood:</span> {place.neighborhood || "—"}
+      </div>
+
+      <div className="text-gray-500">
+        <span className="font-medium">Coordinates:</span>{" "}
+        {place.latitude}, {place.longitude}
+      </div>
+
+      <div className="text-gray-500">
+        <span className="font-medium">Built:</span> {place.year_built || "—"}
         {place.year_demolished ? ` | Demolished: ${place.year_demolished}` : ""}
-      </p>
+      </div>
+
+      <div className="text-gray-500">
+        <span className="font-medium">Slug:</span> {place.slug}
+      </div>
+
+      <div className="text-gray-500">
+        <span className="font-medium">Published:</span>{" "}
+        {place.is_published ? "Yes" : "No"}
+      </div>
+
+      <div className="text-gray-400 text-sm">
+        Created: {new Date(place.created_at).toLocaleString()}
+      </div>
+
+      <div className="text-gray-400 text-sm">
+        Updated: {new Date(place.updated_at).toLocaleString()}
+      </div>
     </div>
   );
 }

@@ -32,6 +32,8 @@ export default function EditNeighborhoodPage({ params }: EditNeighborhoodPagePro
     setSlug,
     description,
     setDescription,
+    thumbnailUrl,
+    setThumbnailUrl,
     isPublished,
     setIsPublished,
   } = useLoadNeighborhood(citySlug, neighborhoodSlug);
