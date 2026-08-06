@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createBrowserClient } from "@supabase/ssr";
 
-export default function MomentDetailPage({ params }: { params: { citySlug: string; momentSlug: string } }) {
+export default function MomentDetailPage({
+  params,
+}: {
+  params: { citySlug: string; momentSlug: string };
+}) {
   const { citySlug, momentSlug } = params;
 
   const supabase = createBrowserClient(
@@ -17,6 +21,7 @@ export default function MomentDetailPage({ params }: { params: { citySlug: strin
 
   useEffect(() => {
     async function load() {
+      // Load city
       const { data: city } = await supabase
         .from("cities")
         .select("id")
@@ -28,6 +33,7 @@ export default function MomentDetailPage({ params }: { params: { citySlug: strin
         return;
       }
 
+      // Load moment
       const { data: momentData } = await supabase
         .from("civic_moments")
         .select("*")
@@ -46,7 +52,7 @@ export default function MomentDetailPage({ params }: { params: { citySlug: strin
   if (!moment) return <div className="p-6">Moment not found.</div>;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 max-w-3xl">
       <h1 className="text-3xl font-bold">{moment.title}</h1>
 
       <Link
@@ -56,16 +62,22 @@ export default function MomentDetailPage({ params }: { params: { citySlug: strin
         Edit Moment
       </Link>
 
-      <div className="space-y-8 max-w-3xl">
+      <div className="space-y-8">
+
+        {/* Basics */}
         <section className="space-y-2">
           <h2 className="text-xl font-semibold">Basics</h2>
           <p><strong>Slug:</strong> {moment.slug}</p>
-          <p><strong>Body:</strong></p>
-          <pre className="whitespace-pre-wrap border p-3 rounded mt-2">
-            {moment.body || "—"}
-          </pre>
+
+          <div>
+            <strong>Body:</strong>
+            <pre className="whitespace-pre-wrap border p-3 rounded mt-2">
+              {moment.body || "—"}
+            </pre>
+          </div>
         </section>
 
+        {/* Timeline */}
         <section className="space-y-2">
           <h2 className="text-xl font-semibold">Timeline</h2>
           <p>
@@ -76,24 +88,32 @@ export default function MomentDetailPage({ params }: { params: { citySlug: strin
           </p>
         </section>
 
+        {/* 360° Visuals */}
         <section className="space-y-2">
           <h2 className="text-xl font-semibold">360° Visuals</h2>
-          <p><strong>Thumbnail:</strong> {moment.thumbnail_360_url || "—"}</p>
-          <strong>Inline 360° URLs:</strong>
-          {moment.inline_360_urls?.length ? (
-            <ul className="list-disc ml-6 mt-2">
-              {moment.inline_360_urls.map((url: string, idx: number) => (
-                <li key={idx}>{url}</li>
-              ))}
-            </ul>
-          ) : (
-            <p>—</p>
-          )}
+
+          <p><strong>Thumbnail 360° URL:</strong> {moment.thumbnail_360_url || "—"}</p>
+
+          <div>
+            <strong>Inline 360° URLs:</strong>
+            {moment.inline_360_urls?.length ? (
+              <ul className="list-disc ml-6 mt-2">
+                {moment.inline_360_urls.map((url: string, idx: number) => (
+                  <li key={idx}>{url}</li>
+                ))}
+              </ul>
+            ) : (
+              <p>—</p>
+            )}
+          </div>
         </section>
 
+        {/* Publication */}
         <section className="space-y-2">
           <h2 className="text-xl font-semibold">Publication</h2>
           <p><strong>Published:</strong> {moment.is_published ? "Yes" : "No"}</p>
+          <p><strong>Created At:</strong> {moment.created_at || "—"}</p>
+          <p><strong>Updated At:</strong> {moment.updated_at || "—"}</p>
         </section>
       </div>
 
