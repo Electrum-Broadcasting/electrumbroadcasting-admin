@@ -1,6 +1,6 @@
 "use client";
 
-import { createBrowserClient } from "@supabase/ssr";
+import { createBrowserClient } from "@/lib/supabase/client";
 
 export async function saveNeighborhood({
   neighborhoodId,
@@ -10,7 +10,7 @@ export async function saveNeighborhood({
   name,
   slug,
   description,
-  thumbnailUrl,
+ 
   isPublished,
 }: {
   neighborhoodId: string;
@@ -19,13 +19,10 @@ export async function saveNeighborhood({
   name: string;
   slug: string;
   description: string;
-  thumbnailUrl: string;
+ 
   isPublished: boolean;
 }) {
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = createBrowserClient();
 
   const { error } = await supabase
     .from("civic_neighborhoods")
@@ -33,7 +30,7 @@ export async function saveNeighborhood({
       name,
       slug,
       description,
-      thumbnail_url: thumbnailUrl,
+   
       is_published: isPublished,
     })
     .eq("id", neighborhoodId);

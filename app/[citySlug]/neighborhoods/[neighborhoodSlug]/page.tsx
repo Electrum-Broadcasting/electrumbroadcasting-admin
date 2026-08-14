@@ -1,12 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createBrowserClient } from "@supabase/ssr";
+import { createBrowserClient } from "@/lib/supabase/client";
 
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const supabase = createBrowserClient();
 
 export default function NeighborhoodDetailPage({
   params,
@@ -52,7 +49,26 @@ export default function NeighborhoodDetailPage({
     <div className="p-6 space-y-6">
       <h1 className="text-3xl font-bold">{neighborhood.name}</h1>
 
-      <p className="text-gray-700">{neighborhood.description}</p>
+      <p className="text-gray-700 whitespace-pre-line">
+        {neighborhood.description || "No description provided."}
+      </p>
+
+      <div className="text-gray-500">
+        <span className="font-medium">Slug:</span> {neighborhood.slug}
+      </div>
+
+      <div className="text-gray-500">
+        <span className="font-medium">Published:</span>{" "}
+        {neighborhood.is_published ? "Yes" : "No"}
+      </div>
+
+      <div className="text-gray-400 text-sm">
+        Created: {new Date(neighborhood.created_at).toLocaleString()}
+      </div>
+
+      <div className="text-gray-400 text-sm">
+        Updated: {new Date(neighborhood.updated_at).toLocaleString()}
+      </div>
     </div>
   );
 }

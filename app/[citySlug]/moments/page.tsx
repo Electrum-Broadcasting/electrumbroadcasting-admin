@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { createBrowserClient } from "@supabase/ssr";
+import { createBrowserClient } from "@/lib/supabase/client";
 
 function formatMomentTime(ts: string | null): string {
   if (!ts) return "";
@@ -19,11 +19,8 @@ function formatMomentTime(ts: string | null): string {
 export default function MomentsListPage({ params }: { params: { citySlug: string } }) {
   const { citySlug } = params;
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-
+  const supabase = createBrowserClient();
+  
   const [loading, setLoading] = useState(true);
   const [moments, setMoments] = useState<any[]>([]);
 
@@ -86,14 +83,14 @@ export default function MomentsListPage({ params }: { params: { citySlug: string
             </div>
 
 <Link
-  href={`/${m.city_slug}/moments/${m.slug}`}
+  href={`/${citySlug}/moments/${m.slug}`}
   className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
 >
   View
 </Link>
 
 <Link
-  href={`/${m.city_slug}/moments/${m.slug}/edit`}
+  href={`/${citySlug}/moments/${m.slug}/edit`}
   className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 ml-2"
 >
   Edit

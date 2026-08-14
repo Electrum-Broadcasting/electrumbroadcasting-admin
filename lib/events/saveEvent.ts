@@ -1,7 +1,29 @@
 "use client";
 
-import { createBrowserClient } from "@supabase/ssr";
+import { createBrowserClient } from "@/lib/supabase/client";
 import { replaceUnifiedRelationships } from "@/lib/joinTables";
+
+type SaveEventParams = {
+  eventId: string;
+  citySlug: string;
+  router: { push: (path: string) => void };
+  name: string;
+  slug: string;
+  eventType: string;
+  description: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  tags: string;
+  thumbnail360Url?: string | null;
+  isPublished: boolean;
+  eras: Array<{
+    id: string;
+    start_year: number;
+    end_year?: number | null;
+  }>;
+  selectedEraIds: string[];
+  existingRelationships: unknown;
+};
 
 export async function saveEvent({
   eventId,
@@ -25,11 +47,8 @@ export async function saveEvent({
 
   // Unified relationships
   existingRelationships,
-}) {
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+}: SaveEventParams) {
+  const supabase = createBrowserClient();
 
   // -----------------------------
   // 1. Update event
@@ -58,8 +77,12 @@ export async function saveEvent({
   // -----------------------------
   // 2. Auto-assign eras
   // -----------------------------
-  function autoAssignEras(eras, startDate, endDate) {
-    const matches = [];
+  function autoAssignEras(
+    eras: SaveEventParams["eras"],
+    startDate?: string | null,
+    endDate?: string | null
+  ): string[] {
+    const matches: string[] = [];
 
     const startYear = startDate ? new Date(startDate).getFullYear() : null;
     const endYear = endDate ? new Date(endDate).getFullYear() : startYear;

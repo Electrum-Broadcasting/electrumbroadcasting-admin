@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { createBrowserClient } from "@supabase/ssr";
+import { createBrowserClient } from "@/lib/supabase/client";
 
 import EventBasicsForm from "@/components/events/EventBasicsForm";
 import EventDatesForm from "@/components/events/EventDatesForm";
@@ -12,14 +12,11 @@ import RelationshipSelector from "@/components/relationships/RelationshipSelecto
 
 import { replaceUnifiedRelationships } from "@/lib/joinTables";
 
-export default function CreateEventPage({ params }) {
+export default function CreateEventPage({ params }: { params: { citySlug: string } }) {
   const { citySlug } = params;
   const router = useRouter();
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = createBrowserClient();
 
   const [loading, setLoading] = useState(true);
   const [cityId, setCityId] = useState<string | null>(null);
@@ -196,12 +193,58 @@ export default function CreateEventPage({ params }) {
           onChange={setSelectedRelationships}
         />
 
+        <div className="space-y-2">
+  <label className="font-medium">Thumbnail 360° Image</label>
+  <input
+    type="file"
+    accept="image/*"
+    onChange={async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const filePath = `thumbnails/events/${Date.now()}-${file.name}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("public")
+        .upload(filePath, file);
+
+      if (uploadError) {
+        console.error(uploadError);
+        alert("Error uploading thumbnail.");
+        return;
+      }
+
+      const { data: urlData } = supabase.storage
+        .from("public")
+        .getPublicUrl(filePath);
+
+      setThumbnail360Url(urlData.publicUrl);
+    }}
+    className="border p-2 w-full"
+  />
+
+  {thumbnail360Url && (
+    <img
+      src={thumbnail360Url}
+      alt="Thumbnail preview"
+      className="w-48 h-auto rounded border"
+    />
+  )}
+</div>
+
         <button
           onClick={handleCreate}
           className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
         >
           Create Event
         </button>
+
+        <button
+  onClick={() => router.push(`/${citySlug}/events`)}
+  className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400"
+>
+  Cancel
+</button>
       </div>
     </div>
   );

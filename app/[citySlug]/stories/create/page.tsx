@@ -2,12 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { createBrowserClient } from "@supabase/ssr";
+import { createBrowserClient } from "@/lib/supabase/client";
 
 import StoryBasicsForm from "@/components/stories/StoryBasicsForm";
-import StoryHeroImageForm from "@/components/stories/StoryHeroImageForm";
-import Story360Form from "@/components/stories/Story360Form";
 import StoryMetadataForm from "@/components/stories/StoryMetadataForm";
+import Story360Form from "@/components/stories/Story360Form";
 import StorySponsorForm from "@/components/stories/StorySponsorForm";
 import StoryPublishForm from "@/components/stories/StoryPublishForm";
 import RelationshipSelector from "@/components/relationships/RelationshipSelector";
@@ -18,10 +17,7 @@ export default function CreateStoryPage({ params }: { params: { citySlug: string
   const { citySlug } = params;
   const router = useRouter();
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = createBrowserClient();
 
   const [loading, setLoading] = useState(true);
   const [cityId, setCityId] = useState<string | null>(null);
@@ -34,21 +30,19 @@ export default function CreateStoryPage({ params }: { params: { citySlug: string
   const [category, setCategory] = useState("");
   const [tags, setTags] = useState("");
 
-  // Hero
-  const [heroImageUrl, setHeroImageUrl] = useState("");
-
-  // 360°
-  const [hero360Url, setHero360Url] = useState("");
-  const [thumbnail360Url, setThumbnail360Url] = useState("");
-  const [neighborhood360Url, setNeighborhood360Url] = useState("");
-  const [inline360Urls, setInline360Urls] = useState<string[]>([]);
-
   // Metadata
   const [year, setYear] = useState<number | null>(null);
   const [dateRange, setDateRange] = useState("");
   const [neighborhood, setNeighborhood] = useState("");
+  const [neighborhoods, setNeighborhoods] = useState<any[]>([]);
 
-  // Sponsor
+  // 360° Media
+  const [hero360Url, setHero360Url] = useState("");
+  const [thumbnail360Url, setThumbnail360Url] = useState("");
+  const [neighborhood360Url, setNeighborhood360Url] = useState("");
+  
+
+  // Sponsorship
   const [sponsor360Url, setSponsor360Url] = useState("");
   const [sponsorFlatUrl, setSponsorFlatUrl] = useState("");
   const [sponsorName, setSponsorName] = useState("");
@@ -57,6 +51,7 @@ export default function CreateStoryPage({ params }: { params: { citySlug: string
 
   // Publish
   const [isPublished, setIsPublished] = useState(false);
+  const [isFrozen, setIsFrozen] = useState(false);
 
   // Relationships
   const [events, setEvents] = useState<any[]>([]);
@@ -79,6 +74,15 @@ export default function CreateStoryPage({ params }: { params: { citySlug: string
       }
 
       setCityId(city.id);
+
+      // Neighborhood dropdown
+      const { data: neighborhoodList } = await supabase
+        .from("civic_neighborhoods")
+        .select("name")
+        .eq("city_id", city.id)
+        .order("name");
+
+      setNeighborhoods(neighborhoodList || []);
 
       // Events
       const { data: eventList } = await supabase
@@ -129,29 +133,35 @@ export default function CreateStoryPage({ params }: { params: { citySlug: string
       .from("civic_stories")
       .insert({
         city_id: cityId,
+
+        // Basics
         title,
         slug,
         summary,
         body,
         category,
         tags: tags ? tags.split(",").map((t) => t.trim()) : [],
+
+        // Metadata
         year,
         date_range: dateRange,
         neighborhood,
 
-        hero_image_url: heroImageUrl,
+        // 360° Media
         hero_360_url: hero360Url,
         thumbnail_360_url: thumbnail360Url,
         neighborhood_360_url: neighborhood360Url,
-        inline_360_urls: inline360Urls,
 
+        // Sponsorship
         sponsor_360_url: sponsor360Url,
         sponsor_flat_url: sponsorFlatUrl,
         sponsor_name: sponsorName,
         sponsor_link: sponsorLink,
         sponsor_alt_text: sponsorAltText,
 
+        // Publish
         is_published: isPublished,
+        is_frozen: isFrozen,
       })
       .select("*")
       .single();
@@ -201,11 +211,27 @@ export default function CreateStoryPage({ params }: { params: { citySlug: string
         ]}
       />
 
-      <StoryHeroImageForm
-        heroImageUrl={heroImageUrl}
-        setHeroImageUrl={setHeroImageUrl}
-        citySlug={citySlug}
-        slug={slug}
+      {/* Neighborhood Dropdown */}
+      <select
+        className="border p-2 w-full"
+        value={neighborhood}
+        onChange={(e) => setNeighborhood(e.target.value)}
+      >
+        <option value="">Select Neighborhood</option>
+        {neighborhoods.map((n) => (
+          <option key={n.name} value={n.name}>
+            {n.name}
+          </option>
+        ))}
+      </select>
+
+      <StoryMetadataForm
+        year={year}
+        setYear={setYear}
+        dateRange={dateRange}
+        setDateRange={setDateRange}
+        neighborhood={neighborhood}
+        setNeighborhood={setNeighborhood}
       />
 
       <Story360Form
@@ -215,19 +241,8 @@ export default function CreateStoryPage({ params }: { params: { citySlug: string
         setThumbnail360Url={setThumbnail360Url}
         neighborhood360Url={neighborhood360Url}
         setNeighborhood360Url={setNeighborhood360Url}
-        inline360Urls={inline360Urls}
-        setInline360Urls={setInline360Urls}
         citySlug={citySlug}
         slug={slug}
-      />
-
-      <StoryMetadataForm
-        year={year}
-        setYear={setYear}
-        dateRange={dateRange}
-        setDateRange={setDateRange}
-        neighborhood={neighborhood}
-        setNeighborhood={setNeighborhood}
       />
 
       <StorySponsorForm
@@ -261,11 +276,28 @@ export default function CreateStoryPage({ params }: { params: { citySlug: string
         setIsPublished={setIsPublished}
       />
 
+      {/* Frozen checkbox */}
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={isFrozen}
+          onChange={(e) => setIsFrozen(e.target.checked)}
+        />
+        Frozen
+      </label>
+
       <button
         onClick={handleCreate}
         className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
       >
         Create Story
+      </button>
+
+      <button
+        onClick={() => router.push(`/${citySlug}/stories`)}
+        className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400"
+      >
+        Cancel
       </button>
     </div>
   );

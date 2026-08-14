@@ -1,6 +1,6 @@
 "use client";
 
-import { createBrowserClient } from "@supabase/ssr";
+import { createBrowserClient } from "@/lib/supabase/client";
 import { replaceUnifiedRelationships } from "@/lib/joinTables";
 
 export async function saveEntity({
@@ -42,10 +42,7 @@ export async function saveEntity({
   isPublished: boolean;
   existingRelationships: any[];
 }) {
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = createBrowserClient();
 
   // 1. Update entity fields
   const { error } = await supabase
