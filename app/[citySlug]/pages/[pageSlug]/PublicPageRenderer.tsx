@@ -166,7 +166,7 @@ export default function PublicPageRenderer({ params }: { params: { citySlug: str
               />
             );
 
-          case supabase.from("civic_eras"):
+          case "eras":
             return (
               <EraModuleEditor
                 key={index}

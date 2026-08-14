@@ -1,4 +1,6 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import type { AdminRole } from "@/lib/admin/types";
 
 const ADMIN_COOKIE_NAME = "admin_session";
 
@@ -12,8 +14,8 @@ export function setAdminSessionCookie(session: AdminSession) {
     ADMIN_COOKIE_NAME,
     JSON.stringify(session),
     {
-      httpOnly: false,      // TEMP: make visible in devtools
-      secure: false,        // TEMP: avoid HTTPS requirement
+      httpOnly: false,
+      secure: false,
       sameSite: "lax",
       path: "/",
     }
@@ -43,4 +45,17 @@ export function getAdminSession(): AdminSession | null {
   } catch {
     return null;
   }
+}
+
+export async function requireAdminContext() {
+  const session = getAdminSession();
+  if (!session?.admin_id || !session?.role) {
+    redirect("/login");
+  }
+
+  return {
+    id: session.admin_id,
+    role: session.role as AdminRole,
+    email: null,
+  };
 }

@@ -1,27 +1,17 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import { CityActions } from "@/components/admin/cities/CityActions";
 
-export function CitiesTable() {
-  const [cities, setCities] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function loadCities() {
-      const res = await fetch("/api/admin/cities");
-      const data = await res.json();
-      setCities(data.cities);
-      setLoading(false);
-    }
-    loadCities();
-  }, []);
-
-  if (loading) {
-    return <p className="text-slate-500 text-sm">Loading cities…</p>;
+export function CitiesTable({
+  cities,
+  error,
+}: {
+  cities: any[];
+  error?: string | null;
+}) {
+  if (error) {
+    return <p className="text-sm text-red-600">Unable to load cities: {error}</p>;
   }
 
-  if (cities.length === 0) {
+  if (!cities.length) {
     return <p className="text-slate-500 text-sm">No cities found.</p>;
   }
 
@@ -47,7 +37,7 @@ export function CitiesTable() {
               <td className="px-4 py-2 text-sm text-slate-700">{c.domain ?? "—"}</td>
               <td className="px-4 py-2 text-sm text-slate-700">{c.status}</td>
               <td className="px-4 py-2 text-sm text-slate-700">
-                {new Date(c.created_at).toLocaleDateString()}
+                {c.created_at ? new Date(c.created_at).toLocaleDateString() : "—"}
               </td>
               <td className="px-4 py-2 text-sm text-slate-700">
                 <CityActions city={c} />

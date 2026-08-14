@@ -22,6 +22,22 @@ export interface AdminContext {
   cityIds: string[];
 }
 
+export interface AdminTableConfigField {
+  name: string;
+  label: string;
+  type: "text" | "textarea" | "number" | "date" | "boolean" | "json";
+  required?: boolean;
+  readOnly?: boolean;
+}
+
+export interface AdminTableConfig {
+  key: string;
+  label: string;
+  route: string;
+  titleField: string;
+  fields: AdminTableConfigField[];
+}
+
 /**
  * Unified Story domain model
  * Shared across:
