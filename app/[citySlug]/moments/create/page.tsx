@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { flushSync } from "react-dom";
-import { createBrowserClient } from "@supabase/ssr";
+import { createBrowserClient } from "@/lib/supabase/client";
 
 import { saveMoment } from "@/lib/moments/saveMoment";
 
@@ -24,10 +24,7 @@ export default function CreateMomentPage({ params }: CreateMomentPageProps) {
   const { citySlug } = params;
   const router = useRouter();
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = createBrowserClient();
 
   const [loading, setLoading] = useState(true);
   const [cityId, setCityId] = useState<string | null>(null);

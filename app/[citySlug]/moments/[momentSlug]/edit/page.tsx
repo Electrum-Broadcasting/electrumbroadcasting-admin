@@ -2,10 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { flushSync } from "react-dom";
+import { createBrowserClient } from "@/lib/supabase/client";
 
 import { useLoadMomentInitial } from "@/hooks/useLoadMomentInitial";
 import { useMomentState } from "@/hooks/useMomentState";
 import { saveMoment } from "@/lib/moments/saveMoment";
+
 
 import MomentBasicsForm from "@/components/moments/MomentBasicsForm";
 import MomentTimelineForm from "@/components/moments/MomentTimelineForm";
@@ -20,6 +22,8 @@ interface EditMomentPageProps {
     momentSlug: string;
   };
 }
+
+  const supabase = createBrowserClient();
 
 export default function EditMomentPage({ params }: EditMomentPageProps) {
   const { citySlug, momentSlug } = params;

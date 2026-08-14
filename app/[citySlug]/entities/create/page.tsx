@@ -2,27 +2,22 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { createBrowserClient } from "@supabase/ssr";
+import { createBrowserClient } from "@/lib/supabase/client";
 
 import RelationshipSelector from "@/components/relationships/RelationshipSelector";
 import { replaceUnifiedRelationships } from "@/lib/joinTables";
-import StoryHeroImageForm from "@/components/stories/StoryHeroImageForm";
-import ThumbnailUpload from "@/components/stories/ThumbnailUpload";
 
-interface CreateEntityPageProps {
-  params: {
-    citySlug: string;
-  };
-}
+// NEW: Entity-specific uploaders
+import EntityThumbnailUpload from "@/components/entities/EntityThumbnailUpload";
+import EntityHeroImageUpload from "@/components/entities/EntityHeroImageUpload";
+import EntityHero360Upload from "@/components/entities/EntityHero360Upload";
+import EntityMediaUpload from "@/components/entities/EntityMediaUpload";
 
-export default function CreateEntityPage({ params }: CreateEntityPageProps) {
+export default function CreateEntityPage({ params }: { params: { citySlug: string } }) {
   const { citySlug } = params;
   const router = useRouter();
 
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const supabase = createBrowserClient();
 
   const [loading, setLoading] = useState(true);
   const [cityId, setCityId] = useState<string | null>(null);
@@ -32,8 +27,8 @@ const supabase = createBrowserClient(
   const [slug, setSlug] = useState("");
   const [entityType, setEntityType] = useState("");
   const [roles, setRoles] = useState("");
-  const [description, setDescription] = useState("");
   const [summary, setSummary] = useState("");
+  const [description, setDescription] = useState("");
 
   // Media
   const [thumbnailUrl, setThumbnailUrl] = useState("");
@@ -73,37 +68,17 @@ const supabase = createBrowserClient(
 
       setCityId(city.id);
 
-      const { data: eventList } = await supabase
-        .from("civic_events")
-        .select("id, name")
-        .eq("city_id", city.id)
-        .order("name");
+      const [eventList, artifactList, storyList, eraList] = await Promise.all([
+        supabase.from("civic_events").select("id, name").eq("city_id", city.id).order("name"),
+        supabase.from("civic_artifacts").select("id, title").eq("city_id", city.id).order("title"),
+        supabase.from("civic_stories").select("id, title").eq("city_id", city.id).order("title"),
+        supabase.from("civic_eras").select("id, name").eq("city_id", city.id).order("name"),
+      ]);
 
-      setEvents(eventList || []);
-
-      const { data: artifactList } = await supabase
-        .from("civic_artifacts")
-        .select("id, title")
-        .eq("city_id", city.id)
-        .order("title");
-
-      setArtifacts(artifactList || []);
-
-      const { data: storyList } = await supabase
-        .from("civic_stories")
-        .select("id, title")
-        .eq("city_id", city.id)
-        .order("title");
-
-      setStories(storyList || []);
-
-      const { data: eraList } = await supabase
-        .from("civic_eras")
-        .select("id, name")
-        .eq("city_id", city.id)
-        .order("name");
-
-      setEras(eraList || []);
+      setEvents(eventList.data || []);
+      setArtifacts(artifactList.data || []);
+      setStories(storyList.data || []);
+      setEras(eraList.data || []);
 
       setLoading(false);
     }
@@ -114,7 +89,7 @@ const supabase = createBrowserClient(
   async function handleCreate() {
     if (!cityId) return;
 
-    const { data: newEntity, error } = await supabase
+    const { error } = await supabase
       .from("civic_entities")
       .insert({
         city_id: cityId,
@@ -124,8 +99,8 @@ const supabase = createBrowserClient(
         slug,
         entity_type: entityType,
         roles,
-        description,
         summary,
+        description,
 
         // Media
         thumbnail_url: thumbnailUrl,
@@ -141,13 +116,22 @@ const supabase = createBrowserClient(
         era_id: eraId || null,
 
         // Publish
-        is_published: false,
-      })
+        is_published: isPublished,
+      });
+
+    if (error) {
+      alert("Error creating entity.");
+      return;
+    }
+
+    const { data: newEntity } = await supabase
+      .from("civic_entities")
       .select("*")
+      .eq("slug", slug)
+      .eq("city_id", cityId)
       .single();
 
-    if (error || !newEntity) {
-      console.error(error);
+    if (!newEntity) {
       alert("Error creating entity.");
       return;
     }
@@ -159,7 +143,7 @@ const supabase = createBrowserClient(
       selectedRelationships
     );
 
-    router.push(`/${citySlug}/entities/${slug}/edit`);
+    router.push(`/${citySlug}/entities`);
   }
 
   if (loading) return <div className="p-6">Loading…</div>;
@@ -171,9 +155,13 @@ const supabase = createBrowserClient(
       <div className="space-y-8">
 
         {/* Basics */}
-        <input className="border p-2 w-full" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
-        <input className="border p-2 w-full" placeholder="Slug" value={slug} onChange={(e) => setSlug(e.target.value)} />
+        <label className="block text-sm font-medium">Name</label>
+        <input className="border p-2 w-full" value={name} onChange={(e) => setName(e.target.value)} />
 
+        <label className="block text-sm font-medium">Slug</label>
+        <input className="border p-2 w-full" value={slug} onChange={(e) => setSlug(e.target.value)} />
+
+        <label className="block text-sm font-medium">Entity Type</label>
         <select className="border p-2 w-full" value={entityType} onChange={(e) => setEntityType(e.target.value)}>
           <option value="">Select Entity Type</option>
           <option value="person">Person</option>
@@ -185,29 +173,36 @@ const supabase = createBrowserClient(
           <option value="historical">Historical</option>
         </select>
 
-        <input className="border p-2 w-full" placeholder="Roles" value={roles} onChange={(e) => setRoles(e.target.value)} />
+        <label className="block text-sm font-medium">Roles</label>
+        <input className="border p-2 w-full" value={roles} onChange={(e) => setRoles(e.target.value)} />
 
-        <textarea className="border p-2 w-full" placeholder="Summary" value={summary} onChange={(e) => setSummary(e.target.value)} />
-        <textarea className="border p-2 w-full" placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
+        <label className="block text-sm font-medium">Summary</label>
+        <textarea className="border p-2 w-full" value={summary} onChange={(e) => setSummary(e.target.value)} />
+
+        <label className="block text-sm font-medium">Description</label>
+        <textarea className="border p-2 w-full" value={description} onChange={(e) => setDescription(e.target.value)} />
 
         {/* Birth/Death */}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium">Birth Year</label>
-            <input type="number" value={birthYear ?? ""} onChange={(e) => setBirthYear(Number(e.target.value))} className="border p-2 w-full" />
+            <input type="number" className="border p-2 w-full" value={birthYear ?? ""} onChange={(e) => setBirthYear(Number(e.target.value))} />
           </div>
 
           <div>
             <label className="block text-sm font-medium">Death Year</label>
-            <input type="number" value={deathYear ?? ""} onChange={(e) => setDeathYear(Number(e.target.value))} className="border p-2 w-full" />
+            <input type="number" className="border p-2 w-full" value={deathYear ?? ""} onChange={(e) => setDeathYear(Number(e.target.value))} />
           </div>
         </div>
 
         {/* Metadata */}
-        <input className="border p-2 w-full" placeholder="Year" value={year ?? ""} onChange={(e) => setYear(Number(e.target.value))} />
+        <label className="block text-sm font-medium">Year (Timeline)</label>
+        <input className="border p-2 w-full" value={year ?? ""} onChange={(e) => setYear(Number(e.target.value))} />
 
-        <input className="border p-2 w-full" placeholder="Tags (comma separated)" value={tags} onChange={(e) => setTags(e.target.value)} />
+        <label className="block text-sm font-medium">Tags (comma separated)</label>
+        <input className="border p-2 w-full" value={tags} onChange={(e) => setTags(e.target.value)} />
 
+        <label className="block text-sm font-medium">Era</label>
         <select className="border p-2 w-full" value={eraId} onChange={(e) => setEraId(e.target.value)}>
           <option value="">Select Era</option>
           {eras.map((era) => (
@@ -216,30 +211,33 @@ const supabase = createBrowserClient(
         </select>
 
         {/* Media */}
-        <ThumbnailUpload thumbnailUrl={thumbnailUrl} setThumbnailUrl={setThumbnailUrl} citySlug={citySlug} slug={slug} />
+        <EntityThumbnailUpload
+          slug={slug}
+          citySlug={citySlug}
+          thumbnailUrl={thumbnailUrl}
+          setThumbnailUrl={setThumbnailUrl}
+        />
 
-        <StoryHeroImageForm heroImageUrl={heroImageUrl} setHeroImageUrl={setHeroImageUrl} citySlug={citySlug} slug={slug} />
+        <EntityHeroImageUpload
+          slug={slug}
+          citySlug={citySlug}
+          heroImageUrl={heroImageUrl}
+          setHeroImageUrl={setHeroImageUrl}
+        />
 
-        {/* Hero 360 */}
-        <input className="border p-2 w-full" placeholder="Hero 360° URL" value={hero360Url} onChange={(e) => setHero360Url(e.target.value)} />
+        <EntityHero360Upload
+          slug={slug}
+          citySlug={citySlug}
+          hero360Url={hero360Url}
+          setHero360Url={setHero360Url}
+        />
 
-        {/* Media URLs */}
-        <div className="space-y-2">
-          <label className="font-semibold">Additional Media URLs</label>
-
-          {mediaUrls.map((url, idx) => (
-            <div key={idx} className="flex gap-2">
-              <input className="border p-2 w-full" value={url} onChange={(e) => {
-                const updated = [...mediaUrls];
-                updated[idx] = e.target.value;
-                setMediaUrls(updated);
-              }} />
-              <button className="bg-red-600 text-white px-3 rounded" onClick={() => setMediaUrls(mediaUrls.filter((_, i) => i !== idx))}>X</button>
-            </div>
-          ))}
-
-          <button className="bg-gray-300 px-3 py-1 rounded" onClick={() => setMediaUrls([...mediaUrls, ""])}>Add Media URL</button>
-        </div>
+        <EntityMediaUpload
+          slug={slug}
+          citySlug={citySlug}
+          mediaUrls={mediaUrls}
+          setMediaUrls={setMediaUrls}
+        />
 
         {/* Publish */}
         <label className="flex items-center gap-2">
@@ -260,8 +258,18 @@ const supabase = createBrowserClient(
           onChange={setSelectedRelationships}
         />
 
-        <button onClick={handleCreate} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+        <button
+          onClick={handleCreate}
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+        >
           Create Entity
+        </button>
+
+                <button
+          onClick={() => router.push(`/${citySlug}/entities`)}
+          className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400"
+        >
+          Cancel
         </button>
       </div>
     </div>

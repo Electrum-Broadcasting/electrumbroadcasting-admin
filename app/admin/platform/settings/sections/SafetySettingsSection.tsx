@@ -18,7 +18,11 @@ export default function SafetySettingsSection() {
 
   useEffect(() => {
     async function load() {
-      const res = await fetch("/api/admin/settings/safety", { cache: "no-store" });
+      const res = await fetch("/api/admin/settings/safety", {
+  method: "GET",
+  cache: "no-store",
+  credentials: "include",
+});
       const json = await res.json();
 
       setSettings({
@@ -48,9 +52,11 @@ export default function SafetySettingsSection() {
       return;
     }
 
-    await fetch("/api/admin/settings/safety", {
-      method: "PATCH",
-      body: JSON.stringify({
+await fetch("/api/admin/settings/safety", {
+  method: "PATCH",
+  credentials: "include",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
         ...settings,
         fraud_thresholds_json: JSON.parse(settings.fraud_thresholds_json),
         content_warning_rules_json: JSON.parse(settings.content_warning_rules_json),

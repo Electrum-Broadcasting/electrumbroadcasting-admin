@@ -2,6 +2,7 @@ import { AdminShell } from "@/components/admin/AdminShell";
 import { CityForm } from "@/components/admin/cities/CityForm";
 import { getAdminContext } from "@/lib/admin/context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
 
 type CityRow = {
   id: string;
@@ -13,6 +14,22 @@ type CityRow = {
 export default async function EditCityPage({ params }: { params: { id: string } }) {
   const { email, role } = await getAdminContext();
   const supabase = createSupabaseServerClient();
+
+  // Diagnostic 1: cookies
+console.log("SERVER COOKIES:", cookies().getAll());
+
+// Diagnostic 2: auth
+const { data: { user } } = await supabase.auth.getUser();
+console.log("SERVER AUTH TEST:", user);
+
+// Diagnostic 3: RLS SELECT test
+const cityTest = await supabase
+  .from("cities")
+  .select("*")
+  .eq("id", params.id)
+  .single();
+
+console.log("SERVER CITY SELECT TEST:", cityTest);
 
   const { data: city, error } = await supabase
     .from("cities")

@@ -1,6 +1,6 @@
 "use client";
 
-import { createBrowserClient } from "@supabase/ssr";
+import { createBrowserClient } from "@/lib/supabase/client";
 import { replaceUnifiedRelationships } from "@/lib/joinTables";
 
 function toTimestampZ(local: string): string | null {
@@ -53,10 +53,7 @@ export async function saveMoment({
   selectedEras: (string | number)[];
   selectedRelationships: any;
 }) {
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = createBrowserClient();
 
   //
   // 1. If momentId is null → CREATE

@@ -1,6 +1,6 @@
 "use client";
 
-import { createBrowserClient } from "@supabase/ssr";
+import { createBrowserClient } from "@/lib/supabase/client";
 
 export async function saveStory({
   storyId,
@@ -67,10 +67,7 @@ export async function saveStory({
   isPublished: boolean;
   existingRelationships: any;
 }) {
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = createBrowserClient();
 
   // Update story
   const { error } = await supabase

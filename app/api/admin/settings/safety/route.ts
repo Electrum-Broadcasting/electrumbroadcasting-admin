@@ -3,22 +3,30 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 function getSupabaseClient() {
-  const cookieAdapter = {
-    get: (name: string) => cookies().get(name)?.value,
-    set: () => {},
-    remove: () => {},
-  };
-
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { cookies: cookieAdapter }
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies }
   );
 }
+
+  
+    console.log("COOKIES:", cookies().getAll());
+    
 
 export async function GET() {
   try {
     const supabase = getSupabaseClient();
+    const res = await fetch("/api/admin/settings/safety", {
+  method: "GET",
+  credentials: "include",
+});
+const safety = await res.json();
+
+    // Diagnostics
+    console.log("COOKIES:", cookies().getAll());
+    const { data: authTest } = await supabase.auth.getUser();
+    console.log("SERVER AUTH TEST:", authTest);
 
     const { data, error } = await supabase
       .from("global_safety_settings")
@@ -35,7 +43,7 @@ export async function GET() {
 
     return NextResponse.json(data);
   } catch (err) {
-    console.error("Safety settings GET error:", err);
+    console.error("SAFETY API ERROR:", err);
     return NextResponse.json(
       { error: "Failed to fetch safety settings" },
       { status: 500 }
@@ -71,6 +79,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("Safety settings PATCH error:", err);
+    
     return NextResponse.json(
       { error: "Failed to update safety settings" },
       { status: 500 }

@@ -39,6 +39,7 @@ export async function PATCH(req: Request) {
         accent_color_secondary,
       })
       .eq("city_id", cityId);
+      
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

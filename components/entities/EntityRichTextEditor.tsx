@@ -24,7 +24,7 @@ export default function EntityRichTextEditor({
 }: EntityRichTextEditorProps) {
   const supabase = createBrowserClient();
 
-const editor = useEditor({
+  const editor = useEditor({
   extensions: [
     StarterKit,
     Image,

@@ -1,6 +1,6 @@
 "use client";
 
-import { createBrowserClient } from "@supabase/ssr";
+import { createBrowserClient } from "@/lib/supabase/client";
 
 export async function saveEra({
   eraId,
@@ -24,10 +24,7 @@ export async function saveEra({
   description: string;
   isPublished: boolean;
 }) {
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = createBrowserClient();
 
   const { error } = await supabase
     .from("civic_eras")

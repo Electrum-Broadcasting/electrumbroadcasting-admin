@@ -3,28 +3,61 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { createBrowserClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { updateCityAction, createCityAction } from "./actions";
 
-type CityFormState = {
+type CityStatus = "draft" | "published";
+
+type CityFormPayload = {
   name: string;
   slug: string;
   domain: string;
-  status: string;
+  status: CityStatus;
   incorporated_year: number | null;
-  description: string;
-  country: string;
-  state_province: string;
+  description: string | null;
+  country: string | null;
+  state_province: string | null;
   latitude: number | null;
   longitude: number | null;
   population: number | null;
 };
 
-export function CityForm({ mode, city }: { mode: "create" | "edit"; city?: any }) {
-  const router = useRouter();
-  const supabase = createBrowserClient();
+type CityFormValue = {
+  name?: string;
+  slug?: string;
+  domain?: string;
+  status?: CityStatus;
+  incorporated_year?: number | null;
+  description?: string;
+  country?: string;
+  state_province?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  population?: number | null;
+};
 
-  const [form, setForm] = useState<CityFormState>({
+type CityFormProps = {
+  mode: "create" | "edit";
+  city?: CityFormValue | null;
+};
+
+export function CityForm({ mode, city }: CityFormProps) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+
+  const [form, setForm] = useState<{
+    name: string;
+    slug: string;
+    domain: string;
+    status: CityStatus;
+    incorporated_year: number | null;
+    description: string;
+    country: string;
+    state_province: string;
+    latitude: number | null;
+    longitude: number | null;
+    population: number | null;
+  }>({
     name: city?.name ?? "",
     slug: city?.slug ?? "",
     domain: city?.domain ?? "",
@@ -37,48 +70,44 @@ export function CityForm({ mode, city }: { mode: "create" | "edit"; city?: any }
     longitude: city?.longitude ?? null,
     population: city?.population ?? null,
   });
-  const [loading, setLoading] = useState(false);
 
   function handleCancel() {
     router.push("/admin/CEO/cities");
   }
 
   async function handleSave() {
-    if (loading) return;
+  if (loading) return;
+  setLoading(true);
 
-    setLoading(true);
+  const payload = {
+    name: form.name,
+    slug: form.slug,
+    domain: form.domain,
+    status: form.status ?? "draft",
+    incorporated_year: form.incorporated_year,
+    electrum_year: form.incorporated_year,
+    description: form.description || null,
+    country: form.country || null,
+    state_province: form.state_province || null,
+    latitude: form.latitude,
+    longitude: form.longitude,
+    population: form.population,
+  };
 
-    const payload = {
-      name: form.name,
-      slug: form.slug,
-      domain: form.domain,
-      status: form.status ?? "draft",
-      incorporated_year: form.incorporated_year,
-      electrum_year: form.incorporated_year,
-      description: form.description || null,
-      country: form.country || null,
-      state_province: form.state_province || null,
-      latitude: form.latitude,
-      longitude: form.longitude,
-      population: form.population,
-    };
+  const action = mode === "create" ? createCityAction : updateCityAction;
+  const result = await action(payload);
 
-    const { error } = await supabase.rpc(
-      mode === "create" ? "admin_create_city" : "admin_update_city",
-      payload
-    );
+  setLoading(false);
 
-    setLoading(false);
-
-    if (error) {
-      toast.error("Failed to save city");
-      return;
-    }
-
-    toast.success(mode === "create" ? "City created" : "City updated");
-
-    router.push("/admin/CEO/cities");
+  if (result.error) {
+    toast.error("Failed to save city");
+    return;
   }
+
+  toast.success(mode === "create" ? "City created" : "City updated");
+  router.push("/admin/CEO/cities");
+}
+
 
   return (
     <form
@@ -125,7 +154,9 @@ export function CityForm({ mode, city }: { mode: "create" | "edit"; city?: any }
         <select
           className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
           value={form.status}
-          onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}
+          onChange={(e) =>
+            setForm((prev) => ({ ...prev, status: e.target.value as CityStatus }))
+          }
         >
           <option value="draft">Draft</option>
           <option value="published">Published</option>

@@ -36,9 +36,13 @@ export async function PATCH(
   // 4. Write to DB
   const supabase = createSupabaseServerClient();
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("city_design_system")
-    .upsert(payload, { onConflict: "city_id" });
+    .update({
+      draft_theme: payload.draft_theme ?? null,
+      published_theme: payload.published_theme ?? null,
+    })
+    .eq("city_id", cityId);
 
   if (error) {
     console.error("Failed to update theme:", error);

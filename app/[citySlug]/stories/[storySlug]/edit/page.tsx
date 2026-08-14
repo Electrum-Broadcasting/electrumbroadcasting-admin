@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createBrowserClient } from "@supabase/ssr";
+import { createBrowserClient } from "@/lib/supabase/client";
 
 import StoryBasicsForm from "@/components/stories/StoryBasicsForm";
 import StoryMetadataForm from "@/components/stories/StoryMetadataForm";
@@ -21,10 +21,7 @@ export default function EditStoryPage({
   const { citySlug, storySlug } = params;
   const router = useRouter();
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = createBrowserClient();
 
   const [loading, setLoading] = useState(true);
   const [cityId, setCityId] = useState<string | null>(null);

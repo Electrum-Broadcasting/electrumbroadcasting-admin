@@ -1,14 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createBrowserClient } from "@supabase/ssr";
+import { createBrowserClient } from "@/lib/supabase/client";
 import { loadUnifiedRelationships } from "@/lib/joinTables";
 
 export function useLoadEvent(citySlug: string, eventSlug: string) {
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = createBrowserClient();
 
   const [loading, setLoading] = useState(true);
   const [cityId, setCityId] = useState<string | null>(null);
