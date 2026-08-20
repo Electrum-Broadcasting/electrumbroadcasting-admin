@@ -2,14 +2,11 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getAdminContext } from "@/lib/admin/context";
 
-export async function PATCH(
-  req: Request,
+export async function GET(
+  _req: Request,
   { params }: { params: { cityId: string } }
 ) {
-  // 1. Authenticate admin
   const admin = await getAdminContext();
-
-  // 2. Authorization rules
   const cityId = params.cityId;
 
   const isCEO = admin.role === "CEO";
@@ -20,29 +17,59 @@ export async function PATCH(
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  // 3. Parse body
-  const body = await req.json();
-  const { draft_theme, published_theme } = body;
-
-  const payload: Record<string, unknown> = {
-    city_id: cityId,
-  };
-
-  if (draft_theme !== undefined) payload.draft_theme = draft_theme;
-  if (published_theme !== undefined) payload.published_theme = published_theme;
-
-  console.log("UPSERT payload:", JSON.stringify(payload, null, 2));
-
-  // 4. Write to DB
   const supabase = createSupabaseServerClient();
 
   const { data, error } = await supabase
     .from("city_design_system")
-    .update({
-      draft_theme: payload.draft_theme ?? null,
-      published_theme: payload.published_theme ?? null,
-    })
-    .eq("city_id", cityId);
+    .select("draft_theme, published_theme")
+    .eq("city_id", cityId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Failed to load theme:", error);
+    return NextResponse.json({ error: "Failed to load theme" }, { status: 500 });
+  }
+
+  return NextResponse.json(data ?? {});
+}
+
+export async function PATCH(
+  req: Request,
+  { params }: { params: { cityId: string } }
+) {
+  const admin = await getAdminContext();
+  const cityId = params.cityId;
+
+  const isCEO = admin.role === "CEO";
+  const isPlatformAdmin = admin.role === "PLATFORM_ADMIN";
+  const isCityAdmin = admin.role === "CITY_ADMIN" && admin.cityIds.includes(cityId);
+
+  if (!isCEO && !isPlatformAdmin && !isCityAdmin) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
+
+  const body = await req.json();
+  const { draft_theme, published_theme } = body;
+
+  const supabase = createSupabaseServerClient();
+  const payload = {
+    city_id: cityId,
+    draft_theme: draft_theme ?? null,
+    published_theme: published_theme ?? null,
+  };
+
+  const { data: existingRow } = await supabase
+    .from("city_design_system")
+    .select("id")
+    .eq("city_id", cityId)
+    .maybeSingle();
+
+  const { error } = existingRow
+    ? await supabase
+        .from("city_design_system")
+        .update(payload)
+        .eq("city_id", cityId)
+    : await supabase.from("city_design_system").insert(payload);
 
   if (error) {
     console.error("Failed to update theme:", error);
@@ -51,3 +78,4 @@ export async function PATCH(
 
   return NextResponse.json({ success: true });
 }
+

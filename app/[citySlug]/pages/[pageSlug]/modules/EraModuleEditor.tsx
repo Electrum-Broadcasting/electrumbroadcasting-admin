@@ -8,7 +8,22 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-export default function EraModuleEditor({ value, onChange }: any) {
+type ModuleConfig = {
+  type: string;
+  [key: string]: any;
+};
+
+type Props = {
+  cityId: string;
+  moduleConfig: ModuleConfig;
+  value: string[];
+  onChange: (value: string[]) => void;
+};
+
+export default function EraModuleEditor({ cityId, moduleConfig, value, onChange }: Props) {
+  void cityId;
+  void moduleConfig;
+
   const [eras, setEras] = useState<any[]>([]);
 
   useEffect(() => {
@@ -20,9 +35,9 @@ export default function EraModuleEditor({ value, onChange }: any) {
     load();
   }, []);
 
-  function toggleEra(id: number) {
+  function toggleEra(id: string) {
     const newValue = value.includes(id)
-      ? value.filter((x: number) => x !== id)
+      ? value.filter((x) => x !== id)
       : [...value, id];
 
     onChange(newValue);
@@ -32,16 +47,20 @@ export default function EraModuleEditor({ value, onChange }: any) {
     <div className="space-y-4">
       <h3 className="font-semibold">Select Eras</h3>
 
-      {eras.map((era) => (
-        <label key={era.id} className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={value.includes(era.id)}
-            onChange={() => toggleEra(era.id)}
-          />
-          {era.name}
-        </label>
-      ))}
+      {eras.map((era) => {
+        const eraId = String(era.id);
+
+        return (
+          <label key={eraId} className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={value.includes(eraId)}
+              onChange={() => toggleEra(eraId)}
+            />
+            {era.name}
+          </label>
+        );
+      })}
     </div>
   );
 }

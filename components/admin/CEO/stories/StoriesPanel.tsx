@@ -17,6 +17,7 @@ import { Eye } from "lucide-react";
 
 import type { StoryRow } from "@/lib/admin/types";
 
+
 interface CEOStoriesPanelProps {
   stories: StoryRow[];
 }
@@ -30,22 +31,23 @@ export function CEOStoriesPanel({ stories = [] }: CEOStoriesPanelProps) {
   );
   const [actionStoryId, setActionStoryId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [storyList, setStoryList] = useState(stories);
 
   const filteredStories = useMemo(() => {
     const needle = searchTerm.trim().toLowerCase();
-    if (!needle) return stories;
+    if (!needle) return storyList;
 
-    return stories.filter((story) => {
+    return storyList.filter((story) => {
       const title = (story.title ?? "").toLowerCase();
       const authorName = (story.author_name ?? "").toLowerCase();
       return title.includes(needle) || authorName.includes(needle);
     });
-  }, [stories, searchTerm]);
+  }, [storyList, searchTerm]);
 
-  useEffect(() => {
+    useEffect(() => {
     if (filteredStories.length === 0) {
       setSelectedStoryId("");
-      return;
+      return;  
     }
 
     const stillExists = filteredStories.some((story) => story.id === selectedStoryId);
@@ -59,15 +61,40 @@ export function CEOStoriesPanel({ stories = [] }: CEOStoriesPanelProps) {
     [filteredStories, selectedStoryId]
   );
 
+  async function refreshStories() {
+    const { data, error } = await supabase
+      .from("civic_stories")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (!error && data) {
+      setStoryList(data);
+    }
+  }
+
   async function handleAction(storyId: string, action: string) {
     if (actionStoryId) return;
 
     setActionStoryId(storyId);
-    const { error } = await supabase.rpc("admin_update_story_status", {
+
+    const payload = {
+      story_id: storyId,
+      action,
+      metadata: {},
+    };
+
+    console.log("STORY PAYLOAD:", payload);
+    console.log("STATUS PAYLOAD:", {
       story_id: storyId,
       action,
       metadata: {},
     });
+
+const { error } = await supabase.rpc("admin_update_story_status", {
+  story_id: storyId,
+  action: action,
+  metadata: {},
+});
 
     setActionStoryId(null);
 
@@ -75,6 +102,9 @@ export function CEOStoriesPanel({ stories = [] }: CEOStoriesPanelProps) {
       toast.error("Failed to update story");
       return;
     }
+
+    await refreshStories();
+    setSelectedStoryId(storyId);
 
     const successMessage =
       action === "republish"

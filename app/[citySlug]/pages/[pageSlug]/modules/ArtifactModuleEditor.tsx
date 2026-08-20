@@ -13,7 +13,22 @@ interface Artifact {
   name: string;
 }
 
-export default function ArtifactModuleEditor({ value, onChange }: { value: string[]; onChange: (value: string[]) => void }) {
+type ModuleConfig = {
+  type: string;
+  [key: string]: any;
+};
+
+type Props = {
+  cityId: string;
+  moduleConfig: ModuleConfig;
+  value: string[];
+  onChange: (value: string[]) => void;
+};
+
+export default function ArtifactModuleEditor({ cityId, moduleConfig, value, onChange }: Props) {
+  void cityId;
+  void moduleConfig;
+
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
 
   useEffect(() => {

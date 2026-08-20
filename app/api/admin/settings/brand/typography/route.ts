@@ -11,14 +11,19 @@ export async function GET(req: Request) {
   const cityId = searchParams.get("cityId");
 
   const { data, error } = await supabase
-    .from("city_brand_settings")
-    .select("typography")
+    .from("city_design_system")
+    .select("published_theme")
     .eq("city_id", cityId)
-    .single();
+    .maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json(data.typography || {});
+  const typography = data?.published_theme?.typography ?? {};
+  return NextResponse.json({
+    heading_font: typography.heading ?? "Inter",
+    body_font: typography.body ?? "Inter",
+    scale_ratio: 1.25,
+  });
 }
 
 export async function PATCH(req: Request) {
@@ -29,10 +34,30 @@ export async function PATCH(req: Request) {
 
   const { cityId, typography } = await req.json();
 
-  const { error } = await supabase
-    .from("city_brand_settings")
-    .update({ typography })
-    .eq("city_id", cityId);
+  const { data: existingRow } = await supabase
+    .from("city_design_system")
+    .select("id, published_theme")
+    .eq("city_id", cityId)
+    .maybeSingle();
+
+  const nextTheme = {
+    ...(existingRow?.published_theme ?? {
+      colors: {},
+      typography: {},
+    }),
+    typography: {
+      ...(existingRow?.published_theme?.typography ?? {}),
+      heading: typography?.heading_font ?? typography?.heading ?? existingRow?.published_theme?.typography?.heading,
+      body: typography?.body_font ?? typography?.body ?? existingRow?.published_theme?.typography?.body,
+    },
+  };
+
+  const { error } = existingRow
+    ? await supabase
+        .from("city_design_system")
+        .update({ published_theme: nextTheme })
+        .eq("city_id", cityId)
+    : await supabase.from("city_design_system").insert({ city_id: cityId, published_theme: nextTheme });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

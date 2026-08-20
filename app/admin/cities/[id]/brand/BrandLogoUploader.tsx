@@ -1,97 +1,122 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect, type ChangeEvent } from "react";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
-export default function BrandLogoUploader({ cityId }: { cityId: string }) {
-  const [logo, setLogo] = useState({
-    asset_id: "",
-    alt_text: "",
-    padding: 0,
-    variant: "default",
-  });
+type BrandLogo = {
+  asset_id?: string;
+  alt_text?: string;
+  padding?: number;
+  variant?: string;
+  url?: string;
+};
 
-  const [file, setFile] = useState<File | null>(null);
+type BrandState = {
+  logo?: BrandLogo;
+  [key: string]: unknown;
+};
 
-  // Load existing logo settings
+export default function BrandLogoUploader({
+  cityId,
+  state,
+  setState,
+}: {
+  cityId: string;
+  state: BrandState;
+  setState: React.Dispatch<React.SetStateAction<BrandState>>;
+}) {
+  const supabase = createClientComponentClient();
+  const [uploading, setUploading] = useState(false);
+
+  // Load existing logo metadata
   useEffect(() => {
     async function loadLogo() {
-      const res = await fetch(
-        `/api/admin/settings/brand/logo?cityId=${cityId}`
-      );
+      const res = await fetch(`/api/admin/settings/brand?cityId=${cityId}`);
       const data = await res.json();
 
-      if (data) {
-        setLogo({
-          asset_id: data.asset_id ?? "",
-          alt_text: data.alt_text ?? "",
-          padding: data.padding ?? 0,
-          variant: data.variant ?? "default",
-        });
+      if (data?.logo) {
+        setState((prev) => ({
+          ...prev,
+          logo: {
+            asset_id: data.logo.asset_id,
+            alt_text: data.logo.alt_text,
+            padding: data.logo.padding,
+            variant: data.logo.variant,
+            url: data.logo.url,
+          },
+        }));
       }
     }
-
     loadLogo();
-  }, [cityId]);
+  }, [cityId, setState]);
 
-  // Upload file to Supabase Storage
-  async function uploadFile() {
-    if (!file) return null;
+  async function handleUpload(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-    const formData = new FormData();
-    formData.append("file", file);
+    setUploading(true);
 
-    const res = await fetch("/api/admin/assets/upload", {
-      method: "POST",
-      body: formData,
-    });
+    const filePath = `cities/${cityId}/brand/logo-${Date.now()}.png`;
 
-    const data = await res.json();
-    return data.asset_id; // returned by your upload route
-  }
+    const { error } = await supabase.storage
+      .from("universal-media")
+      .upload(filePath, file);
 
-  // Save logo settings
-  async function handleSave() {
-    let assetId = logo.asset_id;
-
-    if (file) {
-      const uploadedId = await uploadFile();
-      if (uploadedId) {
-        assetId = uploadedId;
-      }
+    if (error) {
+      console.error("Logo upload error:", error);
+      setUploading(false);
+      return;
     }
 
-    await fetch("/api/admin/settings/brand/logo", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        cityId,
-        logo: {
-          ...logo,
-          asset_id: assetId,
-        },
-      }),
-    });
+    const { data: publicUrlData } = supabase.storage
+      .from("universal-media")
+      .getPublicUrl(filePath);
+
+    setState((prev) => ({
+      ...prev,
+      logo: {
+        ...prev.logo,
+        asset_id: filePath,
+        url: publicUrlData.publicUrl,
+      },
+    }));
+
+    setUploading(false);
   }
 
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold">City Logo</h2>
 
-      <div>
-        <label>Upload Logo</label>
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+      <input
+        type="file"
+        accept="image/*"
+        onChange={handleUpload}
+        disabled={uploading}
+      />
+
+      {state.logo?.url && (
+        <img
+          src={state.logo.url}
+          alt={state.logo.alt_text || "City Logo"}
+          className="h-20 mt-4 rounded border"
         />
-      </div>
+      )}
 
       <div>
         <label>Alt Text</label>
         <input
           type="text"
-          value={logo.alt_text}
-          onChange={(e) => setLogo({ ...logo, alt_text: e.target.value })}
+          value={state.logo?.alt_text || ""}
+          onChange={(e) =>
+            setState((prev) => ({
+              ...prev,
+              logo: {
+                ...prev.logo,
+                alt_text: e.target.value,
+              },
+            }))
+          }
         />
       </div>
 
@@ -99,24 +124,38 @@ export default function BrandLogoUploader({ cityId }: { cityId: string }) {
         <label>Padding</label>
         <input
           type="number"
-          value={logo.padding}
-          onChange={(e) => setLogo({ ...logo, padding: parseInt(e.target.value) })}
+          value={state.logo?.padding || 0}
+          onChange={(e) =>
+            setState((prev) => ({
+              ...prev,
+              logo: {
+                ...prev.logo,
+                padding: parseInt(e.target.value, 10) || 0,
+              },
+            }))
+          }
         />
       </div>
 
       <div>
         <label>Variant</label>
         <select
-          value={logo.variant}
-          onChange={(e) => setLogo({ ...logo, variant: e.target.value })}
+          value={state.logo?.variant || "default"}
+          onChange={(e) =>
+            setState((prev) => ({
+              ...prev,
+              logo: {
+                ...prev.logo,
+                variant: e.target.value,
+              },
+            }))
+          }
         >
           <option value="default">Default</option>
           <option value="horizontal">Horizontal</option>
           <option value="stacked">Stacked</option>
         </select>
       </div>
-
-      <button onClick={handleSave}>Save Logo</button>
     </div>
   );
 }

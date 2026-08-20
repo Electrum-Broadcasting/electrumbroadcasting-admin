@@ -8,7 +8,22 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-export default function EntityModuleEditor({ value, onChange }: { value: string[]; onChange: (value: string[]) => void }) {
+type ModuleConfig = {
+  type: string;
+  [key: string]: any;
+};
+
+type Props = {
+  cityId: string;
+  moduleConfig: ModuleConfig;
+  value: string[];
+  onChange: (value: string[]) => void;
+};
+
+export default function EntityModuleEditor({ cityId, moduleConfig, value, onChange }: Props) {
+  void cityId;
+  void moduleConfig;
+
   const [entities, setEntities] = useState<any[]>([]);
 
   useEffect(() => {

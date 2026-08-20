@@ -1,47 +1,52 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
-export default function BrandAccessibilityEditor({ cityId }: { cityId: string }) {
-  const [accessibility, setAccessibility] = useState({
-    high_contrast_mode: false,
-    min_font_size: 14,
-    prefers_reduced_motion: false,
-    link_underline: true,
-  });
+type AccessibilitySettings = {
+  high_contrast_mode?: boolean;
+  min_font_size?: number;
+  prefers_reduced_motion?: boolean;
+  link_underline?: boolean;
+};
 
-  // Load accessibility settings
+type BrandState = {
+  accessibility?: AccessibilitySettings;
+  [key: string]: unknown;
+};
+
+export default function BrandAccessibilityEditor({
+  cityId,
+  state,
+  setState,
+}: {
+  cityId: string;
+  state: BrandState;
+  setState: React.Dispatch<React.SetStateAction<BrandState>>;
+}) {
+  // Load accessibility settings into unified brand state
   useEffect(() => {
     async function loadAccessibility() {
-      const res = await fetch(
-        `/api/admin/settings/brand/accessibility?cityId=${cityId}`
-      );
+      const res = await fetch(`/api/admin/settings/brand?cityId=${cityId}`);
       const data = await res.json();
 
-      if (data) {
-        setAccessibility({
-          high_contrast_mode: data.high_contrast_mode ?? false,
-          min_font_size: data.min_font_size ?? 14,
-          prefers_reduced_motion: data.prefers_reduced_motion ?? false,
-          link_underline: data.link_underline ?? true,
-        });
+      if (data?.accessibility) {
+        setState((prev) => ({
+          ...prev,
+          accessibility: {
+            high_contrast_mode: data.accessibility.high_contrast_mode ?? false,
+            min_font_size: data.accessibility.min_font_size ?? 14,
+            prefers_reduced_motion:
+              data.accessibility.prefers_reduced_motion ?? false,
+            link_underline: data.accessibility.link_underline ?? true,
+          },
+        }));
       }
     }
 
     loadAccessibility();
-  }, [cityId]);
+  }, [cityId, setState]);
 
-  // Save accessibility settings
-  async function handleSave() {
-    await fetch("/api/admin/settings/brand/accessibility", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        cityId,
-        accessibility,
-      }),
-    });
-  }
+  const accessibility = state.accessibility || {};
 
   return (
     <div className="space-y-4">
@@ -51,12 +56,15 @@ export default function BrandAccessibilityEditor({ cityId }: { cityId: string })
         <label>High Contrast Mode</label>
         <input
           type="checkbox"
-          checked={accessibility.high_contrast_mode}
+          checked={accessibility.high_contrast_mode || false}
           onChange={(e) =>
-            setAccessibility({
-              ...accessibility,
-              high_contrast_mode: e.target.checked,
-            })
+            setState((prev) => ({
+              ...prev,
+              accessibility: {
+                ...prev.accessibility,
+                high_contrast_mode: e.target.checked,
+              },
+            }))
           }
         />
       </div>
@@ -65,12 +73,15 @@ export default function BrandAccessibilityEditor({ cityId }: { cityId: string })
         <label>Minimum Font Size (px)</label>
         <input
           type="number"
-          value={accessibility.min_font_size}
+          value={accessibility.min_font_size || 14}
           onChange={(e) =>
-            setAccessibility({
-              ...accessibility,
-              min_font_size: parseInt(e.target.value),
-            })
+            setState((prev) => ({
+              ...prev,
+              accessibility: {
+                ...prev.accessibility,
+                min_font_size: parseInt(e.target.value, 10) || 14,
+              },
+            }))
           }
         />
       </div>
@@ -79,12 +90,15 @@ export default function BrandAccessibilityEditor({ cityId }: { cityId: string })
         <label>Prefers Reduced Motion</label>
         <input
           type="checkbox"
-          checked={accessibility.prefers_reduced_motion}
+          checked={accessibility.prefers_reduced_motion || false}
           onChange={(e) =>
-            setAccessibility({
-              ...accessibility,
-              prefers_reduced_motion: e.target.checked,
-            })
+            setState((prev) => ({
+              ...prev,
+              accessibility: {
+                ...prev.accessibility,
+                prefers_reduced_motion: e.target.checked,
+              },
+            }))
           }
         />
       </div>
@@ -93,17 +107,18 @@ export default function BrandAccessibilityEditor({ cityId }: { cityId: string })
         <label>Underline Links</label>
         <input
           type="checkbox"
-          checked={accessibility.link_underline}
+          checked={accessibility.link_underline || false}
           onChange={(e) =>
-            setAccessibility({
-              ...accessibility,
-              link_underline: e.target.checked,
-            })
+            setState((prev) => ({
+              ...prev,
+              accessibility: {
+                ...prev.accessibility,
+                link_underline: e.target.checked,
+              },
+            }))
           }
         />
       </div>
-
-      <button onClick={handleSave}>Save Accessibility</button>
     </div>
   );
 }

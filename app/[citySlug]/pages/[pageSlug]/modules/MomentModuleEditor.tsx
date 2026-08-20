@@ -13,12 +13,22 @@ interface Moment {
   name: string;
 }
 
-interface Props {
+type ModuleConfig = {
+  type: string;
+  [key: string]: any;
+};
+
+type Props = {
+  cityId: string;
+  moduleConfig: ModuleConfig;
   value: string[];
   onChange: (value: string[]) => void;
-}
+};
 
-export default function MomentModuleEditor({ value, onChange }: Props) {
+export default function MomentModuleEditor({ cityId, moduleConfig, value, onChange }: Props) {
+  void cityId;
+  void moduleConfig;
+
   const [moments, setMoments] = useState<Moment[]>([]);
 
   useEffect(() => {

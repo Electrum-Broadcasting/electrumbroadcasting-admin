@@ -1,6 +1,6 @@
 import { AdminShell } from "@/components/admin/AdminShell";
 import { getAdminContext } from "@/lib/admin/context";
-import { createSupabasePublicClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function SafetyReportDetailPage({
   params,
@@ -8,7 +8,7 @@ export default async function SafetyReportDetailPage({
   params: { id: string };
 }) {
   const { email, role } = await getAdminContext();
-  const supabase = createSupabasePublicClient();
+  const supabase = createSupabaseServerClient();
 
   // Unified moderation query: load the flag event + reporter + target + city
   const { data: report, error } = await supabase

@@ -11,14 +11,18 @@ export async function GET(req: Request) {
   const cityId = searchParams.get("cityId");
 
   const { data, error } = await supabase
-    .from("city_brand_settings")
-    .select("accent_color, accent_color_secondary")
+    .from("city_design_system")
+    .select("published_theme")
     .eq("city_id", cityId)
-    .single();
+    .maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json(data || {});
+  const colors = data?.published_theme?.colors ?? {};
+  return NextResponse.json({
+    accent_color: colors.primary ?? "#0f172a",
+    accent_color_secondary: colors.secondary ?? "#334155",
+  });
 }
 
 export async function PATCH(req: Request) {
@@ -29,10 +33,30 @@ export async function PATCH(req: Request) {
 
   const { cityId, accent_color, accent_color_secondary } = await req.json();
 
-  const { error } = await supabase
-    .from("city_brand_settings")
-    .update({ accent_color, accent_color_secondary })
-    .eq("city_id", cityId);
+  const { data: existingRow } = await supabase
+    .from("city_design_system")
+    .select("id, published_theme")
+    .eq("city_id", cityId)
+    .maybeSingle();
+
+  const nextTheme = {
+    ...(existingRow?.published_theme ?? {
+      colors: {},
+      typography: {},
+    }),
+    colors: {
+      ...(existingRow?.published_theme?.colors ?? {}),
+      primary: accent_color ?? existingRow?.published_theme?.colors?.primary,
+      secondary: accent_color_secondary ?? existingRow?.published_theme?.colors?.secondary,
+    },
+  };
+
+  const { error } = existingRow
+    ? await supabase
+        .from("city_design_system")
+        .update({ published_theme: nextTheme })
+        .eq("city_id", cityId)
+    : await supabase.from("city_design_system").insert({ city_id: cityId, published_theme: nextTheme });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

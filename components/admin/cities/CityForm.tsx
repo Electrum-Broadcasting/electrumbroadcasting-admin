@@ -23,6 +23,7 @@ export function CityForm({ mode, city }: CityFormProps) {
     status: city?.status ?? "draft",
     incorporated_year: city?.incorporated_year ?? null,
     description: city?.description ?? null,
+    hero_image_url: city?.hero_image_url ?? null,
     country: city?.country ?? "",
     state_province: city?.state_province ?? "",
     latitude: city?.latitude ?? null,
@@ -46,12 +47,15 @@ export function CityForm({ mode, city }: CityFormProps) {
       status: form.status ?? "draft",
       incorporated_year: form.incorporated_year ?? null,
       description: form.description ?? null,
+      hero_image_url: form.hero_image_url ?? null,
       country: form.country ?? null,
       state_province: form.state_province ?? null,
       latitude: form.latitude ?? null,
       longitude: form.longitude ?? null,
       population: form.population ?? null,
     };
+
+    
 
     const action = mode === "create" ? createCityAction : updateCityAction;
     const result = await action(payload);

@@ -1,44 +1,78 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { NextRequest, NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 
-export async function GET(req: Request) {
-  const supabase = createClient(
+function getSupabaseClient() {
+  const cookieAdapter = {
+    get: (name: string) => cookies().get(name)?.value,
+    set: (name: string, value: string, options: any) =>
+      cookies().set(name, value, options),
+    remove: (name: string, options: any) =>
+      cookies().set(name, "", { ...options, maxAge: 0 }),
+  };
+
+  return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { cookies: cookieAdapter }
   );
-
-  const { searchParams } = new URL(req.url);
-  const cityId = searchParams.get("cityId");
-
-  const { data, error } = await supabase
-    .from("city_brand_settings")
-    .select("pages")
-    .eq("city_id", cityId)
-    .single();
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json(data?.pages || []);
 }
 
-export async function PATCH(req: Request) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+export async function GET(req: NextRequest) {
+  try {
+    const supabase = getSupabaseClient();
 
-  const { cityId, pages } = await req.json();
+    const { searchParams } = new URL(req.url);
+    const cityId = searchParams.get("cityId");
 
-  const { error } = await supabase
-    .from("city_brand_settings")
-    .update({ pages })
-    .eq("city_id", cityId);
+    const { data, error } = await supabase
+      .from("city_brand_settings")
+      .select("pages")
+      .eq("city_id", cityId)
+      .single();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      console.error("Failed to fetch city pages:", error);
+      return NextResponse.json(
+        { error: "Failed to fetch city pages" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(data?.pages || []);
+  } catch (err) {
+    console.error("City pages GET error:", err);
+    return NextResponse.json(
+      { error: "Failed to fetch city pages" },
+      { status: 500 }
+    );
   }
+}
 
-  return NextResponse.json({ success: true });
+export async function PATCH(req: NextRequest) {
+  try {
+    const supabase = getSupabaseClient();
+    const { cityId, pages } = await req.json();
+
+    const { error } = await supabase
+      .from("city_brand_settings")
+      .update({ pages })
+      .eq("city_id", cityId);
+
+    if (error) {
+      console.error("Failed to update city pages:", error);
+      return NextResponse.json(
+        { error: "Failed to update city pages" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("City pages PATCH error:", err);
+    return NextResponse.json(
+      { error: "Failed to update city pages" },
+      { status: 500 }
+    );
+  }
 }

@@ -1,10 +1,10 @@
 import { AdminShell } from "@/components/admin/AdminShell";
 import { getAdminContext } from "@/lib/admin/context";
-import { createSupabasePublicClient } from "@/lib/supabase/server";import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function SafetyReportsListPage() {
   const { email, role } = await getAdminContext();
-  const supabase = createSupabasePublicClient();
+  const supabase = createSupabaseServerClient();
 
   // Unified moderation query: user flags + legacy metadata
   const { data: reports } = await supabase
@@ -49,10 +49,10 @@ export default async function SafetyReportsListPage() {
 
               return (
                 <tr key={r.id} className="hover:bg-slate-50 transition">
-                  <td className="px-4 py-2 text-sm">{r.target?.email ?? "Unknown"}</td>
-                  <td className="px-4 py-2 text-sm">{r.reporter?.email ?? "Unknown"}</td>
+                  <td className="px-4 py-2 text-sm">{r.target?.[0]?.email ?? "Unknown"}</td>
+                  <td className="px-4 py-2 text-sm">{r.reporter?.[0]?.email ?? "Unknown"}</td>
                   <td className="px-4 py-2 text-sm">{category}</td>
-                  <td className="px-4 py-2 text-sm">{r.city?.name ?? "—"}</td>
+                  <td className="px-4 py-2 text-sm">{r.city?.[0]?.name ?? "—"}</td>
                   <td className="px-4 py-2 text-sm capitalize">{status}</td>
                   <td className="px-4 py-2 text-sm">
                     {new Date(r.created_at).toLocaleDateString()}

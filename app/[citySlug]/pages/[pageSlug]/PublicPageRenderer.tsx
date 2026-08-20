@@ -102,78 +102,32 @@ export default function PublicPageRenderer({ params }: { params: { citySlug: str
 
       {/* Render modules */}
       {page.modules?.map((mod, index) => {
+        const moduleProps = { cityId: city.id, moduleConfig: mod } as any;
+
         switch (mod.type) {
           case "stories":
-            return (
-              <StoryModuleEditor
-                key={index}
-                cityId={city.id}
-                moduleConfig={mod}
-              />
-            );
+            return <StoryModuleEditor key={index} {...moduleProps} />;
 
           case "civic_places":
-            return (
-              <PlaceModuleEditor
-                key={index}
-                cityId={city.id}
-                moduleConfig={mod}
-              />
-            );
+            return <PlaceModuleEditor key={index} {...moduleProps} />;
 
           case "timeline":
-            return (
-              <MomentModuleEditor
-                key={index}
-                cityId={city.id}
-                moduleConfig={mod}
-              />
-            );
+            return <MomentModuleEditor key={index} {...moduleProps} />;
 
           case "entities":
-            return (
-              <EntityModuleEditor
-                key={index}
-                cityId={city.id}
-                moduleConfig={mod}
-              />
-            );
+            return <EntityModuleEditor key={index} {...moduleProps} />;
 
           case "civic_artifacts":
-            return (
-              <ArtifactModuleEditor
-                key={index}
-                cityId={city.id}
-                moduleConfig={mod}
-              />
-            );
+            return <ArtifactModuleEditor key={index} {...moduleProps} />;
 
           case "neighborhoods":
-            return (
-              <NeighborhoodModuleEditor
-                key={index}
-                cityId={city.id}
-                moduleConfig={mod}
-              />
-            );
+            return <NeighborhoodModuleEditor key={index} {...moduleProps} />;
 
           case "moments":
-            return (
-              <MomentModuleEditor
-                key={index}
-                cityId={city.id}
-                moduleConfig={mod}
-              />
-            );
+            return <MomentModuleEditor key={index} {...moduleProps} />;
 
           case "eras":
-            return (
-              <EraModuleEditor
-                key={index}
-                cityId={city.id}
-                moduleConfig={mod}
-              />
-            );
+            return <EraModuleEditor key={index} {...moduleProps} />;
 
           default:
             return (

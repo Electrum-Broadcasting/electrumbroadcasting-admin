@@ -1,6 +1,6 @@
 import { AdminShell } from "@/components/admin/AdminShell";
 import { getAdminContext } from "@/lib/admin/context";
-import { createSupabasePublicClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function ModerationItemDetailPage({
   params,
@@ -8,7 +8,7 @@ export default async function ModerationItemDetailPage({
   params: { id: string };
 }) {
   const { email, role } = await getAdminContext();
-  const supabase = createSupabasePublicClient();
+  const supabase = createSupabaseServerClient();
 
   const { data: item, error } = await supabase
     .from("moderation_queue")

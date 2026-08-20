@@ -8,7 +8,22 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-export default function StoryModuleEditor({ value, onChange }: { value: string[]; onChange: (value: string[]) => void }) {
+type ModuleConfig = {
+  type: string;
+  [key: string]: any;
+};
+
+type Props = {
+  cityId: string;
+  moduleConfig: ModuleConfig;
+  value: string[];
+  onChange: (value: string[]) => void;
+};
+
+export default function StoryModuleEditor({ cityId, moduleConfig, value, onChange }: Props) {
+  void cityId;
+  void moduleConfig;
+
   const [stories, setStories] = useState<any[]>([]);
 
   useEffect(() => {

@@ -3,10 +3,18 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 function getSupabaseClient() {
+  const cookieAdapter = {
+    get: (name: string) => cookies().get(name)?.value,
+    set: (name: string, value: string, options: any) =>
+      cookies().set(name, value, options),
+    remove: (name: string, options: any) =>
+      cookies().set(name, "", { ...options, maxAge: 0 }),
+  };
+
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies }
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,   // ⭐ FIXED
+    { cookies: cookieAdapter }
   );
 }
 

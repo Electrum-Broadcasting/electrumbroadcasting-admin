@@ -14,14 +14,26 @@ function toLocalInputFormat(ts: string | null): string {
   return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
 }
 
-export default function MomentTimelineForm({
+type Era = {
+  id: string;
+  name: string;
+};
 
+type Props = {
+  momentTime: string;
+  setMomentTime: (t: string) => void;
+  eras: Era[];
+  selectedEras: string[];
+  setSelectedEras: (ids: string[]) => void;
+};
+
+export default function MomentTimelineForm({
   momentTime,
   setMomentTime,
   eras,
   selectedEras,
   setSelectedEras,
-}) {
+}: Props) {
   return (
     <div className="space-y-4">
       <h2 className="text-xl font-semibold">Timeline</h2>

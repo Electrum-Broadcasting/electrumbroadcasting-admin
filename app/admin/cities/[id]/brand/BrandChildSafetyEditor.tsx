@@ -1,47 +1,55 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
-export default function BrandChildSafetyEditor({ cityId }: { cityId: string }) {
-  const [childSafety, setChildSafety] = useState({
-    enable_age_filtering: false,
-    hide_sensitive_images: true,
-    restrict_video_autoplay: true,
-    require_safe_search: true,
-  });
+type ChildSafetySettings = {
+  enable_age_filtering?: boolean;
+  hide_sensitive_images?: boolean;
+  restrict_video_autoplay?: boolean;
+  require_safe_search?: boolean;
+};
 
-  // Load child safety settings
+type BrandState = {
+  child_safety?: ChildSafetySettings;
+  [key: string]: unknown;
+};
+
+export default function BrandChildSafetyEditor({
+  cityId,
+  state,
+  setState,
+}: {
+  cityId: string;
+  state: BrandState;
+  setState: React.Dispatch<React.SetStateAction<BrandState>>;
+}) {
+  // Load child safety settings into unified brand state
   useEffect(() => {
     async function loadChildSafety() {
-      const res = await fetch(
-        `/api/admin/settings/brand/child-safety?cityId=${cityId}`
-      );
+      const res = await fetch(`/api/admin/settings/brand?cityId=${cityId}`);
       const data = await res.json();
 
-      if (data) {
-        setChildSafety({
-          enable_age_filtering: data.enable_age_filtering ?? false,
-          hide_sensitive_images: data.hide_sensitive_images ?? true,
-          restrict_video_autoplay: data.restrict_video_autoplay ?? true,
-          require_safe_search: data.require_safe_search ?? true,
-        });
+      if (data?.child_safety) {
+        setState((prev) => ({
+          ...prev,
+          child_safety: {
+            enable_age_filtering:
+              data.child_safety.enable_age_filtering ?? false,
+            hide_sensitive_images:
+              data.child_safety.hide_sensitive_images ?? true,
+            restrict_video_autoplay:
+              data.child_safety.restrict_video_autoplay ?? true,
+            require_safe_search:
+              data.child_safety.require_safe_search ?? true,
+          },
+        }));
       }
     }
 
     loadChildSafety();
-  }, [cityId]);
+  }, [cityId, setState]);
 
-  // Save child safety settings
-  async function handleSave() {
-    await fetch("/api/admin/settings/brand/child-safety", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        cityId,
-        child_safety: childSafety,
-      }),
-    });
-  }
+  const childSafety = state.child_safety || {};
 
   return (
     <div className="space-y-4">
@@ -51,12 +59,15 @@ export default function BrandChildSafetyEditor({ cityId }: { cityId: string }) {
         <label>Enable Age Filtering</label>
         <input
           type="checkbox"
-          checked={childSafety.enable_age_filtering}
+          checked={childSafety.enable_age_filtering || false}
           onChange={(e) =>
-            setChildSafety({
-              ...childSafety,
-              enable_age_filtering: e.target.checked,
-            })
+            setState((prev) => ({
+              ...prev,
+              child_safety: {
+                ...prev.child_safety,
+                enable_age_filtering: e.target.checked,
+              },
+            }))
           }
         />
       </div>
@@ -65,12 +76,15 @@ export default function BrandChildSafetyEditor({ cityId }: { cityId: string }) {
         <label>Hide Sensitive Images</label>
         <input
           type="checkbox"
-          checked={childSafety.hide_sensitive_images}
+          checked={childSafety.hide_sensitive_images || false}
           onChange={(e) =>
-            setChildSafety({
-              ...childSafety,
-              hide_sensitive_images: e.target.checked,
-            })
+            setState((prev) => ({
+              ...prev,
+              child_safety: {
+                ...prev.child_safety,
+                hide_sensitive_images: e.target.checked,
+              },
+            }))
           }
         />
       </div>
@@ -79,12 +93,15 @@ export default function BrandChildSafetyEditor({ cityId }: { cityId: string }) {
         <label>Restrict Video Autoplay</label>
         <input
           type="checkbox"
-          checked={childSafety.restrict_video_autoplay}
+          checked={childSafety.restrict_video_autoplay || false}
           onChange={(e) =>
-            setChildSafety({
-              ...childSafety,
-              restrict_video_autoplay: e.target.checked,
-            })
+            setState((prev) => ({
+              ...prev.child_safety,
+              child_safety: {
+                ...prev.child_safety,
+                restrict_video_autoplay: e.target.checked,
+              },
+            }))
           }
         />
       </div>
@@ -93,17 +110,18 @@ export default function BrandChildSafetyEditor({ cityId }: { cityId: string }) {
         <label>Require Safe Search</label>
         <input
           type="checkbox"
-          checked={childSafety.require_safe_search}
+          checked={childSafety.require_safe_search || false}
           onChange={(e) =>
-            setChildSafety({
-              ...childSafety,
-              require_safe_search: e.target.checked,
-            })
+            setState((prev) => ({
+              ...prev,
+              child_safety: {
+                ...prev.child_safety,
+                require_safe_search: e.target.checked,
+              },
+            }))
           }
         />
       </div>
-
-      <button onClick={handleSave}>Save Child Safety</button>
     </div>
   );
 }
