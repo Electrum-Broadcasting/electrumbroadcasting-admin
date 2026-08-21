@@ -13,6 +13,16 @@ Electrum’s civic model is built on a consistent pattern shared across all civi
 This pattern applies to all core civic tables, including civic_events, civic_eras, civic_stories, civic_places, civic_entities, civic_artifacts, civic_neighborhoods, and civic_moments.
 Electrum’s relationship model is unified under civic_relationships and a small set of specialized join tables (e.g., event_eras, moment_entity_links). These tables define how civic content connects across time, place, people, and narrative.
 Electrum’s public API, loaders, and admin UI all rely on this shared structure. Workspace uses this model to enforce consistency across modules, normalize Supabase access, and maintain architectural integrity during refactors.
+
+Electrum’s civic memory around cities is further defined:
+•	Brand identity (city_brand_settings)
+•	Design system (city_design_system)
+•	Modular pages (city_brand_settings + sections + blocks)
+•	Civic content (events, eras, stories, places, entities, moments, artifacts, neighborhoods)
+Electrum uses a draft/publish model for all city level configuration:
+•	Draft → editable, previewable
+•	Published → live on public UI
+Preview mode loads draft. Public UI loads published.
 2. Table Overview
 Electrum’s schema is composed of the following major tables:
 City Tables
@@ -49,7 +59,7 @@ Sponsor Tables
 •	sponsors
 Admin Tables
 •	admin_override_logs 
-•	admin_user_dashboard 
+•	admin_user_dashboard (table does not exist)
 •	admin_users 
 •	audit_logs 
 •	contributors 
@@ -93,14 +103,13 @@ slug	text
 domain	text
 state_province	text
 country	text
-color_primary	text
-color_secondary	text
-motion_style	text
 status	text
 electrum_year	integer
 electrum_year_label	text
 is_primary	boolean
-primary_temporal_layer_id	uuid
+primary_temporal_layer_id	Uuid
+hero_image_url	Text
+population	Int4
 
 Relationships
 •	1 → 1 with city_brand_settings
@@ -111,17 +120,17 @@ RLS
 Anon must be able to SELECT.
 
 Electrum’s public UI renders modular pages defined in Supabase.
-
+Pages define:
+•	the city’s modular page structure
+•	the city’s civic memory architecture
+•	the city’s public navigation
+•	the city’s content hierarchy
+These are brand level decisions, not design system decisions.
 Table: city_brand_settings
 Defines per city branding, colors, logos, and identity.
 column_name	data_type
 id	uuid
 city_id	uuid
-accent_color	text
-accent_color_secondary	text
-city_logo_asset_id	uuid
-city_motif_json	jsonb
-homepage_hero_asset_id	uuid
 homepage_tagline	text
 homepage_subtitle	text
 created_at	timestamp with time zone
@@ -135,32 +144,51 @@ social_facebook	text
 social_instagram	text
 social_bluesky	text
 slideshow_asset_ids	ARRAY
-typography	jsonb
-motion	jsonb
 accessibility	jsonb
 child_safety	jsonb
 logo	jsonb
 description	text
 summary	text
-population	integer
-editorial_tone	text
-future_concepts	jsonb
-theme	jsonb
-theme_status	text
-theme_updated_at	timestamp with time zone
-pages	jsonb
-
+pages	Jsonb
+Status	text
+-- Removed fields:
+-- population (moved to cities)
+-- editorial_tone (moved to city_prompts)
+-- future_concepts (removed)
+-- accent_color, accent_color_secondary (removed)
+-- typography, motion (removed)
+-- theme, theme_status, theme_updated_at (removed)
+-- city_logo_asset_id, homepage_hero_asset_id (removed)
 
 Table: city_design_system
 Defines per city design tokens used by the UI.
 column_name	data_type
 id	uuid
-slug	text
 draft_theme	jsonb
 updated_at	timestamp with time zone
 published_theme	jsonb
-city_id	uuid
-
+city_id	Uuid
+Status	text
+-- Removed:
+-- slug (redundant)
+-- published_theme JSON must match:
+{
+  "colors": {
+    "accent": "...",
+    "background": "...",
+    "foreground": "...",
+    "buttonText": "...",
+    "primary": "...",
+    "secondary": "..."
+  },
+  "typography": {
+    "heading": "...",
+    "body": "..."
+  }
+}
+-- Public UI consumes only:
+•	colors.accent, colors.background, colors.foreground, colors.buttonText
+•	typography.heading, typography.body
 Table: civic_entities
 Represents people, organizations, and identity based civic actors.
 column_name	data_type
@@ -794,10 +822,256 @@ This model ensures:
 •	sponsor integrity
 •	gaming privacy
 •	Workspace stability
-9. Workspace Responsibilities
+9. Storage Model (Unified)
+Electrum uses one canonical bucket, currently in Supabase:
+universal-media
+All assets — brand, hero, logo, stories, events, places, entities, moments — are stored here.
+The folder structure is:
+universal-media/
+  cities/<cityId>/brand/
+  cities/<cityId>/stories/
+  cities/<cityId>/events/
+  cities/<cityId>/places/
+  cities/<cityId>/entities/
+  cities/<cityId>/moments/
+Legacy buckets (story-360, story-images, ad-banners, etc.) remain but are deprecated.
+All new uploads must use universal-media.
+10. Security Logging Model
+Core tables: security_audit_logs, audit_logs.
+Electrum uses a centralized, immutable security logging system to record all administrative actions across the platform. This ensures accountability, auditability, and compliance for all city level and global configuration changes.
+Security logging is handled exclusively through:
+•	security_audit_logs — canonical, immutable audit table
+•	audit_logs — legacy or secondary audit table (optional)
+These tables record who performed an action, what was changed, which table was affected, and when the action occurred.
+Security logging is not implemented by scattering timestamps or metadata across every admin restricted table. Instead, all logs are written to security_audit_logs using a consistent schema.
+10.1 Canonical Audit Tables: 
+Table: security_audit_logs
+Purpose: security critical events (auth and role changes).
+Every admin restricted mutation (INSERT, UPDATE, DELETE) must generate a log entry in this table.
+Schema Columns
+column_name	data_type
+id	uuid
+user_id	uuid
+action	text
+target_user_id	uuid
+old_role	text
+new_role	text
+ip_address	inet
+user_agent	text
+created_at	timestamp with time zone
+
+Metadata Examples
+•	Fields changed
+•	Old values vs new values
+•	Publish/draft status transitions
+•	City affected
+•	IP address (optional)
+•	Admin UI route used
+Use for:
+•	Admin login / logout events
+•	Role changes (global or city scoped)
+•	Password resets / security policy changes
+•	RLS policy updates (if exposed via admin tooling)
+Table: audit_logs
+Purpose: general admin actions on entities.
+
+Schema Columns
+column_name	data_type
+id	Uuid
+actor_user_id	Uuid
+action	Text
+entity_type	Text
+entity_id	Uuid
+metadata	jsonb
+created_at	timestamp with time zone
+
+Use for:
+•	Admin mutations on:
+o	admin tables (admin_users, roles, user_roles, contributors, platform_settings, profiles)
+o	city configuration (cities, city_brand_settings, city_design_system, city_feature_toggles, city_navigation, city_prompts, city_safety_settings, city_freeze_events)
+o	fraud tables (fraud_rules, fraud_signals, fraud_contributor_state)
+o	global settings (global_*)
+o	sponsor tables (sponsors, ad_slots, ad_creatives, ad_impressions, ad_clicks)
+o	gaming admin tables (games, game_question_options, game_answers, game_attempts, game_scores when mutated by admin)
+o	editorial workflows (civic_stories, civic_events, etc. when edited via admin/editor UI)
+10.2 What Gets Logged
+
+Keep updated_at on admin tables for normal data lifecycle and UI convenience.
+
+Centralize security logging in security_audit_log and audit_logs, not scattered across every table.
+
+All admin restricted mutations (INSERT/UPDATE/DELETE) must generate a log entry.
+
+This includes:
+•	City configuration
+o	cities
+o	city_brand_settings
+o	city_design_system
+o	city_feature_toggles
+o	city_navigation
+o	city_prompts
+o	city_safety_settings
+o	city_freeze_events
+•	Global configuration
+o	global_settings
+o	global_brand_settings
+o	global_feature_toggles
+o	global_permissions
+o	global_safety_settings
+•	Sponsor system
+o	sponsors
+o	ad_slots
+o	ad_creatives
+•	Contributor/editor system
+o	contributors
+o	admin_users
+o	roles
+o	user_roles
+•	Fraud/safety system
+o	fraud_rules
+o	fraud_signals
+o	fraud_contributor_state
+•	Relationship tables
+o	event_eras
+o	moment_entities
+o	moment_places
+o	moment_eras
+o	moment_stories
+o	moment_neighborhoods
+If an admin can mutate it, it must be logged.
+10.3 What Does Not Get Logged
+Some tables should not generate audit entries:
+•	security_audit_logs (self referential logging is forbidden)
+•	audit_logs (self referential logging is forbidden)
+•	rate_limit_events
+•	ai_usage_logs
+•	ai_response_cache
+•	game_attempts
+•	game_scores
+•	ad_impressions
+•	ad_clicks
+These tables are either:
+•	append only logs
+•	automated system tables
+•	non admin editable
+•	high volume telemetry tables
+10.4 Table Level Metadata Requirements
+Security logging is centralized, but certain tables still require lifecycle metadata:
+Configuration Tables (full metadata)
+Must include:
+•	updated_at
+•	updated_by
+•	status (draft/published)
+•	last_modified_at
+•	last_modified_by
+•	last_published_at
+•	last_published_by
+Civic Content Tables (editorial metadata)
+Must include:
+•	updated_at
+•	updated_by
+•	is_published
+•	review_status
+•	editor_id
+•	reviewed_at
+System Tables (no metadata)
+Must not include:
+•	updated_by
+•	status
+•	publish timestamps
+10.5 How Logs Are Generated
+Admin UI
+All admin UI mutations must:
+1.	Perform the database mutation using the service role
+2.	Write a corresponding entry into security_audit_logs
+3.	Include a structured diff in metadata
+Supabase Functions / Triggers (optional)
+For high risk tables (global settings, fraud rules), triggers may also write logs automatically.
+Workspace Enforcement
+Workspace must:
+•	ensure all admin routes write audit entries
+•	ensure no admin mutation bypasses logging
+•	ensure metadata is structured and consistent
+•	ensure logs are immutable (no UPDATE/DELETE allowed)
+10.6 RLS for logging tables
+•	anon: CANNOT SELECT security_audit_log or audit_logs.
+•	authenticated admin / service role: CAN SELECT and INSERT into both tables.
+•	contributors: CANNOT SELECT logs; mutations they trigger (e.g., story submissions) still generate audit_logs entries with actor_user_id set.
+10.7 Summary
+Electrum’s security logging model is:
+•	centralized
+•	immutable
+•	complete
+•	consistent
+•	Workspace enforced
+•	launch critical
+Every admin action is logged. Every log is structured. Every log is immutable. Every log is stored in security_audit_logs.
+11. Draft/Publish Model 
+Electrum uses two rows per city in city_brand_settings + city_design_system tables:
+city_brand_settings:
+  city_id: <uuid>
+  status: "draft"
+  ...
+city_brand_settings:
+  city_id: <uuid>
+  status: "published"
+  ...
+
+city_design_system:
+  city_id: <uuid>
+  status: "draft"
+  ...
+city_design_system:
+  city_id: <uuid>
+  status: "published"
+  ...
+
+11.1 Publish Action
+Publishing copies draft → published:
+INSERT INTO city_brand_settings (city_id, status, ...)
+SELECT city_id, 'published', ...
+FROM city_brand_settings
+WHERE city_id = $1 AND status = 'draft';
+Same for design system.
+Preview mode loads draft. Public UI loads published.
+11.2 Preview Architecture
+Admin Preview Route: 
+/workspaces/electrumbroadcasting-admin/app/admin/cities/[id]/preview
+Public UI Preview Mode: 
+/workspaces/electrum-broadcasting/electrum-ui/cities/[id]?preview=true
+Preview loads:
+•	brand (draft)
+•	design system (draft)
+•	pages (draft)
+•	modules (draft)
+Live site loads:
+•	brand (published)
+•	design system (published)
+•	pages (published)
+•	modules (published)
+11.3 Public UI Loaders 
+Brand
+
+loadBrandSettings(cityId, { draft: boolean })
+
+Design System
+
+loadDesignSystem(cityId, { draft: boolean })
+Pages
+
+loadCityPages(cityId, { draft: boolean })
+
+Modules
+
+loadCityModules(cityId, { draft: boolean })
+All loaders must use:
+•	anon Supabase client
+•	RLS-safe queries
+•	shared slug resolution (loadCityBySlug)
+12. Workspace Responsibilities
 Workspace is responsible for enforcing Electrum’s architectural rules, normalizing data access, and refactoring code to match the platform’s canonical data model. Workspace must operate within the schema and RLS boundaries defined in this document.
 Workspace responsibilities fall into three categories: Normalize, Verify, and Refactor.
-9.1 Normalize
+12.1 Normalize
 Workspace MUST normalize:
 •	Supabase queries
 o	consistent client usage
@@ -813,7 +1087,7 @@ o	enforce loadCityBySlug
 o	enforce loadCityAndPage
 o	enforce loadTimeline
 Normalization ensures consistent behavior across the entire platform.
-9.2 Verify
+12.2 Verify
 Workspace MUST verify:
 •	Foreign keys
 o	correct joins
@@ -836,7 +1110,7 @@ o	limited gaming tables
 o	admin UI
 o	secure backend operations
 Verification ensures the platform remains safe, consistent, and RLS correct.
-9.3 Refactor
+12.3 Refactor
 Workspace MUST refactor:
 •	Duplicated loaders
 •	Inconsistent shapes
@@ -856,7 +1130,7 @@ Workspace MUST refactor:
 •	Server action misuse
 •	Caching strategy issues
 Refactoring ensures the codebase aligns with Electrum’s canonical architecture.
-9.4 Workspace SHOULD
+12.4 Workspace SHOULD
 Workspace SHOULD:
 •	Normalize loaders
 •	Normalize API routes
@@ -877,7 +1151,7 @@ Workspace SHOULD:
 •	Fix server actions
 •	Fix caching strategy
 These actions improve stability, maintainability, and architectural consistency.
-9.5 Workspace MUST NOT
+12.5 Workspace MUST NOT
 Workspace MUST NOT:
 •	Create new tables
 •	Modify your schema
