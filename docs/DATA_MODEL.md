@@ -59,7 +59,7 @@ Sponsor Tables
 •	sponsors
 Admin Tables
 •	admin_override_logs 
-•	admin_user_dashboard (table does not exist)
+•	admin_action_logs
 •	admin_users 
 •	audit_logs 
 •	contributors 
@@ -416,7 +416,24 @@ column_name	data_type
 id	uuid
 user_id	uuid
 created_at	timestamp with time zone
-role_id	uuid
+role_id	Uuid
+
+Table: admin_action_logs
+column_name	data_type
+id	uuid
+actor_user_id	uuid
+actor_admin_id	uuid
+actor_role	text
+action	text
+domain	text
+entity_type	text
+entity_id	uuid
+target_user_id	uuid
+metadata	jsonb
+ip_address	inet
+user_agent	text
+created_at	timestamp with time zone
+
 4. Join Tables
 Electrum uses a combination of generalized and specialized join tables to connect civic content across time, place, narrative, and identity. These tables do not represent standalone civic objects; instead, they define relationships between core tables.
 Join tables fall into two categories:
