@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AdminRole } from "@/lib/admin/types";
-import { getAdminContext } from "@/lib/admin/context";
+import { requireAdminRole, AdminAccessError } from "@/lib/admin/guards";
+import { logAdminAction } from "@/lib/admin/logAdminAction";
 
 export async function GET() {
   const supabase = createSupabaseServerClient();
@@ -48,10 +49,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const admin = await getAdminContext();
-    if (admin.role !== "CEO" && admin.role !== "PLATFORM_ADMIN") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const admin = await requireAdminRole("PLATFORM_ADMIN");
 
     const body = await req.json();
     const {
@@ -134,8 +132,21 @@ export async function POST(req: Request) {
       console.error("Failed to generate recovery link:", linkError);
     }
 
+    await logAdminAction(supabase, {
+      actorUserId: admin.user_id,
+      actorRole: admin.role,
+      action: "create_admin_user",
+      domain: "global",
+      entityType: "admin_users",
+      entityId: authUser.user.id,
+      metadata: { email, role, city_ids: normalizedCityIds },
+    });
+
     return NextResponse.json({ success: true });
   } catch (err) {
+    if (err instanceof AdminAccessError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     console.error("POST /api/admin/users error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

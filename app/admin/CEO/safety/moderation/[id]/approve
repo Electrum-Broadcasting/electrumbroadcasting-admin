@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/context";
-import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { logAdminAction } from "@/lib/admin/logAdminAction";
 
 export async function POST(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const { email } = await getAdminContext();
-  const supabase = createSupabaseServiceClient();
+  const { email, user_id: adminUserId, role } = await getAdminContext();
+  const supabase = createSupabaseServerClient();
 
   await supabase
     .from("moderation_queue")
@@ -18,6 +19,15 @@ export async function POST(
     actor: email,
     action: "approve_moderation_item",
     entity: params.id,
+  });
+
+  await logAdminAction(supabase, {
+    actorUserId: adminUserId,
+    actorRole: role,
+    action: "approve_moderation_item",
+    domain: "civic",
+    entityType: "moderation_queue",
+    entityId: params.id,
   });
 
   return NextResponse.redirect(`/admin/CEO/safety/moderation/${params.id}`);

@@ -1,5 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getTableConfig, type AdminTableName } from "@/lib/admin/config";
+import { auditedInsert, auditedUpdate, auditedDelete } from "@/lib/admin/mutations";
+import type { AdminContext } from "@/lib/admin/guards";
 
 export type RowData = Record<string, unknown>;
 
@@ -57,58 +59,49 @@ export async function getRowById(table: AdminTableName, id: string): Promise<Row
   return (data as RowData | null) ?? null;
 }
 
-export async function insertRow(table: AdminTableName, values: RowData): Promise<RowData> {
-  const supabase = createSupabaseServerClient();
+export async function insertRow(table: AdminTableName, values: RowData, context: AdminContext): Promise<RowData> {
   const tableName = resolveTableName(table, "insertRow");
 
   if (!tableName) {
     throw new Error(`Invalid table configuration for ${table}`);
   }
 
-  const { data, error } = await supabase.from(tableName).insert(values).select("*").single();
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  const data = await auditedInsert(
+    { context, table: tableName, action: `create_${table}`, domain: "admin_table" },
+    values
+  );
 
   return data as RowData;
 }
 
-export async function updateRow(table: AdminTableName, id: string, values: RowData): Promise<RowData> {
-  const supabase = createSupabaseServerClient();
+export async function updateRow(
+  table: AdminTableName,
+  id: string,
+  values: RowData,
+  context: AdminContext
+): Promise<RowData> {
   const tableName = resolveTableName(table, "updateRow");
 
   if (!tableName) {
     throw new Error(`Invalid table configuration for ${table}`);
   }
 
-  const { data, error } = await supabase
-    .from(tableName)
-    .update(values)
-    .eq("id", id)
-    .select("*")
-    .single();
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  const data = await auditedUpdate(
+    { context, table: tableName, action: `update_${table}`, domain: "admin_table", entityId: id },
+    values
+  );
 
   return data as RowData;
 }
 
-export async function removeRow(table: AdminTableName, id: string): Promise<void> {
-  const supabase = createSupabaseServerClient();
+export async function removeRow(table: AdminTableName, id: string, context: AdminContext): Promise<void> {
   const tableName = resolveTableName(table, "removeRow");
 
   if (!tableName) {
     throw new Error(`Invalid table configuration for ${table}`);
   }
 
-  const { error } = await supabase.from(tableName).delete().eq("id", id);
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  await auditedDelete({ context, table: tableName, action: `delete_${table}`, domain: "admin_table", entityId: id });
 }
 
 export async function getTableCount(table: AdminTableName): Promise<number> {

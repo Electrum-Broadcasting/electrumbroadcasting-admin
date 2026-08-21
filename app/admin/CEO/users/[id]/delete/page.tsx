@@ -1,6 +1,9 @@
 import { AdminShell } from "@/components/admin/AdminShell";
 import { getAdminContext } from "@/lib/admin/context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireAdminRole } from "@/lib/admin/guards";
+import { auditedDelete } from "@/lib/admin/mutations";
+import type { AdminContext } from "@/lib/admin/guards";
 import Link from "next/link";
 import { ToastBoundary } from "@/components/ui/ToastBoundary";
 import { ToastTrigger } from "@/components/ui/ToastTrigger";
@@ -24,9 +27,15 @@ async function getUserById(id: string): Promise<AdminUserRow | null> {
   return (data as AdminUserRow) ?? null;
 }
 
-async function deleteUser(id: string): Promise<void> {
-  const supabase = createSupabaseServerClient();
-  await supabase.from("admin_users").delete().eq("user_id", id);
+async function deleteUser(id: string, context: AdminContext): Promise<void> {
+  await auditedDelete({
+    context,
+    table: "admin_users",
+    action: "delete_admin_user",
+    domain: "global",
+    entityId: id,
+    idColumn: "user_id",
+  });
 }
 
 export default async function DeleteUserPage({
@@ -52,7 +61,8 @@ export default async function DeleteUserPage({
 
   // If the user confirmed deletion via ?confirm=true
   if (searchParams.confirm === "true") {
-    await deleteUser(params.id);
+    const context = await requireAdminRole("PLATFORM_ADMIN");
+    await deleteUser(params.id, context);
 
     return (
       <AdminShell email={admin.email} role={admin.role} title="User Deleted">

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getTableConfig, type AdminTableName } from "@/lib/admin/config";
 import { insertRow, removeRow, updateRow } from "@/lib/admin/data";
+import { requireAdminRole } from "@/lib/admin/guards";
 
 
 function parseValue(type: string, value: FormDataEntryValue | null): unknown {
@@ -57,9 +58,9 @@ function formDataToRow(table: AdminTableName, formData: FormData) {
 }
 
 export async function createRecordAction(table: AdminTableName, formData: FormData) {
-  
+  const context = await requireAdminRole("EDITOR");
   const values = formDataToRow(table, formData);
-  await insertRow(table, values);
+  await insertRow(table, values, context);
 
   const route = getTableConfig(table).route;
   revalidatePath(route);
@@ -67,9 +68,9 @@ export async function createRecordAction(table: AdminTableName, formData: FormDa
 }
 
 export async function updateRecordAction(table: AdminTableName, id: string, formData: FormData) {
-  
+  const context = await requireAdminRole("EDITOR");
   const values = formDataToRow(table, formData);
-  await updateRow(table, id, values);
+  await updateRow(table, id, values, context);
 
   const route = getTableConfig(table).route;
   revalidatePath(route);
@@ -77,8 +78,8 @@ export async function updateRecordAction(table: AdminTableName, id: string, form
 }
 
 export async function deleteRecordAction(table: AdminTableName, id: string) {
-  
-  await removeRow(table, id);
+  const context = await requireAdminRole("CITY_ADMIN");
+  await removeRow(table, id, context);
 
   const route = getTableConfig(table).route;
   revalidatePath(route);

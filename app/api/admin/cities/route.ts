@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireAdminRole, AdminAccessError } from "@/lib/admin/guards";
+import { auditedInsert } from "@/lib/admin/mutations";
 
 export async function GET() {
   const supabase = createSupabaseServerClient();
@@ -18,22 +20,23 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const supabase = createSupabaseServerClient();
-  const body = await req.json();
+  try {
+    const context = await requireAdminRole("PLATFORM_ADMIN");
+    const body = await req.json();
 
-  const { name, slug, domain, status } = body;
+    const { name, slug, domain, status } = body;
 
-  const { error } = await supabase.from("cities").insert({
-    name,
-    slug,
-    domain,
-    status,
-  });
+    await auditedInsert(
+      { context, table: "cities", action: "create_city", domain: "city" },
+      { name, slug, domain, status }
+    );
 
-  if (error) {
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    if (error instanceof AdminAccessError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error("Failed to create city:", error);
     return NextResponse.json({ error: "Failed to create city" }, { status: 500 });
   }
-
-  return NextResponse.json({ success: true });
 }

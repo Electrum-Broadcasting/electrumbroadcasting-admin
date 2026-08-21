@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireAdminRole, AdminAccessError } from "@/lib/admin/guards";
+import { logAdminAction } from "@/lib/admin/logAdminAction";
 
 const ASSETS_BUCKET = process.env.SUPABASE_ASSETS_BUCKET ?? "assets";
 
@@ -10,6 +12,7 @@ function getFileExtension(name: string) {
 
 export async function POST(req: Request) {
 	try {
+		const admin = await requireAdminRole("EDITOR");
 		const formData = await req.formData();
 		const upload = formData.get("file");
 
@@ -63,8 +66,21 @@ export async function POST(req: Request) {
 			return NextResponse.json({ error: insertError.message }, { status: 500 });
 		}
 
+		await logAdminAction(supabase, {
+			actorUserId: admin.user_id,
+			actorRole: admin.role,
+			action: "upload_media_asset",
+			domain: "global",
+			entityType: "media_assets",
+			entityId: assetId,
+			metadata: { storagePath, contentType: upload.type },
+		});
+
 		return NextResponse.json({ asset_id: assetId });
 	} catch (error) {
+		if (error instanceof AdminAccessError) {
+			return NextResponse.json({ error: error.message }, { status: error.status });
+		}
 		console.error("POST /api/admin/assets/upload error:", error);
 		return NextResponse.json({ error: "Unexpected error" }, { status: 500 });
 	}

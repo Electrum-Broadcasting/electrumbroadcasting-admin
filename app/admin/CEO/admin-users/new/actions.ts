@@ -4,15 +4,11 @@ import { createClient } from "@supabase/supabase-js";
 import { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } from "@/lib/supabase/env";
 import { hashPassword } from "@/lib/admin/password";
 import { redirect } from "next/navigation";
-import { getAdminContext } from "@/lib/admin/context";
+import { requireAdminRole } from "@/lib/admin/guards";
+import { logAdminAction } from "@/lib/admin/logAdminAction";
 
 export async function createAdminAccountAction(formData: FormData) {
-  const admin = await getAdminContext();
-
-  // Only CEO or PLATFORM_ADMIN can create new admins
-  if (admin.role !== "CEO" && admin.role !== "PLATFORM_ADMIN") {
-    redirect("/admin");
-  }
+  const admin = await requireAdminRole("PLATFORM_ADMIN");
 
   const email = String(formData.get("email") ?? "").trim();
   const role = String(formData.get("role") ?? "").trim();
@@ -53,13 +49,14 @@ export async function createAdminAccountAction(formData: FormData) {
   }
 
   // 3. Log creation
-  await supabase.rpc("log_admin_action", {
-    action: "ADMIN_CREATE_USER",
-    user_id: admin.id,
-    target_user_id: adminRow?.id ?? null,
-    old_role: null,
-    new_role: role,
-    metadata: { created_email: email },
+  await logAdminAction(supabase, {
+    actorUserId: admin.user_id,
+    actorRole: admin.role,
+    action: "create_admin_user",
+    domain: "global",
+    entityType: "admin_users",
+    entityId: adminRow?.id ?? null,
+    metadata: { created_email: email, new_role: role },
   });
 
   redirect("/admin/CEO/admin-users");

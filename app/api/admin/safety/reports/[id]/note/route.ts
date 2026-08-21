@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { logAdminAction } from "@/lib/admin/logAdminAction";
 
 export async function POST(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const { email } = await getAdminContext();
+  const { email, user_id: adminUserId, role } = await getAdminContext();
   const supabase = createSupabaseServerClient();
 
   const flagId = params.id;
@@ -55,6 +56,17 @@ export async function POST(
     },
   });
 
-  // 5. Redirect back to the detail page
+  // 5. Log the admin action
+  await logAdminAction(supabase, {
+    actorUserId: adminUserId,
+    actorRole: role,
+    action: "add_flag_note",
+    domain: "fraud",
+    entityType: "flag_events",
+    entityId: flagId,
+    metadata: { note },
+  });
+
+  // 6. Redirect back to the detail page
   return NextResponse.redirect(`/admin/CEO/safety/reports/${flagId}`);
 }

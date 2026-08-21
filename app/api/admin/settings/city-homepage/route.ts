@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireAdminRole, requireCityAccess, AdminAccessError } from "@/lib/admin/guards";
+import { auditedUpsert } from "@/lib/admin/mutations";
+import { sanitizeBrandFields } from "@/lib/admin/brandFields";
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,27 +13,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "cityId is required" }, { status: 400 });
     }
 
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { cookies }
-    );
+    const context = await requireAdminRole("CITY_ADMIN");
+    requireCityAccess(context, cityId);
 
-    const { error } = await supabase
-      .from("city_brand_settings")
-      .upsert({
+    const supabase = createSupabaseServerClient();
+
+    await auditedUpsert(
+      {
+        context,
+        table: "city_brand_settings",
+        action: "update_city_homepage",
+        domain: "city",
+        entityId: cityId,
+        supabase,
+      },
+      {
         city_id: cityId,
-        ...fields,
+        ...sanitizeBrandFields(fields),
         updated_at: new Date().toISOString(),
-      });
-
-    if (error) {
-      console.error("city-homepage update error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+      }
+    );
 
     return NextResponse.json({ success: true });
   } catch (err) {
+    if (err instanceof AdminAccessError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     console.error("city-homepage POST error:", err);
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }

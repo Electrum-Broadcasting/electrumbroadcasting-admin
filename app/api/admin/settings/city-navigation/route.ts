@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { requireAdminRole, requireCityAccess, AdminAccessError } from "@/lib/admin/guards";
+import { logAdminAction } from "@/lib/admin/logAdminAction";
 
 function getSupabaseClient() {
   const cookieAdapter = {
@@ -52,8 +54,12 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const supabase = getSupabaseClient();
     const { cityId, items } = await req.json();
+
+    const context = await requireAdminRole("CITY_ADMIN");
+    requireCityAccess(context, cityId);
+
+    const supabase = getSupabaseClient();
 
     await supabase.from("city_navigation").delete().eq("city_id", cityId);
 
@@ -76,8 +82,21 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
+    await logAdminAction(supabase, {
+      actorUserId: context.user_id,
+      actorRole: context.role,
+      action: "update_city_navigation",
+      domain: "city",
+      entityType: "city_navigation",
+      entityId: cityId,
+      metadata: { itemCount: items.length },
+    });
+
     return NextResponse.json({ success: true });
   } catch (err) {
+    if (err instanceof AdminAccessError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     console.error("City navigation PATCH error:", err);
     return NextResponse.json(
       { error: "Failed to update city navigation" },
