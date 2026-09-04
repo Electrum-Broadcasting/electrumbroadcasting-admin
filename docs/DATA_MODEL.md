@@ -1,4 +1,4 @@
-DATA-MODEL.md 
+**DATA-MODEL.md 
 Electrum’s data model is a city centric relational schema built on Supabase/PostgreSQL with strict Row Level Security (RLS). This document describes all core tables, relationships, foreign keys, and usage patterns.
 It is designed for both human contributors and AI agents (Copilot, Workspace) to understand the database structure and enforce consistent, RLS safe access patterns.
 1. Core Concepts
@@ -58,10 +58,8 @@ Sponsor Tables
 •	ad_slots 
 •	sponsors
 Admin Tables
-•	admin_override_logs 
 •	admin_action_logs
 •	admin_users 
-•	audit_logs 
 •	contributors 
 •	flag_events 
 •	fraud_contributor_state 
@@ -74,10 +72,14 @@ Admin Tables
 •	global_settings 
 •	rate_limit_events
 •	roles 
-•	security_audit_logs 
 •	user_roles 
 •	platform_settings 
 •	profiles 
+•	city_budget (new)
+•	sponsor_allocations (new)
+•	production_units (new)
+•	payout_batches (new)
+•	payout_batch_items (new)
 AI Response Tables
 •	ai_response_cache 
 •	ai_usage_logs
@@ -151,14 +153,6 @@ description	text
 summary	text
 pages	Jsonb
 Status	text
--- Removed fields:
--- population (moved to cities)
--- editorial_tone (moved to city_prompts)
--- future_concepts (removed)
--- accent_color, accent_color_secondary (removed)
--- typography, motion (removed)
--- theme, theme_status, theme_updated_at (removed)
--- city_logo_asset_id, homepage_hero_asset_id (removed)
 
 Table: city_design_system
 Defines per city design tokens used by the UI.
@@ -169,23 +163,6 @@ updated_at	timestamp with time zone
 published_theme	jsonb
 city_id	Uuid
 Status	text
--- Removed:
--- slug (redundant)
--- published_theme JSON must match:
-{
-  "colors": {
-    "accent": "...",
-    "background": "...",
-    "foreground": "...",
-    "buttonText": "...",
-    "primary": "...",
-    "secondary": "..."
-  },
-  "typography": {
-    "heading": "...",
-    "body": "..."
-  }
-}
 -- Public UI consumes only:
 •	colors.accent, colors.background, colors.foreground, colors.buttonText
 •	typography.heading, typography.body
@@ -265,7 +242,6 @@ moment_time	timestamp with time zone
 thumbnail_360_url	text
 inline_360_urls	ARRAY
 body	text
-
 Table: civic_stories
 column_name	data_type
 id	uuid
@@ -346,7 +322,6 @@ hero_360_url	text
 media_urls	ARRAY
 tags	ARRAY
 related_event_ids	ARRAY
-
 Table: games
 Defines games for the public interface.
 
@@ -362,8 +337,6 @@ published	boolean
 published_at	timestamp with time zone
 visibility	text
 owner_id	uuid
-
-
 Table: ad_slots
 Defines sponsor ad placements.
 column_name	data_type
@@ -374,7 +347,6 @@ width	integer
 height	integer
 description	text
 created_at	timestamp with time zone
-
 Table: sponsors
 Defines sponsor organizations.
 column_name	data_type
@@ -386,7 +358,188 @@ contact_email	text
 created_at	timestamp with time zone
 updated_at	timestamp with time zone
 deleted_at	timestamp with time zone
+Table: sponsor_allocations
+Individual sponsor contributions applied against a city_budget period. Tracks how much Sponsor capital is allocated to each city. City budgets are derived from these allocations.
+Column	Type	Constraints	Notes
+id	uuid	PRIMARY KEY
+DEFAULT gen_random_uuid()	
+city_budget_id	uuid	NOT NULL
+FK → city_budget(id)
+ON DELETE RESTRICT	Parent budget period.
+city_id	uuid	NOT NULL
+FK → cities(id)	Denormalized for RLS efficiency.
+sponsor_name	text	NOT NULL	Display name of the sponsoring entity.
+sponsor_ref	text	NULLABLE	External CRM or contract reference ID.
+amount_cents	bigint	NOT NULL
+CHECK (> 0)	Contribution amount in USD cents.
+notes	text	NULLABLE	Free-form notes; use for soft-cancel context until v5 adds a status column.
+created_by	uuid	NOT NULL
+FK → admin_users(id)	
+created_at	timestamptz	NOT NULL
+DEFAULT now()	
+updated_at	timestamptz	NOT NULL
+DEFAULT now()	
+Relationships
+•	sponsor_id → sponsors.id
+•	city_id → cities.id
+RPC Recommendation Updating sponsor allocations should call recalculate_city_budget.
+RLS Notes
+•	City Admins may SELECT allocations for their cities.
+•	CEO may INSERT/UPDATE/DELETE.
+Table: production_units
+A discrete content or program unit that city admins create for writers/editors to write about. Organizational container linking financial planning to editorial output. Represents every paid deliverable in Electrum’s production pipeline. A production unit is created when a Contributor or City Admin submits a story, photo, caption, or other civic object for editorial review.
+Column	Type	Constraints	Notes
+id	uuid	PRIMARY KEY
+DEFAULT gen_random_uuid()	
+city_id	uuid	NOT NULL
+FK → cities(id)
+ON DELETE RESTRICT	RLS scoping key.
+city_budget_id	uuid	NULLABLE
+FK → city_budget(id)	Production unit may or may not be budget-tied.
+created_by	uuid	NOT NULL
+FK → admin_users(id)	The city_admin who created this unit.
+title	text	NOT NULL	
+description	text	NULLABLE	
+unit_type	text	NULLABLE	e.g., 'article' | 'video' | 'event' | 'series'.
+gross_cost			
+net_city_cost			
+sponsor_credit			
+target_payout_cents	bigint	NULLABLE	Intended payout per approved story in this unit (USD cents).
+contributor_payout			
+editor_payout			
+status	text	NOT NULL
+DEFAULT 'open'	One of 'open' | 'in_progress' | 'complete' | 'cancelled'.
+due_date	date	NULLABLE	Target completion date.
+created_at	timestamptz	NOT NULL
+DEFAULT now()	
+updated_at	timestamptz	NOT NULL
+DEFAULT now()	
+settled_at			
+unit_type
+•	story
+•	story_revision
+•	photo
+•	caption
+•	city_update
+status
+•	submitted
+•	editor_approved
+•	city_published
+•	rejected
+•	unpublishable
+Relationships & RLS
+One city_admin creates many production_units. One production_unit may have many civic_stories (via civic_stories.production_unit_id). One production_unit optionally belongs to one city_budget. RLS: city_admin can INSERT/UPDATE/SELECT for their city. Editors can SELECT 'open' production_units for their city only — no INSERT or UPDATE.
+•	contributor_id → admin_users.id
+•	editor_id → admin_users.id
+•	city_id → cities.id
+•	story_id → civic_stories.id
+•	city_budget_id → city_budget.id
+•	Contributors may SELECT their own units.
+•	Editors may SELECT units they reviewed.
+•	City Admins may SELECT units for their cities.
+•	Only City Admins may transition units to city_published.
+•	CEO may update all fields.
+Table: payout_batches
+A grouped set of payout items submitted for payment processing in one operation. Tied to a city_budget period. Created automatically at the end of each payout period.
+Column	Type	Constraints	Notes
+id	uuid	PRIMARY KEY
+DEFAULT gen_random_uuid()	
+city_id	uuid	NOT NULL
+FK → cities(id)
+ON DELETE RESTRICT	RLS scoping key.
+city_budget_id	uuid	NOT NULL
+FK → city_budget(id)
+ON DELETE RESTRICT	Budget period this batch draws against.
+batch_ref	text	UNIQUE
+NULLABLE	External payment processor reference ID.
+total_amount_cents	bigint	NOT NULL
+DEFAULT 0
+CHECK (>= 0)	Sum of payout_batch_items; maintained by trigger or RPC.
+status	text	NOT NULL
+DEFAULT 'pending'	One of 'pending' | 'submitted' | 'processing' | 'paid' | 'failed' | 'cancelled'.
+submitted_at	timestamptz	NULLABLE	Set when batch is submitted to payment processor.
+paid_at	timestamptz	NULLABLE	Set when all items reach 'paid'.
+created_by	uuid	NOT NULL
+FK → admin_users(id)	
+created_at	timestamptz	NOT NULL
+DEFAULT now()	
+updated_at	timestamptz	NOT NULL
+DEFAULT now()	
 
+ Status Transition Rules
+A payout_batch may only be created against a city_budget with status = 'active' (enforce via RPC). city_admin can INSERT (status='pending') and SELECT for their city. Only super_admin can transition status to 'paid' or 'failed'. Status transitions must be enforced via RPC, not direct UPDATE.
+Table: city_budget
+Annual or period budget envelope allocated to a city. Parent record for all financial operations within a city-period.
+Column	Type	Constraints	Notes
+id	uuid	PRIMARY KEY
+DEFAULT gen_random_uuid()	
+city_id	uuid	NOT NULL
+FK → cities(id)
+ON DELETE RESTRICT	RLS scoping key.
+fiscal_year	integer	NOT NULL	e.g., 2026.
+period_label	text	NULLABLE	Free-form label, e.g., 'Q3 2026'.
+total_budget_cents	bigint	NOT NULL
+CHECK (> 0)	Total allocated budget in USD cents.
+allocated_cents	bigint	NOT NULL
+DEFAULT 0
+CHECK (>= 0)	Sum of sponsor_allocations; updated by trigger or RPC.
+spent_amount_cents	bigint
+	NOT NULL DEFAULT 0 CHECK (spent_amount_cents >= 0),
+	
+remaining_cents	bigint GENERATED ALWAYS AS (total_budget_cents - allocated_cents) STORED	COMPUTED	Derived column; do not write directly.
+status	text	NOT NULL
+DEFAULT 'active'	One of 'draft' | 'active' | 'closed'.
+created_by	uuid	NOT NULL
+FK → admin_users(id)	
+created_at	timestamptz	NOT NULL
+DEFAULT now()	
+updated_at	timestamptz	NOT NULL
+DEFAULT now()	
+			
+
+Relationships
+•	city_id → cities.id
+RPC Recommendation 
+recalculate_city_budget(city_id) recomputes allocated/spent/remaining.
+RLS Notes
+•	City Admins may SELECT their city’s budget.
+•	CEO may UPDATE all fields.
+Table: payout_batch_items
+Individual line items within a payout batch. Each item represents one payable event — typically tied to a published civic_story or production_unit deliverable.
+
+Column	Type	Constraints	Notes
+id	uuid	PRIMARY KEY
+DEFAULT gen_random_uuid()	
+payout_batch_id	uuid	NOT NULL
+FK → payout_batches(id)
+ON DELETE CASCADE	Parent batch. Cascade delete removes items if batch is deleted.
+city_id	uuid	NOT NULL
+FK → cities(id)	Denormalized for RLS efficiency.
+civic_story_id	uuid	NULLABLE
+FK → civic_stories(id)	The story being compensated, if applicable.
+production_unit_id	uuid	NULLABLE
+FK → production_units(id)	The production unit associated with this payout.
+payee_id	uuid	NOT NULL
+FK → admin_users(id)	The editor or contributor being paid.
+description	text	NULLABLE	Human-readable description of what is being paid.
+amount_cents	bigint	NOT NULL
+CHECK (> 0)	Payout amount in USD cents.
+status	text	NOT NULL
+DEFAULT 'pending'	One of 'pending' | 'approved' | 'paid' | 'rejected'. Mirrors parent batch status.
+created_at	timestamptz	NOT NULL
+DEFAULT now()	
+updated_at	timestamptz	NOT NULL
+DEFAULT now()	
+
+Relationships
+•	payout_batch_id → payout_batches.id
+•	production_unit_id → production_units.id
+Trigger Recommendation 
+A BEFORE INSERT/UPDATE/DELETE trigger recalculates payout_batches.total_amount_cents.
+Constraints & Triggers
+A payout_batch_item cannot be added to a batch with status != 'pending' (enforce via trigger or RPC check_batch_open). When all items in a payout_batch reach status = 'paid', a trigger or RPC should set payout_batches.status = 'paid' and record paid_at. No DELETE — use status = 'rejected'.
+RLS Note
+city_admin can INSERT items into batches they own. The payee (editor) can SELECT their own rows via payee_id = auth.uid().
 Table: admin_users
 Defines authenticated admin users.
 column_name	data_type
@@ -409,6 +562,10 @@ id	uuid
 name	text
 description	text
 created_at	timestamp with time zone
+-- Publish permission has been revoked on civic_stories
+-- Create, read, and update has been granted on civic_stories drafts
+-- Publish 
+
 
 Table: user_roles
 Join table linking authenticated users to roles.
@@ -664,6 +821,11 @@ Specialized Join Tables
 •	admin_users.role_id → roles.id
 •	user_roles.user_id → admin_users.id
 •	user_roles.role_id → roles.id
+•	payout_batch_items.civic_story_id → civic_stories.id
+•	payout_batch_items.production_unit_id → production_units.id
+•	payout_batch_items.payee_id → admin_users.id
+•	civic_stories.author_name → admin_users.id
+•	sponsor_allocations.created_by → admin_users.id
 
 7. RLS Model
 Electrum uses a strict Role Level Security (RLS) model to protect administrative data, ensure public safe access to civic content, and enforce domain boundaries. All public queries run under the anon role. All admin operations run under authenticated roles or the Supabase service role.
@@ -749,7 +911,82 @@ It is used for:
 •	Scheduled jobs
 •	Secure backend operations
 The service role is never exposed to the public UI.
-7.5 RLS Summary
+7.5 Production Units
+7.5.a RLS: Production Units (production_units)
+Purpose
+Protect financial deliverables and ensure only authorized users can submit, review, publish, or modify production units.
+Policies
+Contributors
+USING (auth.uid() = contributor_id)
+•  CAN: SELECT their own units
+•  CAN: INSERT new units (story, photo, caption)
+•  CANNOT: update status beyond submitted
+Editors
+USING (auth.uid() = editor_id)
+•	CAN: SELECT units they review
+•	CAN: UPDATE status → editor_approved
+•	CANNOT: publish
+City Admins
+•	CAN: SELECT all units for their cities
+•	CAN: UPDATE status → city_published
+•	CAN: adjust amount_cents downward
+•	CANNOT: modify contributor_id or editor_id
+CEO
+•	Full access
+7.5.b RLS: Payout Batches (payout_batches)
+Purpose
+Ensure City Admins can confirm payouts for their cities, while CEO retains final authorization.
+Policies
+City Admins
+•	CAN: SELECT batches for their cities
+•	CAN: UPDATE status → city_confirmed
+•	CANNOT: authorize payouts
+CEO
+•	CAN: UPDATE status → ceo_authorized
+•	CAN: UPDATE status → paid
+Contributors / Editors
+•	CAN: SELECT their own batches
+•	CANNOT: update
+7.5.c RLS: Payout Batch Items (payout_batch_items)
+Purpose
+Protect payout line items and ensure they cannot be manipulated outside the batch workflow.
+Policies
+City Admins
+•	CAN: SELECT items for their cities
+•	CANNOT: INSERT/UPDATE/DELETE (must use RPCs)
+CEO
+•	Full access
+Contributors / Editors
+•	CAN: SELECT items belonging to their batches
+•	CANNOT: modify
+7.5.d RLS: City Budget (city_budget)
+Purpose
+Prevent overspend and ensure City Admins can see their budget.
+Policies
+City Admins
+•	CAN: SELECT
+•	CANNOT: UPDATE
+CEO
+•	Full access
+7.5.e RLS: Publication Gate (civic_stories)
+Purpose
+Enforce the editorial workflow: Editors approve, City Admins publish.
+Policies
+Editors
+USING (auth.uid() = editor_id)
+•	CAN: UPDATE review fields
+•	CAN: UPDATE review_status → approved
+•	CANNOT: set is_published = true
+City Admins
+USING (city_id = ANY(
+  SELECT city_ids FROM admin_users WHERE auth_uid() = admin_users.auth_uid
+))
+•	CAN: UPDATE is_published = true
+•	CAN: UPDATE published_at
+•	CANNOT: modify review fields
+CEO
+•	Full access
+7.6 RLS Summary
 •	anon → read only civic + city + limited sponsor + limited gaming
 •	authenticated admin → full CRUD everywhere
 •	authenticated contributor → limited CRUD on civic content
@@ -1180,3 +1417,4 @@ Workspace MUST NOT:
 •	Rewrite your data model
 Workspace must operate within the schema and architectural boundaries defined in this document.
 
+**
