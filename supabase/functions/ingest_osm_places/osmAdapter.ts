@@ -101,6 +101,17 @@ export async function fetchOSMPlaces(
     OSM_INGESTION_CONFIG.batchSize,
   );
   const timeoutController = new AbortController();
+  if (signal) {
+    if (signal.aborted) {
+      timeoutController.abort(signal.reason);
+    } else {
+      signal.addEventListener(
+        "abort",
+        () => timeoutController.abort(signal.reason),
+        { once: true },
+      );
+    }
+  }
   const timeout = setTimeout(
     () => timeoutController.abort(),
     OSM_INGESTION_CONFIG.requestTimeoutMs,
@@ -111,7 +122,7 @@ export async function fetchOSMPlaces(
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ data: query }),
-      signal: signal ?? timeoutController.signal,
+      signal: timeoutController.signal,
     });
 
     if (!response.ok) {

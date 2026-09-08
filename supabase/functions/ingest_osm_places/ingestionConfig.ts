@@ -6,13 +6,6 @@ export const OSM_INGESTION_CONFIG = {
   batchSize: 500,
   radiusDegrees: 0.15,
   requestTimeoutMs: 30_000,
-  supportedTags: {
-    amenity: ["arts_centre", "library", "marketplace", "place_of_worship", "school", "theatre"],
-    historic: ["archaeological_site", "building", "castle", "memorial", "monument", "ruins"],
-    leisure: ["garden", "park", "sports_centre"],
-    publicTransport: ["station", "stop_position", "platform"],
-    tourism: ["attraction", "gallery", "museum", "viewpoint"],
-  },
 };
 
 // TODO: Replace this map with persisted per-city ingestion priority settings.

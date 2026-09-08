@@ -22,7 +22,7 @@ export async function findDuplicatePlace(
 ): Promise<DedupeResult> {
   const { data: slugMatches, error: slugError } = await supabase
     .from("civic_places")
-    .select("id, ingestion_metadata")
+    .select("id, latitude, longitude, ingestion_metadata")
     .eq("city_id", candidate.city_id)
     .eq("slug", candidate.slug)
     .limit(1);
@@ -33,16 +33,25 @@ export async function findDuplicatePlace(
 
   const slugMatch = slugMatches?.[0] as {
     id: string;
+    latitude?: number | null;
+    longitude?: number | null;
     ingestion_metadata?: { osm_id?: number };
   } | undefined;
   if (slugMatch) {
-    return {
-      isDuplicate: true,
-      matchedId: slugMatch.id,
-      reason: candidate.osm_id && slugMatch.ingestion_metadata?.osm_id === candidate.osm_id
-        ? "external_id"
-        : "slug",
-    };
+    const sameExternalId = candidate.osm_id !== undefined &&
+      slugMatch.ingestion_metadata?.osm_id === candidate.osm_id;
+    const sameCoordinates = typeof slugMatch.latitude === "number" &&
+      typeof slugMatch.longitude === "number" &&
+      Math.abs(slugMatch.latitude - candidate.latitude) <= COORDINATE_TOLERANCE &&
+      Math.abs(slugMatch.longitude - candidate.longitude) <= COORDINATE_TOLERANCE;
+
+    if (sameExternalId || sameCoordinates) {
+      return {
+        isDuplicate: true,
+        matchedId: slugMatch.id,
+        reason: sameExternalId ? "external_id" : "coordinates",
+      };
+    }
   }
 
   const { data: coordinateMatches, error: coordinateError } = await supabase

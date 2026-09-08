@@ -11,7 +11,16 @@ type RawIngestionRow = {
   payload: OSMIngestionPayload["payload"];
 };
 
-serve(async () => {
+serve(async (req) => {
+  if (req.method !== "POST") {
+    return new Response("Method Not Allowed", { status: 405 });
+  }
+
+  const secret = Deno.env.get("OSM_PIPELINE_ADMIN_SECRET");
+  if (!secret || req.headers.get("x-admin-secret") !== secret) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -20,7 +29,8 @@ serve(async () => {
     .from("raw_ingestion")
     .select("id, source_name, source_object_id, payload")
     .eq("processed", false)
-    .eq("source_name", "openstreetmap");
+    .eq("source_name", "openstreetmap")
+    .limit(500);
 
   if (rawRowsError) {
     return new Response(JSON.stringify({ error: rawRowsError.message }), {
