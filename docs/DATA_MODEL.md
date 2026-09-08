@@ -1,4 +1,4 @@
-**DATA-MODEL.md 
+DATA-MODEL.md 
 Electrum’s data model is a city centric relational schema built on Supabase/PostgreSQL with strict Row Level Security (RLS). This document describes all core tables, relationships, foreign keys, and usage patterns.
 It is designed for both human contributors and AI agents (Copilot, Workspace) to understand the database structure and enforce consistent, RLS safe access patterns.
 1. Core Concepts
@@ -189,7 +189,10 @@ tags	ARRAY
 year	integer
 era_id	uuid
 thumbnail_url	text
-
+ingestion_source	text
+ingestion_metadata	jsonb
+status	text
+Ingestion columns (ingestion_source, ingestion_metadata, status) inherit the RLS policies of their respective civic_ tables. No additional RLS rules are required.*
 Table: civic_events
 Represents historical or contemporary events.
 column_name	data_type
@@ -208,8 +211,11 @@ updated_at	timestamp with time zone
 is_published	boolean
 slug	text
 tags	ARRAY
-thumbnail_360_url	text
-
+thumbnail_360_url	Text
+ingestion_source	text
+ingestion_metadata	jsonb
+status	text
+Ingestion columns (ingestion_source, ingestion_metadata, status) inherit the RLS policies of their respective civic_ tables. No additional RLS rules are required.*
 Table: civic_places
 Represents physical locations.
 column_name	data_type
@@ -226,8 +232,11 @@ created_at	timestamp with time zone
 updated_at	timestamp with time zone
 is_published	boolean
 neighborhood	text
-slug	text
-
+slug	Text
+ingestion_source	text
+ingestion_metadata	jsonb
+status	text
+Ingestion columns (ingestion_source, ingestion_metadata, status) inherit the RLS policies of their respective civic_ tables. No additional RLS rules are required.*
 Table: civic_moments
 Represents narrative moments connecting events, places, entities, and eras.
 column_name	data_type
@@ -241,7 +250,11 @@ slug	text
 moment_time	timestamp with time zone
 thumbnail_360_url	text
 inline_360_urls	ARRAY
-body	text
+body	Text
+ingestion_source	text
+ingestion_metadata	jsonb
+status	text
+Ingestion columns (ingestion_source, ingestion_metadata, status) inherit the RLS policies of their respective civic_ tables. No additional RLS rules are required.*
 Table: civic_stories
 column_name	data_type
 id	uuid
@@ -299,8 +312,11 @@ slug	text
 description	text
 created_at	timestamp with time zone
 updated_at	timestamp with time zone
-is_published	boolean
-
+is_published	Boolean
+ingestion_source	text
+ingestion_metadata	jsonb
+status	text
+Ingestion columns (ingestion_source, ingestion_metadata, status) inherit the RLS policies of their respective civic_ tables. No additional RLS rules are required.*
 
 Table: civic_artifacts
 
@@ -322,6 +338,10 @@ hero_360_url	text
 media_urls	ARRAY
 tags	ARRAY
 related_event_ids	ARRAY
+ingestion_source	text
+ingestion_metadata	jsonb
+status	text
+Ingestion columns (ingestion_source, ingestion_metadata, status) inherit the RLS policies of their respective civic_ tables. No additional RLS rules are required.*
 Table: games
 Defines games for the public interface.
 
@@ -540,6 +560,91 @@ Constraints & Triggers
 A payout_batch_item cannot be added to a batch with status != 'pending' (enforce via trigger or RPC check_batch_open). When all items in a payout_batch reach status = 'paid', a trigger or RPC should set payout_batches.status = 'paid' and record paid_at. No DELETE — use status = 'rejected'.
 RLS Note
 city_admin can INSERT items into batches they own. The payee (editor) can SELECT their own rows via payee_id = auth.uid().
+Table: raw_ingestion
+id	uuid
+source_name	text
+source_object_id	text
+payload	jsonb
+ingested_at	timestampz
+processed	Bool
+rpc_ingest_raw: Used by ingestion jobs to insert raw payloads.
+
+CREATE OR REPLACE FUNCTION rpc_ingest_raw(
+  source_name text,
+  source_object_id text,
+  payload jsonb
+)
+RETURNS uuid
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  new_id uuid;
+BEGIN
+  INSERT INTO raw_ingestion (source_name, source_object_id, payload)
+  VALUES (source_name, source_object_id, payload)
+  RETURNING id INTO new_id;
+
+  RETURN new_id;
+END;
+$$;
+
+rpc_normalize_object: Used by normalization workers to convert raw_ingestion → civic_* tables.
+
+CREATE OR REPLACE FUNCTION rpc_normalize_object(
+  raw_id uuid
+)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  -- Normalization logic implemented in worker code.
+  -- This RPC marks the raw_ingestion row as processed.
+  UPDATE raw_ingestion
+  SET processed = true
+  WHERE id = raw_id;
+END;
+$$;
+rpc_apply_suggestion
+Used by City Admins to accept AI suggestions.
+CREATE OR REPLACE FUNCTION rpc_apply_suggestion(
+  suggestion_id uuid
+)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  s civic_object_suggestions;
+BEGIN
+  SELECT * INTO s FROM civic_object_suggestions WHERE id = suggestion_id;
+
+  -- Application logic handled in worker code (slug, summary, tags, etc.)
+
+  DELETE FROM civic_object_suggestions WHERE id = suggestion_id;
+END;
+$$;
+
+rpc_mark_ingestion_processed
+Used by ingestion workers to mark raw_ingestion rows as processed.
+
+CREATE OR REPLACE FUNCTION rpc_mark_ingestion_processed(
+  raw_id uuid
+)
+RETURNS void
+LANGUAGE sql
+AS $$
+  UPDATE raw_ingestion
+  SET processed = true
+  WHERE id = raw_id;
+$$;
+
+Table: civic_object_suggestions
+id	uuid
+object_type	text
+object_id	uuid
+suggestion_type	text
+payload	jsonb
+created_at	timestampz
+
 Table: admin_users
 Defines authenticated admin users.
 column_name	data_type
@@ -565,8 +670,6 @@ created_at	timestamp with time zone
 -- Publish permission has been revoked on civic_stories
 -- Create, read, and update has been granted on civic_stories drafts
 -- Publish 
-
-
 Table: user_roles
 Join table linking authenticated users to roles.
 column_name	data_type
@@ -590,7 +693,18 @@ metadata	jsonb
 ip_address	inet
 user_agent	text
 created_at	timestamp with time zone
+log_admin_action() for ingestion events:
 
+Events include:
+•	ingestion_started
+•	ingestion_normalized
+•	ingestion_enriched
+•	ingestion_suggestion_created
+•	ingestion_media_bound
+•	ingestion_approved
+•	ingestion_hidden
+-- Extend existing log_admin_action() to include ingestion events.
+-- No structural changes required; only new action strings.
 4. Join Tables
 Electrum uses a combination of generalized and specialized join tables to connect civic content across time, place, narrative, and identity. These tables do not represent standalone civic objects; instead, they define relationships between core tables.
 Join tables fall into two categories:
@@ -986,7 +1100,49 @@ USING (city_id = ANY(
 •	CANNOT: modify review fields
 CEO
 •	Full access
-7.6 RLS Summary
+7.6 Object Ingestion
+raw_ingestion
+CREATE POLICY raw_ingestion_ceo_only
+  ON raw_ingestion
+  FOR ALL
+  USING (auth.role() = 'ceo');
+
+
+civic_object_suggestions
+ALTER TABLE public.civic_object_suggestions
+  ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY civic_object_suggestions_city_admin_select
+  ON public.civic_object_suggestions
+  FOR SELECT
+  TO authenticated
+  USING (
+    (auth.jwt() -> 'app_metadata' ->> 'role')
+      IN ('city_admin', 'ceo')
+  );
+
+CREATE POLICY civic_object_suggestions_city_admin_insert
+  ON public.civic_object_suggestions
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    (auth.jwt() -> 'app_metadata' ->> 'role')
+      IN ('city_admin', 'ceo')
+  );
+
+CREATE POLICY civic_object_suggestions_city_admin_update
+  ON public.civic_object_suggestions
+  FOR UPDATE
+  TO authenticated
+  USING (
+    (auth.jwt() -> 'app_metadata' ->> 'role')
+      IN ('city_admin', 'ceo')
+  )
+  WITH CHECK (
+    (auth.jwt() -> 'app_metadata' ->> 'role')
+      IN ('city_admin', 'ceo')
+  );
+7.7 RLS Summary
 •	anon → read only civic + city + limited sponsor + limited gaming
 •	authenticated admin → full CRUD everywhere
 •	authenticated contributor → limited CRUD on civic content
@@ -1322,10 +1478,33 @@ All loaders must use:
 •	anon Supabase client
 •	RLS-safe queries
 •	shared slug resolution (loadCityBySlug)
-12. Workspace Responsibilities
+12. AI Ingestion 
+Purpose:
+Automated ingestion, normalization, enrichment, suggestion generation, media binding, and curation of civic objects.
+
+12.1 Tables:
+•	raw_ingestion
+•	civic_object_suggestions
+•	ingestion columns in civic_* tables
+12.2 Actors:
+•	ingestion workers
+•	City Admins
+•	CEO
+12.3 Outputs:
+•	normalized civic objects
+•	enriched metadata
+•	AI suggestions
+•	ingestion logs
+•	360° media bindings
+12.4 Boundaries:
+•	Does not modify editorial workflows
+•	Does not modify payout workflows
+•	Does not modify sponsor workflows
+•	Does not modify theme/brand workflows
+13. Workspace Responsibilities
 Workspace is responsible for enforcing Electrum’s architectural rules, normalizing data access, and refactoring code to match the platform’s canonical data model. Workspace must operate within the schema and RLS boundaries defined in this document.
 Workspace responsibilities fall into three categories: Normalize, Verify, and Refactor.
-12.1 Normalize
+13.1 Normalize
 Workspace MUST normalize:
 •	Supabase queries
 o	consistent client usage
@@ -1341,7 +1520,7 @@ o	enforce loadCityBySlug
 o	enforce loadCityAndPage
 o	enforce loadTimeline
 Normalization ensures consistent behavior across the entire platform.
-12.2 Verify
+13.2 Verify
 Workspace MUST verify:
 •	Foreign keys
 o	correct joins
@@ -1364,7 +1543,7 @@ o	limited gaming tables
 o	admin UI
 o	secure backend operations
 Verification ensures the platform remains safe, consistent, and RLS correct.
-12.3 Refactor
+13.3 Refactor
 Workspace MUST refactor:
 •	Duplicated loaders
 •	Inconsistent shapes
@@ -1384,7 +1563,7 @@ Workspace MUST refactor:
 •	Server action misuse
 •	Caching strategy issues
 Refactoring ensures the codebase aligns with Electrum’s canonical architecture.
-12.4 Workspace SHOULD
+13.4 Workspace SHOULD
 Workspace SHOULD:
 •	Normalize loaders
 •	Normalize API routes
@@ -1405,7 +1584,7 @@ Workspace SHOULD:
 •	Fix server actions
 •	Fix caching strategy
 These actions improve stability, maintainability, and architectural consistency.
-12.5 Workspace MUST NOT
+13.5 Workspace MUST NOT
 Workspace MUST NOT:
 •	Create new tables
 •	Modify your schema
@@ -1417,4 +1596,3 @@ Workspace MUST NOT:
 •	Rewrite your data model
 Workspace must operate within the schema and architectural boundaries defined in this document.
 
-**
