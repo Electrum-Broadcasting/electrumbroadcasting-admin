@@ -23,6 +23,7 @@ export function CityFormFields({ form, setForm, mode }: CityFormFieldsProps) {
         <label className="block text-sm font-medium text-slate-700">Name</label>
         <input
           type="text"
+          name="name"
           className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
           value={form.name ?? ""}
           onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
@@ -34,6 +35,7 @@ export function CityFormFields({ form, setForm, mode }: CityFormFieldsProps) {
         <label className="block text-sm font-medium text-slate-700">Slug</label>
         <input
           type="text"
+          name="slug"
           className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
           value={form.slug ?? ""}
           onChange={(e) => setForm((prev) => ({ ...prev, slug: e.target.value }))}
@@ -45,6 +47,7 @@ export function CityFormFields({ form, setForm, mode }: CityFormFieldsProps) {
         <label className="block text-sm font-medium text-slate-700">Domain (optional)</label>
         <input
           type="text"
+          name="domain"
           className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
           value={form.domain ?? ""}
           onChange={(e) => setForm((prev) => ({ ...prev, domain: e.target.value }))}
@@ -55,6 +58,7 @@ export function CityFormFields({ form, setForm, mode }: CityFormFieldsProps) {
         <label className="block text-sm font-medium text-slate-700">Incorporated Year</label>
         <input
           type="number"
+          name="incorporated_year"
           className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
           value={form.incorporated_year ?? ""}
           onChange={(e) =>
@@ -70,6 +74,7 @@ export function CityFormFields({ form, setForm, mode }: CityFormFieldsProps) {
         <label className="block text-sm font-medium text-slate-700">Country</label>
         <input
           type="text"
+          name="country"
           className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
           value={form.country ?? ""}
           onChange={(e) => setForm((prev) => ({ ...prev, country: e.target.value }))}
@@ -80,6 +85,7 @@ export function CityFormFields({ form, setForm, mode }: CityFormFieldsProps) {
         <label className="block text-sm font-medium text-slate-700">State / Province</label>
         <input
           type="text"
+          name="state_province"
           className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
           value={form.state_province ?? ""}
           onChange={(e) =>
@@ -93,6 +99,7 @@ export function CityFormFields({ form, setForm, mode }: CityFormFieldsProps) {
         <input
           type="number"
           step="0.000001"
+          name="latitude"
           className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
           value={form.latitude ?? ""}
           onChange={(e) =>
@@ -109,6 +116,7 @@ export function CityFormFields({ form, setForm, mode }: CityFormFieldsProps) {
         <input
           type="number"
           step="0.000001"
+          name="longitude"
           className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
           value={form.longitude ?? ""}
           onChange={(e) =>
@@ -124,6 +132,7 @@ export function CityFormFields({ form, setForm, mode }: CityFormFieldsProps) {
         <label className="block text-sm font-medium text-slate-700">Population</label>
         <input
           type="number"
+          name="population"
           className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
           value={form.population ?? ""}
           onChange={(e) =>
@@ -138,6 +147,7 @@ export function CityFormFields({ form, setForm, mode }: CityFormFieldsProps) {
       <div>
         <label className="block text-sm font-medium text-slate-700">Status</label>
         <select
+          name="status"
           className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
           value={form.status ?? "draft"}
           onChange={(e) =>

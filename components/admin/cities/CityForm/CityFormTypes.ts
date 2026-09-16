@@ -33,4 +33,5 @@ export type CityFormValue = {
 export type CityFormProps = {
   mode: "create" | "edit";
   city?: CityFormValue | null;
+  error?: string | null;
 };

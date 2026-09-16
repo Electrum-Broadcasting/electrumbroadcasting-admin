@@ -1,48 +1,90 @@
 "use server";
 
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-import type { CityFormPayload } from "./CityForm/CityFormTypes";
+import type { CityStatus } from "./CityForm/CityFormTypes";
 
 function normalizeNullableNumber(value: number | null | undefined) {
   if (value === null || value === undefined || value === 0) return null;
   return Number.isFinite(value) ? value : null;
 }
 
-export async function updateCityAction(payload: CityFormPayload) {
-  const supabase = createSupabaseServerClient();
-
-  const { error, data } = await supabase.rpc("admin_update_city", {
-    p_city_id: payload.id,
-    p_name: payload.name,
-    p_slug: payload.slug,
-    p_domain: payload.domain || null,
-    p_status: payload.status ?? "draft",
-    p_incorporated_year: normalizeNullableNumber(payload.incorporated_year),
-    p_country: payload.country || null,
-    p_state_province: payload.state_province || null,
-    p_latitude: normalizeNullableNumber(payload.latitude),
-    p_longitude: normalizeNullableNumber(payload.longitude),
-    p_population: normalizeNullableNumber(payload.population),
-  });
-
-  return { error, data };
+function formNumber(formData: FormData, key: string) {
+  const raw = formData.get(key);
+  if (typeof raw !== "string" || raw === "") return null;
+  return normalizeNullableNumber(Number(raw));
 }
 
-export async function createCityAction(payload: CityFormPayload) {
+function formText(formData: FormData, key: string) {
+  const raw = formData.get(key);
+  return typeof raw === "string" && raw !== "" ? raw : null;
+}
+
+export async function updateCityAction(formData: FormData) {
+  const cityId = formData.get("id") as string;
   const supabase = createSupabaseServerClient();
 
-  const { error, data } = await supabase.rpc("admin_create_city", {
-    p_name: payload.name,
-    p_slug: payload.slug,
-    p_domain: payload.domain || null,
-    p_status: payload.status ?? "draft",
-    p_incorporated_year: normalizeNullableNumber(payload.incorporated_year),
-    p_country: payload.country || null,
-    p_state_province: payload.state_province || null,
-    p_latitude: normalizeNullableNumber(payload.latitude),
-    p_longitude: normalizeNullableNumber(payload.longitude),
-    p_population: normalizeNullableNumber(payload.population),
+  console.log("SERVER ACTION ENV:", {
+  url: process.env.SUPABASE_URL,
+  anon: process.env.SUPABASE_ANON_KEY?.slice(0, 10) // partial for safety
+});
+
+  const { error } = await supabase.rpc("admin_update_city", {
+    city_id: cityId,
+    name: formData.get("name") as string,
+    slug: formData.get("slug") as string,
+    domain: formText(formData, "domain"),
+    status: (formData.get("status") as CityStatus) ?? "draft",
+    incorporated_year: formNumber(formData, "incorporated_year"),
+    country: formText(formData, "country"),
+    state_province: formText(formData, "state_province"),
+    latitude: formNumber(formData, "latitude"),
+    longitude: formNumber(formData, "longitude"),
+    population: formNumber(formData, "population"),
+    metadata: {},
+  });
+
+  if (error) {
+    redirect(`/admin/CEO/cities/${cityId}?error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/admin/CEO/cities");
+  redirect("/admin/CEO/cities");
+}
+
+export async function createCityAction(formData: FormData) {
+  const supabase = createSupabaseServerClient();
+
+  const { error } = await supabase.rpc("admin_create_city", {
+    name: formData.get("name") as string,
+    slug: formData.get("slug") as string,
+    domain: formText(formData, "domain"),
+    status: (formData.get("status") as CityStatus) ?? "draft",
+    incorporated_year: formNumber(formData, "incorporated_year"),
+    country: formText(formData, "country"),
+    state_province: formText(formData, "state_province"),
+    latitude: formNumber(formData, "latitude"),
+    longitude: formNumber(formData, "longitude"),
+    population: formNumber(formData, "population"),
+    metadata: {},
+  });
+
+  if (error) {
+    redirect(`/admin/CEO/cities/new?error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/admin/CEO/cities");
+  redirect("/admin/CEO/cities");
+}
+
+export async function deleteCityAction(cityId: string) {
+  const supabase = createSupabaseServerClient();
+  const { error, data } = await supabase.rpc("admin_delete_city", {
+    city_id: cityId,
+    metadata: {},
   });
 
   return { error, data };

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
+import { deleteCityAction } from "./actions";
 
 export function CityActions({ city }: { city: any }) {
   const [loading, setLoading] = useState(false);
@@ -10,11 +12,16 @@ export function CityActions({ city }: { city: any }) {
 
     setLoading(true);
 
-    await fetch(`/api/admin/cities/${city.id}`, {
-      method: "DELETE",
-    });
+    const result = await deleteCityAction(city.id);
 
     setLoading(false);
+
+    if (result.error) {
+      toast.error("Failed to delete city");
+      return;
+    }
+
+    toast.success("City deleted");
     window.location.reload();
   }
 

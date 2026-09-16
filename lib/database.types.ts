@@ -4098,21 +4098,30 @@ export type Database = {
     Functions: {
       admin_create_city: {
         Args: {
-          p_country: string
-          p_domain: string
-          p_incorporated_year: number
-          p_latitude: number
-          p_longitude: number
-          p_name: string
-          p_population: number
-          p_slug: string
-          p_state_province: string
-          p_status: string
+          country: string
+          domain: string
+          incorporated_year: number
+          latitude: number
+          longitude: number
+          metadata?: Json
+          name: string
+          population: number
+          slug: string
+          state_province: string
+          status: string
         }
         Returns: string
       }
+      admin_delete_city: {
+        Args: { city_id: string; metadata?: Json }
+        Returns: undefined
+      }
       admin_freeze_story: {
         Args: { story_id: string }
+        Returns: undefined
+      }
+      admin_freeze_city: {
+        Args: { city_id: string; metadata?: Json }
         Returns: undefined
       }
       admin_get_contributor_actions: {
@@ -4201,6 +4210,10 @@ export type Database = {
           year: number
         }[]
       }
+      admin_hide_city: {
+        Args: { city_id: string; metadata?: Json }
+        Returns: undefined
+      }
       admin_get_user_contact_info: {
         Args: { justification: string; target_user_id: string }
         Returns: {
@@ -4245,6 +4258,10 @@ export type Database = {
         Args: { story_id: string }
         Returns: undefined
       }
+      admin_republish_city: {
+        Args: { city_id: string; metadata?: Json }
+        Returns: undefined
+      }
       admin_set_fraud_level: {
         Args: { city_id: string; contributor_id: string; fraud_level: string }
         Returns: undefined
@@ -4257,23 +4274,28 @@ export type Database = {
         Args: { story_id: string }
         Returns: undefined
       }
+      admin_unfreeze_city: {
+        Args: { city_id: string; metadata?: Json }
+        Returns: undefined
+      }
       admin_unlock_contributor: {
         Args: { city_id: string; contributor_id: string }
         Returns: undefined
       }
       admin_update_city: {
         Args: {
-          p_country: string
-          p_domain: string
-          p_id: string
-          p_incorporated_year: number
-          p_latitude: number
-          p_longitude: number
-          p_name: string
-          p_population: number
-          p_slug: string
-          p_state_province: string
-          p_status: string
+          city_id: string
+          country: string
+          domain: string
+          incorporated_year: number
+          latitude: number
+          longitude: number
+          metadata?: Json
+          name: string
+          population: number
+          slug: string
+          state_province: string
+          status: string
         }
         Returns: undefined
       }

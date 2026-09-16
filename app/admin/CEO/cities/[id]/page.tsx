@@ -4,7 +4,13 @@ import type { CityFormValue } from "@/components/admin/cities/CityForm/CityFormT
 import { getAdminContext } from "@/lib/admin/context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export default async function EditCityPage({ params }: { params: { id: string } }) {
+export default async function EditCityPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams?: { error?: string };
+}) {
   const { email, role } = await getAdminContext();
   const supabase = createSupabaseServerClient();
 
@@ -26,7 +32,7 @@ export default async function EditCityPage({ params }: { params: { id: string } 
     <AdminShell email={email} role={role} title={`Edit ${city.name}`}>
       <div className="max-w-xl">
         <h2 className="text-xl font-semibold text-ink mb-6">Edit City</h2>
-        <CityForm mode="edit" city={city as CityFormValue} />
+        <CityForm mode="edit" city={city as CityFormValue} error={searchParams?.error ?? null} />
       </div>
     </AdminShell>
   );

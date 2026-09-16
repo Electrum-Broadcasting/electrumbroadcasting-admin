@@ -1,20 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { CityFormFields } from "./CityForm/CityFormFields";
-import type {
-  CityFormPayload,
-  CityFormProps,
-  CityFormValue,
-} from "./CityForm/CityFormTypes";
+import type { CityFormProps, CityFormValue } from "./CityForm/CityFormTypes";
 import { createCityAction, updateCityAction } from "./actions";
 
-export function CityForm({ mode, city }: CityFormProps) {
+export function CityForm({ mode, city, error }: CityFormProps) {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState<CityFormValue>({
     name: city?.name ?? "",
@@ -30,51 +25,19 @@ export function CityForm({ mode, city }: CityFormProps) {
     population: city?.population ?? null,
   });
 
+  // Surface the redirected-back error once per navigation.
+  useEffect(() => {
+    if (error) toast.error(error);
+  }, [error]);
+
   function handleCancel() {
     router.push("/admin/CEO/cities");
   }
 
-  async function handleSave() {
-    if (loading) return;
-    setLoading(true);
-
-    const payload: CityFormPayload = {
-      ...(city?.id ? { id: city.id } : {}),
-      name: form.name ?? "",
-      slug: form.slug ?? "",
-      domain: form.domain ?? "",
-      status: form.status ?? "draft",
-      incorporated_year: form.incorporated_year ?? null,
-      description: form.description ?? null,
-      country: form.country ?? null,
-      state_province: form.state_province ?? null,
-      latitude: form.latitude ?? null,
-      longitude: form.longitude ?? null,
-      population: form.population ?? null,
-    };
-
-    const action = mode === "create" ? createCityAction : updateCityAction;
-    const result = await action(payload);
-
-    setLoading(false);
-
-    if (result.error) {
-      toast.error("Failed to save city");
-      return;
-    }
-
-    toast.success(mode === "create" ? "City created" : "City updated");
-    router.push("/admin/CEO/cities");
-  }
-
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        void handleSave();
-      }}
-      className="space-y-6"
-    >
+    <form action={mode === "create" ? createCityAction : updateCityAction} className="space-y-6">
+      {city?.id ? <input type="hidden" name="id" value={city.id} /> : null}
+
       <CityFormFields form={form} setForm={setForm} mode={mode} />
 
       <div className="flex items-center justify-end gap-3 mt-8">
@@ -82,7 +45,7 @@ export function CityForm({ mode, city }: CityFormProps) {
           Cancel
         </Button>
 
-        <Button type="button" onClick={handleSave} disabled={loading}>
+        <Button type="submit">
           {mode === "create" ? "Create City" : "Save Changes"}
         </Button>
       </div>

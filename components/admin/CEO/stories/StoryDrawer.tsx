@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import { StoryActions } from "@/components/admin/CEO/stories/StoryActions";
 import { StoryStatusBadge } from "@/components/admin/CEO/stories/StoryStatusBadge";
 import {
   getRecentStoryActionsAction,
@@ -86,11 +87,16 @@ export function StoryDrawer({ open, story, onOpenChange }: StoryDrawerProps) {
             <div className="space-y-3">
               <h2 className="text-xl font-semibold text-slate-900">{story.title || "Untitled"}</h2>
               <StoryStatusBadge story={story} />
+              <StoryActions story={story} />
             </div>
 
-            <p className="text-sm leading-6 text-slate-700">
-              {story.summary || story.body || "No description available."}
-            </p>
+            {story.summary && (
+              <p className="text-sm leading-6 text-slate-700">{story.summary}</p>
+            )}
+
+            <div className="whitespace-pre-wrap text-sm leading-6 text-slate-700">
+              {story.body || "No story body available."}
+            </div>
 
             <div className="space-y-1 text-sm text-slate-600">
               <p>
