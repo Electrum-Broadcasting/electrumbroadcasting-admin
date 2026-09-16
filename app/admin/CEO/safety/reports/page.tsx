@@ -1,10 +1,10 @@
 import { AdminShell } from "@/components/admin/AdminShell";
 import { getAdminContext } from "@/lib/admin/context";
-import { createSupabasePublicClient } from "@/lib/supabase/server";import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function SafetyReportsListPage() {
   const { email, role } = await getAdminContext();
-  const supabase = createSupabasePublicClient();
+  const supabase = await createSupabaseServerClient();
 
   // Unified moderation query: user flags + legacy metadata
   const { data: reports } = await supabase
@@ -43,16 +43,26 @@ export default async function SafetyReportsListPage() {
           </thead>
 
           <tbody className="divide-y divide-slate-200 bg-white">
-            {reports?.map((r) => {
+            {reports?.map((r: {
+              id: string;
+              metadata: { legacy_category?: string; legacy_status?: string } | null;
+              target: { email: string }[];
+              reporter: { email: string }[];
+              city: { name: string }[];
+              created_at: string;
+            }) => {
               const category = r.metadata?.legacy_category ?? "—";
               const status = r.metadata?.legacy_status ?? "open";
+              const target = r.target[0];
+              const reporter = r.reporter[0];
+              const city = r.city[0];
 
               return (
                 <tr key={r.id} className="hover:bg-slate-50 transition">
-                  <td className="px-4 py-2 text-sm">{r.target?.email ?? "Unknown"}</td>
-                  <td className="px-4 py-2 text-sm">{r.reporter?.email ?? "Unknown"}</td>
+                  <td className="px-4 py-2 text-sm">{target?.email ?? "Unknown"}</td>
+                  <td className="px-4 py-2 text-sm">{reporter?.email ?? "Unknown"}</td>
                   <td className="px-4 py-2 text-sm">{category}</td>
-                  <td className="px-4 py-2 text-sm">{r.city?.name ?? "—"}</td>
+                  <td className="px-4 py-2 text-sm">{city?.name ?? "—"}</td>
                   <td className="px-4 py-2 text-sm capitalize">{status}</td>
                   <td className="px-4 py-2 text-sm">
                     {new Date(r.created_at).toLocaleDateString()}

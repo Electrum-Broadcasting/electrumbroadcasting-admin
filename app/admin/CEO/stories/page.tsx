@@ -8,9 +8,35 @@ export default async function CEOStoriesPage() {
   const supabase = createSupabaseServerClient();
 
   const { data: stories } = await supabase
-    .from("civic_stories")
-    .select("*")
-    .order("created_at", { ascending: false });
+  .from("civic_stories")
+  .select(`
+    id,
+    title,
+    body,
+    summary,
+    author_name,
+    published_at,
+    city_id,
+    created_at,
+    updated_at,
+    slug,
+    category,
+    city,
+    year,
+    tags,
+    image_description,
+    related_place_ids,
+    related_entity_ids,
+    related_moment_ids,
+    date_range,
+    neighborhood,
+    cross_city_links,
+    entities,
+    is_published,
+    is_frozen,
+    contributor_id
+  `)
+  .order("created_at", { ascending: false });
 
   return (
     <AdminShell email={admin.email} role={admin.role} title="Stories">

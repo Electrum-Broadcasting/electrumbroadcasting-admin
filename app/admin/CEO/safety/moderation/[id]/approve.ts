@@ -7,16 +7,16 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   const { email } = await getAdminContext();
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
 
   await supabase
     .from("moderation_queue")
-    .update({ status: "rejected" })
+    .update({ status: "approved" })
     .eq("id", params.id);
 
   await supabase.from("audit_logs").insert({
     actor: email,
-    action: "reject_moderation_item",
+    action: "approve_moderation_item",
     entity: params.id,
   });
 

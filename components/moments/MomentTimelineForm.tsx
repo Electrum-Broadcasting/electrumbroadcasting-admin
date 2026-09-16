@@ -15,12 +15,17 @@ function toLocalInputFormat(ts: string | null): string {
 }
 
 export default function MomentTimelineForm({
-
   momentTime,
   setMomentTime,
   eras,
   selectedEras,
   setSelectedEras,
+}: {
+  momentTime: string | null;
+  setMomentTime: (value: string) => void;
+  eras?: { id: string; name: string }[];
+  selectedEras: string[];
+  setSelectedEras: (value: string[]) => void;
 }) {
   return (
     <div className="space-y-4">
@@ -39,7 +44,7 @@ export default function MomentTimelineForm({
       <div>
         <h3 className="font-medium mb-2">Eras</h3>
         <div className="space-y-2">
-          {(eras ?? []).map((era) => (
+          {(eras ?? []).map((era: { id: string; name: string }) => (
             <label key={era.id} className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -49,7 +54,7 @@ export default function MomentTimelineForm({
                     setSelectedEras([...selectedEras, era.id]);
                   } else {
                     setSelectedEras(
-                      selectedEras.filter((id) => id !== era.id)
+                      selectedEras.filter((id: string) => id !== era.id)
                     );
                   }
                 }}

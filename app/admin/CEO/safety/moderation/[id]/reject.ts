@@ -1,22 +1,22 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/context";
-import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function POST(
   req: Request,
   { params }: { params: { id: string } }
 ) {
   const { email } = await getAdminContext();
-  const supabase = createSupabaseServiceClient();
+  const supabase = await createSupabaseServerClient();
 
   await supabase
     .from("moderation_queue")
-    .update({ status: "approved" })
+    .update({ status: "rejected" })
     .eq("id", params.id);
 
   await supabase.from("audit_logs").insert({
     actor: email,
-    action: "approve_moderation_item",
+    action: "reject_moderation_item",
     entity: params.id,
   });
 

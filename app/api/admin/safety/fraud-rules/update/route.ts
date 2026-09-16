@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function isUUID(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
@@ -8,11 +8,7 @@ function isUUID(value: string) {
 }
 
 export async function POST(req: Request) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } }
-  );
+  const supabase = createSupabaseServerClient();
 
   const body = await req.json();
   const rules = body.rules;
@@ -41,7 +37,8 @@ export async function POST(req: Request) {
     );
   }
 
-  const existingIds = new Set(existing.map((r) => r.id));
+  const typedExisting = (existing ?? []) as { id: string }[];
+  const existingIds = new Set(typedExisting.map((r: { id: string }) => r.id));
   const incomingRealIds = new Set(updateRules.map((r) => r.id));
 
   // DELETE removed rules
@@ -115,3 +112,20 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ success: true });
 }
+
+// function createSupabaseServerClient() {
+//   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+//   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+//   if (!supabaseUrl || !supabaseKey) {
+//     throw new Error("Missing Supabase environment variables");
+//   }
+
+//   return createClient(supabaseUrl, supabaseKey, {
+//     auth: {
+//       persistSession: false,
+//       autoRefreshToken: false,
+//     },
+//   });
+// }
+

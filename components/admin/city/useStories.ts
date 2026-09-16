@@ -64,7 +64,6 @@ export function useStories(cityId: string) {
   async function hideStory(id: string) {
     const { error } = await supabase.rpc("admin_hide_story", {
       story_id: id,
-      city_id: cityId,
     });
 
     if (error) {
@@ -80,7 +79,6 @@ export function useStories(cityId: string) {
   async function republishStory(id: string) {
     const { error } = await supabase.rpc("admin_republish_story", {
       story_id: id,
-      city_id: cityId,
     });
 
     if (error) {
@@ -96,7 +94,6 @@ export function useStories(cityId: string) {
   async function freezeStory(id: string) {
     const { error } = await supabase.rpc("admin_freeze_story", {
       story_id: id,
-      city_id: cityId,
     });
 
     if (error) {
@@ -112,7 +109,6 @@ export function useStories(cityId: string) {
   async function unfreezeStory(id: string) {
     const { error } = await supabase.rpc("admin_unfreeze_story", {
       story_id: id,
-      city_id: cityId,
     });
 
     if (error) {

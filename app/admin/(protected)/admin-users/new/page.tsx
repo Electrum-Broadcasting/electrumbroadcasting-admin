@@ -1,6 +1,6 @@
 import { getAdminContext } from "@/lib/admin/context";
 import { redirect } from "next/navigation";
-import { createAdminAccountAction } from "./actions";
+import { createAdminAccountAction } from "@/app/admin/CEO/admin-users/new/actions";
 
 export default async function NewAdminUserPage() {
   const admin = await getAdminContext();
