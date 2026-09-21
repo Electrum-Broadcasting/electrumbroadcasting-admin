@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getAdminContext } from "@/lib/admin/context";
+import { logAdminAction } from "@/lib/admin/logging";
 
 export async function GET(req: Request) {
   const supabase = createClient(
@@ -39,6 +41,15 @@ export async function PATCH(req: Request) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  await logAdminAction(supabase, await getAdminContext(), {
+    action: "BRAND_SETTINGS_UPDATE",
+    domain: "settings",
+    entity_type: "brand",
+    entity_id: null,
+    target_user_id: null,
+    metadata: { updated_fields: { cityId, logo } },
+  });
 
   return NextResponse.json({ success: true });
 }

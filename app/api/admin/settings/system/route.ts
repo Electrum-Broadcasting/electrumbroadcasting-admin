@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getAdminContext } from "@/lib/admin/context";
+import { logAdminAction } from "@/lib/admin/logging";
 
 function getSupabaseClient() {
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies }
-  );
+  return createSupabaseServerClient();
 }
 
 export async function GET() {
@@ -41,6 +38,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
     const supabase = getSupabaseClient();
+    const admin = await getAdminContext();
 
     const { error } = await supabase
       .from("global_settings")
@@ -62,6 +60,24 @@ export async function PATCH(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    await logAdminAction(supabase, admin, {
+      action: "SYSTEM_UPDATE",
+      domain: "settings",
+      entity_type: "system",
+      entity_id: null,
+      target_user_id: null,
+      metadata: {
+        updated_fields: {
+          default_timezone: body.default_timezone,
+          default_language: body.default_language,
+          maintenance_mode: body.maintenance_mode,
+          support_email: body.support_email,
+          legal_footer_json: body.legal_footer_json,
+          public_launch_mode: body.public_launch_mode,
+        },
+      },
+    });
 
     return NextResponse.json({ success: true });
   } catch (err) {

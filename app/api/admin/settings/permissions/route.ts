@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getAdminContext } from "@/lib/admin/context";
+import { logAdminAction } from "@/lib/admin/logging";
 
 function getSupabaseClient() {
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies }
-  );
+  return createSupabaseServerClient();
 }
 
 export async function GET() {
@@ -41,6 +38,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
     const supabase = getSupabaseClient();
+    const admin = await getAdminContext();
 
     const { error } = await supabase
       .from("global_permissions")
@@ -59,6 +57,21 @@ export async function PATCH(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    await logAdminAction(supabase, admin, {
+      action: "PERMISSIONS_UPDATE",
+      domain: "settings",
+      entity_type: "permissions",
+      entity_id: null,
+      target_user_id: null,
+      metadata: {
+        updated_fields: {
+          editor_permissions_json: body.editor_permissions_json,
+          contributor_permissions_json: body.contributor_permissions_json,
+          city_admin_permissions_json: body.city_admin_permissions_json,
+        },
+      },
+    });
 
     return NextResponse.json({ success: true });
   } catch (err) {

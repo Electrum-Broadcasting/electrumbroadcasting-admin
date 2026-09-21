@@ -1,11 +1,12 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 import type { CityStatus } from "./CityForm/CityFormTypes";
+
 
 function normalizeNullableNumber(value: number | null | undefined) {
   if (value === null || value === undefined || value === 0) return null;
@@ -26,13 +27,9 @@ function formText(formData: FormData, key: string) {
 export async function updateCityAction(formData: FormData) {
   const cityId = formData.get("id") as string;
   const supabase = createSupabaseServerClient();
+  let rpcErrorMessage: string | null = null;
 
-  console.log("SERVER ACTION ENV:", {
-  url: process.env.SUPABASE_URL,
-  anon: process.env.SUPABASE_ANON_KEY?.slice(0, 10) // partial for safety
-});
-
-  const { error } = await supabase.rpc("admin_update_city", {
+  const payload = {
     city_id: cityId,
     name: formData.get("name") as string,
     slug: formData.get("slug") as string,
@@ -45,10 +42,26 @@ export async function updateCityAction(formData: FormData) {
     longitude: formNumber(formData, "longitude"),
     population: formNumber(formData, "population"),
     metadata: {},
-  });
+  };
 
-  if (error) {
-    redirect(`/admin/CEO/cities/${cityId}?error=${encodeURIComponent(error.message)}`);
+  console.log("PAYLOAD:", payload);
+
+  try {
+    const result = await supabase.rpc("admin_update_city", payload);
+
+    console.log("RPC RESULT:", result);
+
+    if (result.error) {
+      console.log("RPC ERROR:", result.error);
+      rpcErrorMessage = result.error.message;
+    }
+  } catch (err) {
+    console.log("RPC ERROR:", err);
+    rpcErrorMessage = String(err);
+  }
+
+  if (rpcErrorMessage) {
+    redirect(`/admin/CEO/cities/${cityId}?error=${encodeURIComponent(rpcErrorMessage)}`);
   }
 
   revalidatePath("/admin/CEO/cities");

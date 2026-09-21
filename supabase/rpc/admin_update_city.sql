@@ -19,6 +19,19 @@ SET search_path = public
 AS $function$
 DECLARE
     v_admin_id uuid;
+    -- Local copies avoid ambiguity between parameter names and column names below.
+    v_city_id uuid := city_id;
+    v_name text := name;
+    v_slug text := slug;
+    v_domain text := domain;
+    v_status text := status;
+    v_incorporated_year integer := incorporated_year;
+    v_country text := country;
+    v_state_province text := state_province;
+    v_latitude double precision := latitude;
+    v_longitude double precision := longitude;
+    v_population integer := population;
+    v_metadata jsonb := metadata;
 BEGIN
     SELECT au.id
     INTO v_admin_id
@@ -32,19 +45,19 @@ BEGIN
 
     UPDATE public.cities AS c
     SET
-        name = admin_update_city.name,
-        slug = admin_update_city.slug,
-        domain = COALESCE(admin_update_city.domain, ''),
-        status = admin_update_city.status,
-        incorporated_year = admin_update_city.incorporated_year,
-        country = admin_update_city.country,
-        state_province = admin_update_city.state_province,
-        latitude = admin_update_city.latitude,
-        longitude = admin_update_city.longitude,
-        population = admin_update_city.population,
+        name = v_name,
+        slug = v_slug,
+        domain = COALESCE(v_domain, ''),
+        status = v_status,
+        incorporated_year = v_incorporated_year,
+        country = v_country,
+        state_province = v_state_province,
+        latitude = v_latitude,
+        longitude = v_longitude,
+        population = v_population,
         updated_by = auth.uid(),
         updated_at = now()
-    WHERE c.id = admin_update_city.city_id;
+    WHERE c.id = v_city_id;
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'City not found';
@@ -54,8 +67,8 @@ BEGIN
         admin_id, action, target_type, target_id, city_id, metadata
     )
     VALUES (
-        v_admin_id, 'update_city', 'city', city_id::text, city_id,
-        COALESCE(metadata, jsonb_build_object('city_id', city_id))
+        v_admin_id, 'update_city', 'city', v_city_id::text, v_city_id,
+        COALESCE(v_metadata, jsonb_build_object('city_id', v_city_id))
     );
 END;
 $function$;

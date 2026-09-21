@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getAdminContext } from "@/lib/admin/context";
+import { logAdminAction } from "@/lib/admin/logging";
 
 function getSupabaseClient() {
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies }
-  );
+  return createSupabaseServerClient();
 }
 
 export async function GET() {
@@ -41,6 +38,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
     const supabase = getSupabaseClient();
+    const admin = await getAdminContext();
 
     const { error } = await supabase
       .from("global_brand_settings")
@@ -66,6 +64,28 @@ export async function PATCH(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    await logAdminAction(supabase, admin, {
+      action: "BRAND_UPDATE",
+      domain: "settings",
+      entity_type: "brand",
+      entity_id: null,
+      target_user_id: null,
+      metadata: {
+        updated_fields: {
+          primary_color: body.primary_color,
+          secondary_color: body.secondary_color,
+          neutral_palette_json: body.neutral_palette_json,
+          typography_json: body.typography_json,
+          iconography_style: body.iconography_style,
+          motion_settings_json: body.motion_settings_json,
+          logo_asset_id: body.logo_asset_id,
+          dark_mode_enabled: body.dark_mode_enabled,
+          accessibility_defaults_json: body.accessibility_defaults_json,
+          child_safety_display_rules_json: body.child_safety_display_rules_json,
+        },
+      },
+    });
 
     return NextResponse.json({ success: true });
   } catch (err) {

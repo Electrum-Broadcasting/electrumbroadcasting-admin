@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getAdminContext } from "@/lib/admin/context";
+import { logAdminAction } from "@/lib/admin/logging";
 
 function getSupabaseClient() {
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies }
-  );
+  return createSupabaseServerClient();
 }
 
 export async function GET() {
@@ -41,6 +38,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
     const supabase = getSupabaseClient();
+    const admin = await getAdminContext();
 
     const { error } = await supabase
       .from("global_feature_toggles")
@@ -58,6 +56,20 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    await logAdminAction(supabase, admin, {
+      action: "FEATURE_TOGGLE_UPDATE",
+      domain: "settings",
+      entity_type: "feature_toggle",
+      entity_id: null,
+      target_user_id: null,
+      metadata: {
+        updated_fields: {
+          feature_name: body.feature_name,
+          enabled: body.enabled,
+        },
+      },
+    });
+
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("Feature toggles PATCH error:", err);
@@ -72,6 +84,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const supabase = getSupabaseClient();
+    const admin = await getAdminContext();
 
     const { error } = await supabase
       .from("global_feature_toggles")
@@ -89,6 +102,20 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    await logAdminAction(supabase, admin, {
+      action: "FEATURE_TOGGLE_CREATE",
+      domain: "settings",
+      entity_type: "feature_toggle",
+      entity_id: null,
+      target_user_id: null,
+      metadata: {
+        updated_fields: {
+          feature_name: body.feature_name,
+          enabled: body.enabled ?? false,
+        },
+      },
+    });
 
     return NextResponse.json({ success: true });
   } catch (err) {

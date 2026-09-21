@@ -54,12 +54,17 @@ export async function createAdminAccountAction(formData: FormData) {
 
   // 3. Log creation
   await supabase.rpc("log_admin_action", {
+    actor_user_id: admin.user_id,
+    actor_admin_id: admin.id,
+    actor_role: admin.role,
     action: "ADMIN_CREATE_USER",
-    user_id: admin.id,
-    target_user_id: adminRow?.id ?? null,
-    old_role: null,
-    new_role: role,
+    domain: "admin_users",
+    entity_type: "admin_user",
+    entity_id: adminRow?.id ?? null,
+    target_user_id: authUser.user?.id ?? null,
     metadata: { created_email: email },
+    ip_address: null,
+    user_agent: null,
   });
 
   redirect("/admin/CEO/admin-users");

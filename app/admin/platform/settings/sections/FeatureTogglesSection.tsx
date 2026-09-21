@@ -42,6 +42,10 @@ export default function FeatureTogglesSection() {
 
   if (loading) return <div>Loading…</div>;
 
+  if (!Array.isArray(toggles)) {
+    return <div>Unable to load feature toggles.</div>;
+  }
+
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-semibold">Feature Toggles</h1>

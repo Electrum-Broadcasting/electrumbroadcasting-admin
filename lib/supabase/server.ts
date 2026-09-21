@@ -1,13 +1,13 @@
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./env";
 
 export function createSupabaseServerClient() {
   const cookieStore = cookies();
-  const requestHeaders = headers();
 
   return createServerClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_ANON_KEY!,
+    SUPABASE_URL,
+    SUPABASE_ANON_KEY,
     {
       cookies: {
         get(name: string) {
@@ -19,9 +19,6 @@ export function createSupabaseServerClient() {
         remove() {
           // Story actions use the request cookie without persisting removals.
         },
-      },
-      global: {
-        headers: Object.fromEntries(requestHeaders.entries()),
       },
       auth: {
         autoRefreshToken: false,

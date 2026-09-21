@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
+import { getAdminContext } from "@/lib/admin/context";
+import { logAdminAction } from "@/lib/admin/logging";
 
 function getSupabaseClient() {
   return createSupabaseServerClient();
@@ -13,11 +15,6 @@ function getSupabaseClient() {
 export async function GET() {
   try {
     const supabase = getSupabaseClient();
-    const res = await fetch("/api/admin/settings/safety", {
-  method: "GET",
-  credentials: "include",
-});
-const safety = await res.json();
 
     // Diagnostics
     console.log("COOKIES:", cookies().getAll());
@@ -51,6 +48,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
     const supabase = getSupabaseClient();
+    const admin = await getAdminContext();
 
     const { error } = await supabase
       .from("global_safety_settings")
@@ -71,6 +69,23 @@ export async function PATCH(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    await logAdminAction(supabase, admin, {
+      action: "SAFETY_UPDATE",
+      domain: "settings",
+      entity_type: "safety",
+      entity_id: null,
+      target_user_id: null,
+      metadata: {
+        updated_fields: {
+          max_quiz_attempts_per_day: body.max_quiz_attempts_per_day,
+          max_points_per_day: body.max_points_per_day,
+          fraud_thresholds_json: body.fraud_thresholds_json,
+          content_warning_rules_json: body.content_warning_rules_json,
+          child_safety_display_rules_json: body.child_safety_display_rules_json,
+        },
+      },
+    });
 
     return NextResponse.json({ success: true });
   } catch (err) {

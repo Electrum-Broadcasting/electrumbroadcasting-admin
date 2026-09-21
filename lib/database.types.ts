@@ -4972,18 +4972,7 @@ export type Database = {
         Returns: undefined
       }
       log_admin_action:
-        | {
-            Args: {
-              action: string
-              metadata?: Json
-              new_role?: string
-              old_role?: string
-              target_user_id?: string
-              user_id: string
-            }
-            Returns: undefined
-          }
-        | {
+        {
             Args: {
               action: string
               actor_admin_id: string
@@ -4998,7 +4987,7 @@ export type Database = {
               user_agent?: string
             }
             Returns: undefined
-          }
+        }
       log_sensitive_operation: {
         Args: {
           additional_details?: Json
