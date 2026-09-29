@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, createSupabaseServerActionClient } from "@/lib/supabase/server";
 
 export async function POST(
   req: Request,
@@ -10,8 +10,8 @@ export async function POST(
 
   const { reason } = await req.json();
 
-  // ⭐ 1. Auth — secure session check
-  const { data: authData, error: authError } = await supabase.auth.getUser();
+  // 1. Auth — verify the caller's real Supabase session, not the service-role client
+  const { data: authData, error: authError } = await createSupabaseServerActionClient().auth.getUser();
   if (authError || !authData?.user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }

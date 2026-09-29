@@ -1,6 +1,6 @@
 "use server";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, createSupabaseServerActionClient } from "@/lib/supabase/server";
 
 /**
  * Update story status (publish, hide, freeze, unfreeze, delete)
@@ -9,7 +9,7 @@ export async function updateStoryStatusAction(
   storyId: string,
   action: string,
 ) {
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServerActionClient();
 
   const { data, error } = await supabase.rpc("admin_update_story_status", {
     story_id: storyId,
@@ -37,7 +37,7 @@ export async function getStoryDetailsAction(storyId: string) {
  * Freeze a story (prevent edits)
  */
 export async function freezeStoryAction(storyId: string) {
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServerActionClient();
 
   const { data, error } = await supabase.rpc("admin_freeze_story", {
     story_id: storyId,
@@ -50,7 +50,7 @@ export async function freezeStoryAction(storyId: string) {
  * Unfreeze a story
  */
 export async function unfreezeStoryAction(storyId: string) {
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServerActionClient();
 
   const { data, error } = await supabase.rpc("admin_unfreeze_story", {
     story_id: storyId,
@@ -63,7 +63,7 @@ export async function unfreezeStoryAction(storyId: string) {
  * Hide (unpublish) a story
  */
 export async function hideStoryAction(storyId: string) {
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServerActionClient();
 
   const { data, error } = await supabase.rpc("admin_hide_story", {
     story_id: storyId,
@@ -76,7 +76,7 @@ export async function hideStoryAction(storyId: string) {
  * Republish a story
  */
 export async function republishStoryAction(storyId: string) {
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServerActionClient();
 
   const { data, error } = await supabase.rpc("admin_republish_story", {
     story_id: storyId,

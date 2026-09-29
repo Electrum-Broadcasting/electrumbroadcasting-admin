@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const DEFAULT_ASSETS_BUCKET = process.env.SUPABASE_ASSETS_BUCKET ?? "assets";
+const DEFAULT_ASSETS_BUCKET = process.env.SUPABASE_ASSETS_BUCKET ?? "universal-media";
 
 type RouteContext = {
   params: {

@@ -8,6 +8,7 @@ const SECTIONS = [
   { id: "safety", label: "Safety Defaults" },
   { id: "features", label: "Feature Toggles" },
   { id: "permissions", label: "Permissions" },
+  { id: "content", label: "Content" },
 ];
 
 export default function SettingsLayout({ children }: { children: any }) {

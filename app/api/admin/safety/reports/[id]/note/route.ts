@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/context";
+import { logAdminAction } from "@/lib/admin/logging";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function POST(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const { email } = await getAdminContext();
+  const admin = await getAdminContext();
+  const { email } = admin;
   const supabase = createSupabaseServerClient();
 
   const flagId = params.id;
@@ -53,6 +55,15 @@ export async function POST(
       note,
       source: "admin_action",
     },
+  });
+
+  await logAdminAction(supabase, admin, {
+    action: "REPORT_NOTE",
+    domain: "safety_reports",
+    entity_type: "report",
+    entity_id: null,
+    target_user_id: null,
+    metadata: { report_id: flagId, note },
   });
 
   // 5. Redirect back to the detail page

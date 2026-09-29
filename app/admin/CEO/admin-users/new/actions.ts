@@ -20,26 +20,9 @@ export async function createAdminAccountAction(formData: FormData) {
 
   const password_hash = await hashPassword(password);
 
-  // 1. Insert into admin_users (your real login system)
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  const { data: adminRow, error } = await supabase
-    .from("admin_users")
-    .insert({
-      email,
-      role,
-      password_hash,
-      status: "active",
-      city_ids: [],
-    })
-    .select()
-    .single();
-
-  if (error) {
-    redirect(`/admin/CEO/admin-users/new?error=${encodeURIComponent(error.message)}`);
-  }
-
-  // 2. Create Supabase Auth user (for JWT + RLS only)
+  // 1. Create the Supabase Auth user first so admin_users can be linked to it
   const { data: authUser, error: authError } =
     await supabase.auth.admin.createUser({
       email,
@@ -48,8 +31,30 @@ export async function createAdminAccountAction(formData: FormData) {
       user_metadata: { role },
     });
 
-  if (authError) {
-    redirect(`/admin/CEO/admin-users/new?error=${encodeURIComponent(authError.message)}`);
+  if (authError || !authUser?.user) {
+    redirect(`/admin/CEO/admin-users/new?error=${encodeURIComponent(authError?.message ?? "Failed to create auth user")}`);
+  }
+
+  const authUid = authUser.user.id;
+
+  // 2. Insert into admin_users (your real login system), linked via user_id/auth_uid
+  const { data: adminRow, error } = await supabase
+    .from("admin_users")
+    .insert({
+      email,
+      role,
+      password_hash,
+      status: "active",
+      city_ids: [],
+      user_id: authUid,
+      auth_uid: authUid,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    await supabase.auth.admin.deleteUser(authUid);
+    redirect(`/admin/CEO/admin-users/new?error=${encodeURIComponent(error.message)}`);
   }
 
   // 3. Log creation
@@ -61,7 +66,7 @@ export async function createAdminAccountAction(formData: FormData) {
     domain: "admin_users",
     entity_type: "admin_user",
     entity_id: adminRow?.id ?? null,
-    target_user_id: authUser.user?.id ?? null,
+    target_user_id: authUid,
     metadata: { created_email: email },
     ip_address: null,
     user_agent: null,

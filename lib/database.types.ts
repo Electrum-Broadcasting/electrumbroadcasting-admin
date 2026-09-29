@@ -2261,8 +2261,7 @@ export type Database = {
       }
       global_brand_settings: {
         Row: {
-          accessibility_defaults_json: Json | null
-          child_safety_display_rules_json: Json | null
+          
           created_at: string | null
           dark_mode_enabled: boolean | null
           iconography_style: string | null
@@ -2277,8 +2276,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
-          accessibility_defaults_json?: Json | null
-          child_safety_display_rules_json?: Json | null
+          // Removed accessibility_defaults_json and child_safety_display_rules_json as they are no longer used
           created_at?: string | null
           dark_mode_enabled?: boolean | null
           iconography_style?: string | null
@@ -2293,8 +2291,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
-          accessibility_defaults_json?: Json | null
-          child_safety_display_rules_json?: Json | null
+          // Removed accessibility_defaults_json and child_safety_display_rules_json as they are no longer used
           created_at?: string | null
           dark_mode_enabled?: boolean | null
           iconography_style?: string | null

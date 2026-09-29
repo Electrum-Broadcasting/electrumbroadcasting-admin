@@ -24,11 +24,8 @@ const ceoLinks = [
 
 const cityAdminLinks = (cityId: string) => [
   { href: `/admin/city/${cityId}`, label: "Dashboard" },
-  { href: `/admin/city/${cityId}/topics`, label: "Topics" },
-  { href: `/admin/city/${cityId}/proposals`, label: "Proposals" },
   { href: `/admin/city/${cityId}/stories`, label: "Stories" },
   { href: `/admin/city/${cityId}/contributors`, label: "Contributors" },
-  { href: `/admin/city/${cityId}/editors`, label: "Editors" },
   { href: `/admin/city/${cityId}/media`, label: "Media Library" },
   { href: `/admin/city/${cityId}/theme`, label: "City Theme" },
   { href: `/admin/city/${cityId}/safety`, label: "Safety" }

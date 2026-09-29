@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { cookies } from "next/headers";
 import { getAdminContext } from "@/lib/admin/context";
 import { logAdminAction } from "@/lib/admin/logging";
 
@@ -8,18 +7,9 @@ function getSupabaseClient() {
   return createSupabaseServerClient();
 }
 
-  
-    console.log("COOKIES:", cookies().getAll());
-    
-
 export async function GET() {
   try {
     const supabase = getSupabaseClient();
-
-    // Diagnostics
-    console.log("COOKIES:", cookies().getAll());
-    const { data: authTest } = await supabase.auth.getUser();
-    console.log("SERVER AUTH TEST:", authTest);
 
     const { data, error } = await supabase
       .from("global_safety_settings")

@@ -6,7 +6,7 @@ export const adminTableNames = [
   "places",
   "stories",
   "game_scores",
-  "media_assets",
+  "universal_media",
   "admin_users"
 ] as const;
 
@@ -96,8 +96,8 @@ export const adminTables: AdminTablesMap = {
     ]
   },
 
-  media_assets: {
-    key: "media_assets",
+  universal_media: {
+    key: "universal_media",
     label: "Media Assets",
     route: "/admin/media-assets",
     titleField: "url",

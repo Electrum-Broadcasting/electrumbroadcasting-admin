@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/context";
+import { logAdminAction } from "@/lib/admin/logging";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function POST(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const { email } = await getAdminContext();
+  const admin = await getAdminContext();
+  const { email } = admin;
   const supabase = createSupabaseServerClient();
 
   const flagId = params.id;
@@ -52,6 +54,15 @@ export async function POST(
       reviewed: true,
     });
   }
+
+  await logAdminAction(supabase, admin, {
+    action: "REPORT_FREEZE",
+    domain: "safety_reports",
+    entity_type: "report",
+    entity_id: null,
+    target_user_id: flagEvent?.entity_id ?? null,
+    metadata: { report_id: flagId, city_id: cityId, reason: "admin_freeze_city" },
+  });
 
   // 5. Redirect back to the report detail page
   return NextResponse.redirect(`/admin/CEO/safety/reports/${flagId}`);

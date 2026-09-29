@@ -1,28 +1,13 @@
 import { AdminShell } from "@/components/admin/AdminShell";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { CEOMetrics } from "@/components/admin/CEOMetrics";
-import { redirect } from "next/navigation";
+import { getAdminContext } from "@/lib/admin/context";
 
 export default async function CEODashboardPage() {
   const supabase = createSupabaseServerClient();
 
-  // ⭐ Secure authenticated session check
-  const { data: authData, error: authError } = await supabase.auth.getUser();
-  if (authError || !authData?.user) {
-    return redirect("/login?error=Session expired");
-  }
-
-  const user = authData.user;
-  const email = user.email ?? null;
-
-  // Load admin_users.role
-  const { data: adminUser } = await supabase
-    .from("admin_users")
-    .select("role")
-    .eq("auth_uid", user.id)
-    .single();
-
-  const role = adminUser?.role ?? "UNKNOWN";
+  // Secure authenticated session check (reads the admin_session cookie)
+  const { email, role } = await getAdminContext();
 
   // 1. Last 20 published stories
   const { data: recentStories } = await supabase

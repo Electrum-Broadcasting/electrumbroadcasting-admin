@@ -1,24 +1,106 @@
+import { getBrandSettings } from "@/lib/settings/getBrandSettings";
 import Link from "next/link";
+import Image from "next/image";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const brand = await getBrandSettings();
+
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center p-8 text-center">
-      <h1 className="text-4xl font-semibold text-ink">Electrum Broadcasting Admin</h1>
-      <p className="mt-4 text-slate">Secure administration for content, places, scores, and media assets.</p>
-      <div className="mt-10 flex gap-4">
+    <main
+      className="min-h-screen w-full px-6 py-20"
+      style={{ backgroundColor: "var(--background)", color: "var(--foreground)" }}
+    >
+      {/* Logo */}
+      <div className="flex justify-center mb-12">
+        {brand.logo_asset_id ? (
+          <Image
+            src={`/api/assets/${brand.logo_asset_id}`}
+            alt={brand.alt_text ?? "Brand Logo"}
+            width={160}
+            height={60}
+            className="opacity-95"
+          />
+        ) : (
+          <img
+            src="/electrum-logo.png"
+            alt="Electrum Broadcasting"
+            className="h-20 opacity-95"
+          />
+        )}
+      </div>
+
+      {/* Title + Mission */}
+      <h1
+        className="text-5xl font-bold text-center"
+        style={{ color: "var(--foreground)" }}
+      >
+        Electrum Broadcasting
+      </h1>
+
+      <p
+        className="mt-4 text-lg text-center"
+        style={{ color: "var(--neutral-700)" }}
+      >
+        A civic atlas for cities — a platform for stories, objects, and memory.
+      </p>
+
+      {/* Link Grid */}
+      <div className="mt-16 grid grid-cols-1 gap-6 text-center">
         <Link
-          href="/admin"
-          className="rounded-md bg-ink px-5 py-3 text-sm font-semibold text-paper transition hover:opacity-90"
+          href="/about"
+          className="underline"
+          style={{ color: "var(--primary)" }}
         >
-          Open Admin
+          About Electrum
         </Link>
-        <Link
-          href="/login"
-          className="rounded-md border border-slate px-5 py-3 text-sm font-semibold text-slate transition hover:bg-white"
+
+        <a
+          href="https://electrumatlas.world"
+          className="underline"
+          style={{ color: "var(--primary)" }}
         >
-          Login
+          Explore the Electrum Atlas
+        </a>
+
+        <Link href="/cities" className="underline" style={{ color: "var(--primary)" }}>
+          City Pages
+        </Link>
+
+        <Link href="/contact" className="underline" style={{ color: "var(--primary)" }}>
+          Contact
+        </Link>
+
+        <Link href="/faq" className="underline" style={{ color: "var(--primary)" }}>
+          FAQ
+        </Link>
+
+        <Link href="/login" className="underline" style={{ color: "var(--primary)" }}>
+          Admin Login
         </Link>
       </div>
+
+      {/* Footer */}
+      <footer
+        className="mt-24 text-center text-sm"
+        style={{ color: "var(--neutral-600)" }}
+      >
+        © {new Date().getFullYear()} Electrum Broadcasting ·{" "}
+        <Link href="/legal/terms" className="underline" style={{ color: "var(--secondary)" }}>
+          Terms
+        </Link>{" "}
+        ·{" "}
+        <Link href="/legal/privacy" className="underline" style={{ color: "var(--secondary)" }}>
+          Privacy
+        </Link>{" "}
+        ·{" "}
+        <Link
+          href="/legal/accessibility"
+          className="underline"
+          style={{ color: "var(--secondary)" }}
+        >
+          Accessibility
+        </Link>
+      </footer>
     </main>
   );
 }

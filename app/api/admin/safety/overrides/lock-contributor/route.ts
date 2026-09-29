@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { logAdminAction } from "@/lib/admin/logging";
+import { getAdminContext } from "@/lib/admin/context";
 
 export async function POST(req: Request) {
   const supabase = createSupabaseServerClient();
   const { contributor_id } = await req.json();
+  const admin = await getAdminContext();
 
   // 1. Lock contributor
   const { error: updateError } = await supabase
@@ -23,22 +26,11 @@ export async function POST(req: Request) {
     );
   }
 
-  // ⭐ 2. Secure authenticated session check
-  const { data: authData, error: authError } = await supabase.auth.getUser();
-  if (authError || !authData?.user) {
-    return NextResponse.json(
-      { error: "Session expired" },
-      { status: 401 }
-    );
-  }
-
-  const user = authData.user;
-
-  // ⭐ 3. Resolve admin identity using auth_uid
+  // 2. Resolve admin identity (session already verified by getAdminContext above)
   const { data: adminRow } = await supabase
     .from("admin_users")
     .select("id")
-    .eq("auth_uid", user.id)
+    .eq("auth_uid", admin.auth_uid)
     .single();
 
   const adminId = adminRow?.id ?? null;
@@ -57,6 +49,15 @@ export async function POST(req: Request) {
   if (logError) {
     console.error("Log error:", logError);
   }
+
+  await logAdminAction(supabase, admin, {
+    action: "SAFETY_LOCK_CONTRIBUTOR",
+    domain: "safety",
+    entity_type: "safety_override",
+    entity_id: null,
+    target_user_id: contributor_id,
+    metadata: { override_type: "lock_contributor", contributor_id },
+  });
 
   return NextResponse.json({ success: true });
 }

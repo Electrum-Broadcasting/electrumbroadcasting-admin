@@ -1,6 +1,34 @@
-import { adminTables } from "@/lib/admin/config";
-import { EditRecordPage } from "@/components/admin/EditRecordPage";
+// app/admin/(protected)/stories/[id]/edit/page.tsx
 
-export default async function EditStoryPage({ params }: { params: { id: string } }) {
-  return <EditRecordPage table={adminTables.stories.key} id={params.id} />;
+import { AdminShell } from "@/components/admin/AdminShell";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getAdminContext } from "@/lib/admin/context";
+import AdminStoryToolbar from "@/components/admin/AdminStoryToolbar";
+import EditStoryClientWrapper from "./EditStoryClientWrapper";
+
+export default async function EditStoryPage({
+  params,
+}: {
+  params: { id: string };
+}) {
+  const admin = await getAdminContext();
+  const supabase = createSupabaseServerClient();
+
+  const { data: story } = await supabase
+    .from("civic_stories")
+    .select("*")
+    .eq("id", params.id)
+    .single();
+
+  return (
+    <AdminShell
+      email={admin.email}
+      role={admin.role}
+      title={`Edit Story: ${story.title}`}
+      cityName={admin.city_name}
+    >
+      <AdminStoryToolbar storyId={story.id} />
+      <EditStoryClientWrapper story={story} admin={admin} />
+    </AdminShell>
+  );
 }

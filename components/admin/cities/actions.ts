@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerActionClient } from "@/lib/supabase/server";
 
 import type { CityStatus } from "./CityForm/CityFormTypes";
 
@@ -26,7 +26,7 @@ function formText(formData: FormData, key: string) {
 
 export async function updateCityAction(formData: FormData) {
   const cityId = formData.get("id") as string;
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServerActionClient();
   let rpcErrorMessage: string | null = null;
 
   const payload = {
@@ -69,7 +69,7 @@ export async function updateCityAction(formData: FormData) {
 }
 
 export async function createCityAction(formData: FormData) {
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServerActionClient();
 
   const { error } = await supabase.rpc("admin_create_city", {
     name: formData.get("name") as string,
@@ -94,7 +94,7 @@ export async function createCityAction(formData: FormData) {
 }
 
 export async function deleteCityAction(cityId: string) {
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServerActionClient();
   const { error, data } = await supabase.rpc("admin_delete_city", {
     city_id: cityId,
     metadata: {},

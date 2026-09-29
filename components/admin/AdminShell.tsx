@@ -7,6 +7,8 @@ interface AdminShellProps {
   role: AdminRole;
   title: string;
   cityName?: string;
+  cityId?: string;
+  citySlug?: string;
   children: React.ReactNode;
 }
 
@@ -17,7 +19,7 @@ const ROLE_DISPLAY: Record<AdminRole, string> = {
   EDITOR: "Editor",
 };
 
-export function AdminShell({ email, role, title, cityName, children }: AdminShellProps) {
+export function AdminShell({ email, role, title, cityName, cityId, citySlug, children }: AdminShellProps) {
 
   const displayRole = ROLE_DISPLAY[role] ?? role;
 
@@ -71,9 +73,9 @@ export function AdminShell({ email, role, title, cityName, children }: AdminShel
       <div className="flex gap-6 py-6 px-6">
         
         {/* SIDEBAR */}
-        <aside className="w-[220px] shrink-0 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-          <AdminNav role={role} />
-        </aside>
+        <div className="w-[220px] shrink-0 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+          <AdminNav role={role} cityId={cityId} />
+        </div>
 
         {/* MAIN CONTENT */}
         <section className="flex-1 min-w-0">

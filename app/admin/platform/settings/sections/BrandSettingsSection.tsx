@@ -49,8 +49,7 @@ export default function BrandSettingsSection() {
     motion_settings_json: "{}",
     logo_asset_id: "",
     dark_mode_enabled: false,
-    accessibility_defaults_json: "{}",
-    child_safety_display_rules_json: "{}",
+    // Removed accessibility_defaults_json and child_safety_display_rules_json as they are no longer used
   });
 
   useEffect(() => {
@@ -63,12 +62,6 @@ export default function BrandSettingsSection() {
         neutral_palette_json: JSON.stringify(json.neutral_palette_json, null, 2),
         typography_json: JSON.stringify(json.typography_json, null, 2),
         motion_settings_json: JSON.stringify(json.motion_settings_json, null, 2),
-        accessibility_defaults_json: JSON.stringify(json.accessibility_defaults_json, null, 2),
-        child_safety_display_rules_json: JSON.stringify(
-          json.child_safety_display_rules_json,
-          null,
-          2
-        ),
       });
 
       setLoading(false);
@@ -84,8 +77,7 @@ export default function BrandSettingsSection() {
       JSON.parse(settings.neutral_palette_json);
       JSON.parse(settings.typography_json);
       JSON.parse(settings.motion_settings_json);
-      JSON.parse(settings.accessibility_defaults_json);
-      JSON.parse(settings.child_safety_display_rules_json);
+
     } catch {
       setError("One or more JSON fields are invalid.");
       setSaving(false);
@@ -99,10 +91,7 @@ export default function BrandSettingsSection() {
         neutral_palette_json: JSON.parse(settings.neutral_palette_json),
         typography_json: JSON.parse(settings.typography_json),
         motion_settings_json: JSON.parse(settings.motion_settings_json),
-        accessibility_defaults_json: JSON.parse(settings.accessibility_defaults_json),
-        child_safety_display_rules_json: JSON.parse(
-          settings.child_safety_display_rules_json
-        ),
+        // Removed accessibility_defaults_json and child_safety_display_rules_json as they are no longer used
       }),
     });
 
@@ -161,18 +150,40 @@ export default function BrandSettingsSection() {
         </select>
       </div>
 
-      {/* Logo Asset */}
-      <div className="flex flex-col gap-2">
-        <label>Logo Asset ID</label>
-        <input
-          type="text"
-          className="border rounded px-3 py-2"
-          value={settings.logo_asset_id}
-          onChange={(e) =>
-            setSettings({ ...settings, logo_asset_id: e.target.value })
-          }
-        />
-      </div>
+      {/* Logo Uploader */}
+<div className="flex flex-col gap-2">
+  <label>Logo</label>
+
+  {settings.logo_asset_id && (
+    <img
+      src={`/api/admin/assets/${settings.logo_asset_id}`}
+      alt="Current Logo"
+      className="h-20 object-contain border rounded p-2 bg-white"
+    />
+  )}
+
+  <input
+    type="file"
+    accept="image/*"
+    onChange={async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const uploadRes = await fetch("/api/admin/assets/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const { asset_id } = await uploadRes.json();
+
+      setSettings({ ...settings, logo_asset_id: asset_id });
+    }}
+    className="border rounded px-3 py-2"
+  />
+</div>
 
       {/* Dark Mode */}
       <div className="flex items-center gap-3">
@@ -206,23 +217,7 @@ export default function BrandSettingsSection() {
         value={settings.motion_settings_json}
         onChange={(v) => setSettings({ ...settings, motion_settings_json: v })}
       />
-
-      <CollapsibleJSON
-        label="Accessibility Defaults (JSON)"
-        value={settings.accessibility_defaults_json}
-        onChange={(v) =>
-          setSettings({ ...settings, accessibility_defaults_json: v })
-        }
-      />
-
-      <CollapsibleJSON
-        label="Child Safety Display Rules (JSON)"
-        value={settings.child_safety_display_rules_json}
-        onChange={(v) =>
-          setSettings({ ...settings, child_safety_display_rules_json: v })
-        }
-      />
-
+     
       <button
         onClick={save}
         disabled={saving}

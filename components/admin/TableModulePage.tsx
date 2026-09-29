@@ -3,14 +3,14 @@ import { listRows } from "@/lib/admin/data";
 import { TableToolbar } from "@/components/admin/TableToolbar";
 import { RecordsTable } from "@/components/admin/RecordsTable";
 import { canCreate, canDelete, canEdit } from "@/lib/admin/permissions";
-import { requireAdminContext } from "@/lib/admin/auth";
+import { getAdminContext } from "@/lib/admin/context";
 
 interface TableModulePageProps {
   table: AdminTableName;
 }
 
 export async function TableModulePage({ table }: TableModulePageProps) {
-  const { role } = await requireAdminContext();
+  const { role } = await getAdminContext();
 
   const rows = await listRows(table);
 

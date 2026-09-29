@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const ASSETS_BUCKET = process.env.SUPABASE_ASSETS_BUCKET ?? "assets";
+const ASSETS_BUCKET = process.env.SUPABASE_ASSETS_BUCKET ?? "universal-media";
 
 function getFileExtension(name: string) {
 	const dotIndex = name.lastIndexOf(".");
@@ -31,7 +31,7 @@ export async function POST(req: Request) {
 		const storagePath = `brand-logos/${assetId}${extension}`;
 
 		const { error: uploadError } = await supabase.storage
-			.from(ASSETS_BUCKET)
+			.from("universal-media")
 			.upload(storagePath, upload, {
 				cacheControl: "3600",
 				upsert: false,

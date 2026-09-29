@@ -51,8 +51,7 @@ export async function PATCH(request: NextRequest) {
         motion_settings_json: body.motion_settings_json,
         logo_asset_id: body.logo_asset_id,
         dark_mode_enabled: body.dark_mode_enabled,
-        accessibility_defaults_json: body.accessibility_defaults_json,
-        child_safety_display_rules_json: body.child_safety_display_rules_json,
+        // Removed accessibility_defaults_json and child_safety_display_rules_json as they are no longer used
         updated_at: new Date().toISOString(),
       })
       .eq("id", body.id);
@@ -81,8 +80,7 @@ export async function PATCH(request: NextRequest) {
           motion_settings_json: body.motion_settings_json,
           logo_asset_id: body.logo_asset_id,
           dark_mode_enabled: body.dark_mode_enabled,
-          accessibility_defaults_json: body.accessibility_defaults_json,
-          child_safety_display_rules_json: body.child_safety_display_rules_json,
+          // Removed accessibility_defaults_json and child_safety_display_rules_json as they are no longer used
         },
       },
     });
