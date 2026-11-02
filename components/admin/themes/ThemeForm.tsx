@@ -6,16 +6,19 @@ export function ThemeForm({
   city,
   draftTheme,
   publishedTheme,
+  globalTheme,
 }: {
-  city: any;
-  draftTheme: any;
-  publishedTheme: any;
+  city: { id: string; name: string };
+  draftTheme: unknown;
+  publishedTheme: unknown;
+  globalTheme: unknown;
 }) {
   return (
     <ThemeEditor
       city={city}
       draftTheme={draftTheme}
       publishedTheme={publishedTheme}
+      globalTheme={globalTheme}
     />
   );
 }

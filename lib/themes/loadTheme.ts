@@ -1,17 +1,26 @@
 import defaultTheme from "@/themes/default.json";
 
-export function loadMergedTheme(cityTheme: any) {
-  return {
-    colors: {
-      primary: cityTheme?.colors?.primary ?? defaultTheme.colors.primary,
-      secondary: cityTheme?.colors?.secondary ?? defaultTheme.colors.secondary,
-      accent: cityTheme?.colors?.accent ?? defaultTheme.colors.accent,
-      background: cityTheme?.colors?.background ?? defaultTheme.colors.background,
-      foreground: cityTheme?.colors?.foreground ?? defaultTheme.colors.foreground,
-    },
-    typography: {
-      heading: cityTheme?.typography?.heading ?? defaultTheme.typography.heading,
-      body: cityTheme?.typography?.body ?? defaultTheme.typography.body,
-    }
-  };
+type ThemeObject = Record<string, unknown>;
+
+function isThemeObject(value: unknown): value is ThemeObject {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function mergeTheme(defaults: ThemeObject, overrides: ThemeObject): ThemeObject {
+  const result: ThemeObject = { ...defaults };
+  for (const [key, value] of Object.entries(overrides)) {
+    const defaultValue = defaults[key];
+    result[key] =
+      isThemeObject(defaultValue) && isThemeObject(value)
+        ? mergeTheme(defaultValue, value)
+        : value;
+  }
+  return result;
+}
+
+export function loadMergedTheme(theme: unknown, baseTheme: unknown = defaultTheme): ThemeObject {
+  const defaults = isThemeObject(baseTheme)
+    ? mergeTheme(defaultTheme as ThemeObject, baseTheme)
+    : (defaultTheme as ThemeObject);
+  return mergeTheme(defaults, isThemeObject(theme) ? theme : {});
 }

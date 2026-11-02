@@ -10,8 +10,11 @@ export async function updateAdminPasswordAction(formData: FormData) {
   const newPassword = String(formData.get("password") ?? "");
 
   const adminSession = await getAdminSession();
-  if (!adminSession) redirect("/login?error=Not authenticated");
 
+// If the cookie is malformed (base64), treat it as "not authenticated"
+if (!adminSession || !adminSession.auth_uid) {
+  redirect("/login?error=Not authenticated");
+}
   const password_hash = await hashPassword(newPassword);
 
   const supabaseAdmin = createServerClient(

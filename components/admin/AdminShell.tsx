@@ -1,6 +1,8 @@
 import type { AdminRole } from "@/lib/admin/types";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { logoutAction } from "@/app/admin/(auth)/actions";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 interface AdminShellProps {
   email: string | null;
@@ -20,67 +22,49 @@ const ROLE_DISPLAY: Record<AdminRole, string> = {
 };
 
 export function AdminShell({ email, role, title, cityName, cityId, citySlug, children }: AdminShellProps) {
-
   const displayRole = ROLE_DISPLAY[role] ?? role;
 
   return (
-    <div className="min-h-screen">
-      {/* HEADER */}
-      <header className="border-b border-slate-200 bg-white">
-        <div className="flex items-center justify-between px-6 py-4">
-          
-          {/* Left: Branding + Title */}
+    <div className="min-h-screen bg-background text-foreground">
+      <header className="border-b border-border bg-card">
+        <div className="mx-auto flex max-w-screen-2xl flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-wide text-slate-500">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Electrum Broadcasting
             </p>
-            <h1 className="text-lg font-semibold text-ink">{title}</h1>
+            <h1 className="mt-1 text-xl font-semibold tracking-tight">{title}</h1>
           </div>
 
-          {/* Change Password */}
-<div>
-  <a
-    href="/admin/update-password"
-    className="text-xs text-blue-600 hover:underline"
-  >
-    Change Password
-  </a>
-</div>
-
-          {/* Right: User Info + Logout */}
-          <div className="text-right text-sm space-y-1">
-            <p className="font-medium text-ink">{email ?? "Unknown"}</p>
-            <p className="text-slate-500">Role: {displayRole}</p>
-            <p className="text-slate-400">
-            {role === "CEO" ? "All Cities" : cityName}
-</p>
-
-            {/* Logout Button */}
-            <form action={logoutAction} className="mt-2">
-              <button
-                type="submit"
-                className="text-xs text-red-600 hover:underline"
-              >
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+            <div>
+              <p className="font-medium">{email ?? "Unknown"}</p>
+              <p className="text-muted-foreground">
+                {displayRole} <span aria-hidden="true">·</span>{" "}
+                {role === "CEO" ? "All Cities" : cityName ?? "No city assigned"}
+              </p>
+            </div>
+            <Link
+              href="/admin/update-password"
+              className="text-sm text-primary underline-offset-4 transition-colors hover:underline"
+            >
+              Change password
+            </Link>
+            <form action={logoutAction}>
+              <Button type="submit" variant="outline" size="sm">
                 Log out
-              </button>
+              </Button>
             </form>
           </div>
-
         </div>
       </header>
 
-      {/* FULL-WIDTH LAYOUT */}
-      <div className="flex gap-6 py-6 px-6">
-        
-        {/* SIDEBAR */}
-        <div className="w-[220px] shrink-0 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="mx-auto flex max-w-screen-2xl flex-col gap-5 px-4 py-5 sm:px-6 lg:flex-row lg:gap-6 lg:py-6">
+        <aside className="shrink-0 rounded-lg border border-border bg-card p-2 shadow-sm lg:sticky lg:top-6 lg:h-fit lg:w-56">
           <AdminNav role={role} cityId={cityId} />
-        </div>
-
-        {/* MAIN CONTENT */}
-        <section className="flex-1 min-w-0">
+        </aside>
+        <main className="min-w-0 flex-1">
           {children}
-        </section>
+        </main>
       </div>
     </div>
   );

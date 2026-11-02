@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createBrowserClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { CollapsibleSection } from "@/components/admin/CEO/CollapsibleSection";
 import type { AdminRole } from "@/lib/admin/types";
 
 export type AdminUserRow = {
@@ -155,96 +156,107 @@ export function UserForm({
       }}
       className="space-y-6"
     >
-      <div>
-        <label className="block text-sm font-medium text-slate-700">Email</label>
-        <input
-          type="email"
-          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 disabled:bg-slate-100 disabled:text-slate-500"
-          value={form.email}
-          onChange={(event) =>
-            setForm((prev) => ({ ...prev, email: event.target.value }))
-          }
-          disabled={mode === "edit"}
-          required
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-slate-700">Role</label>
-        <select
-          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-          value={form.role}
-          onChange={(event) =>
-            setForm((prev) => ({
-              ...prev,
-              role: event.target.value as AdminRole,
-            }))
-          }
-        >
-          {ROLE_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <p className="text-sm font-medium text-slate-700">Cities</p>
-        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {cities.map((city) => (
-            <label key={city.id} className="flex items-center gap-2 text-sm text-ink">
-              <input
-                type="checkbox"
-                className="h-4 w-4"
-                checked={form.city_ids.includes(city.id)}
-                onChange={(event) => handleCityToggle(city.id, event.target.checked)}
-              />
-              {city.name}
+      <CollapsibleSection title="Account" defaultOpen>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium" htmlFor="admin-email">
+              Email
             </label>
-          ))}
+            <input
+              id="admin-email"
+              type="email"
+              className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:bg-muted disabled:text-muted-foreground"
+              value={form.email}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, email: event.target.value }))
+              }
+              disabled={mode === "edit"}
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium" htmlFor="admin-role">Role</label>
+            <select
+              id="admin-role"
+              className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={form.role}
+              onChange={(event) =>
+                setForm((prev) => ({
+                  ...prev,
+                  role: event.target.value as AdminRole,
+                }))
+              }
+            >
+              {ROLE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium" htmlFor="admin-status">Status</label>
+            <select
+              id="admin-status"
+              className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={form.status}
+              onChange={(event) =>
+                setForm((prev) => ({
+                  ...prev,
+                  status: event.target.value as "active" | "inactive",
+                }))
+              }
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Suspended</option>
+            </select>
+          </div>
         </div>
-      </div>
+      </CollapsibleSection>
 
-      <div>
-        <label className="block text-sm font-medium text-slate-700">Status</label>
-        <select
-          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-          value={form.status}
-          onChange={(event) =>
-            setForm((prev) => ({
-              ...prev,
-              status: event.target.value as "active" | "inactive",
-            }))
-          }
-        >
-          <option value="active">Active</option>
-          <option value="inactive">Suspended</option>
-        </select>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-slate-700">
-          Primary City
-        </label>
-        <select
-          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-          value={form.primary_city_slug}
-          onChange={(event) =>
-            setForm((prev) => ({
-              ...prev,
-              primary_city_slug: event.target.value,
-            }))
-          }
-        >
-          <option value="">No primary city</option>
-          {selectedCities.map((city) => (
-            <option key={city.id} value={city.slug ?? ""}>
-              {city.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      <CollapsibleSection title="City assignments">
+        <div className="space-y-5">
+          <fieldset>
+            <legend className="text-sm font-medium">Assigned cities</legend>
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {cities.map((city) => (
+                <label key={city.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-primary"
+                    checked={form.city_ids.includes(city.id)}
+                    onChange={(event) => handleCityToggle(city.id, event.target.checked)}
+                  />
+                  {city.name}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <div>
+            <label className="block text-sm font-medium" htmlFor="admin-primary-city">
+              Primary city
+            </label>
+            <select
+              id="admin-primary-city"
+              className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={form.primary_city_slug}
+              onChange={(event) =>
+                setForm((prev) => ({
+                  ...prev,
+                  primary_city_slug: event.target.value,
+                }))
+              }
+            >
+              <option value="">No primary city</option>
+              {selectedCities.map((city) => (
+                <option key={city.id} value={city.slug ?? ""}>
+                  {city.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </CollapsibleSection>
 
       <div className="flex items-center justify-end gap-3 mt-8">
         <Button variant="secondary" type="button" onClick={handleCancel}>

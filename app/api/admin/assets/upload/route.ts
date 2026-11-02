@@ -1,14 +1,27 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getAdminContext } from "@/lib/admin/context";
+import { SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL } from "@/lib/supabase/env";
 
 const ASSETS_BUCKET = process.env.SUPABASE_ASSETS_BUCKET ?? "universal-media";
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const ASSET_FOLDERS = {
+	logo: "brand-logos",
+	contributor_avatar: "contributor-avatars",
+} as const;
 
 function getFileExtension(name: string) {
 	const dotIndex = name.lastIndexOf(".");
-	return dotIndex > -1 ? name.slice(dotIndex).toLowerCase() : "";
+	const extension = dotIndex > -1 ? name.slice(dotIndex).toLowerCase() : "";
+	return /^\.[a-z0-9]{1,10}$/.test(extension) ? extension : "";
 }
 
 export async function POST(req: Request) {
+	const admin = await getAdminContext();
+	if (!["CEO", "PLATFORM_ADMIN", "CITY_ADMIN", "EDITOR"].includes(admin.role)) {
+		return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+	}
+
 	try {
 		const formData = await req.formData();
 		const upload = formData.get("file");
@@ -17,21 +30,35 @@ export async function POST(req: Request) {
 			return NextResponse.json({ error: "Missing file" }, { status: 400 });
 		}
 
-		if (!upload.type.startsWith("image/")) {
+		if (!["image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml"].includes(upload.type)) {
 			return NextResponse.json({ error: "Only image uploads are allowed" }, { status: 400 });
 		}
 
+		if (upload.size === 0 || upload.size > MAX_FILE_SIZE) {
+			return NextResponse.json(
+				{ error: "Image must be larger than 0 bytes and no larger than 10 MB" },
+				{ status: 400 }
+			);
+		}
+
+		const requestedType = formData.get("asset_type");
+		const assetType =
+			typeof requestedType === "string" &&
+			Object.prototype.hasOwnProperty.call(ASSET_FOLDERS, requestedType)
+				? (requestedType as keyof typeof ASSET_FOLDERS)
+				: "logo";
+
 		const supabase = createClient(
-			process.env.NEXT_PUBLIC_SUPABASE_URL!,
-			process.env.SUPABASE_SERVICE_ROLE_KEY!
+			SUPABASE_URL,
+			SUPABASE_SERVICE_ROLE_KEY
 		);
 
 		const assetId = crypto.randomUUID();
 		const extension = getFileExtension(upload.name);
-		const storagePath = `brand-logos/${assetId}${extension}`;
+		const storagePath = `${ASSET_FOLDERS[assetType]}/${assetId}${extension}`;
 
 		const { error: uploadError } = await supabase.storage
-			.from("universal-media")
+			.from(ASSETS_BUCKET)
 			.upload(storagePath, upload, {
 				cacheControl: "3600",
 				upsert: false,
@@ -47,13 +74,14 @@ export async function POST(req: Request) {
 			id: assetId,
 			url: `/api/assets/${assetId}`,
 			alt_text: upload.name,
-			type: "logo",
+			type: assetType,
 			metadata: {
 				bucket: ASSETS_BUCKET,
 				path: storagePath,
 				content_type: upload.type,
 				original_name: upload.name,
 				size: upload.size,
+				uploaded_by: admin.user_id,
 			},
 		});
 
@@ -63,7 +91,11 @@ export async function POST(req: Request) {
 			return NextResponse.json({ error: insertError.message }, { status: 500 });
 		}
 
-		return NextResponse.json({ asset_id: assetId });
+		return NextResponse.json({
+			asset_id: assetId,
+			url: `/api/assets/${assetId}`,
+			type: assetType,
+		});
 	} catch (error) {
 		console.error("POST /api/admin/assets/upload error:", error);
 		return NextResponse.json({ error: "Unexpected error" }, { status: 500 });

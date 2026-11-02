@@ -7,7 +7,20 @@ function getSupabaseClient() {
   return createSupabaseServerClient();
 }
 
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function canManageSettings(role: string) {
+  return role === "CEO" || role === "PLATFORM_ADMIN";
+}
+
 export async function GET() {
+  const admin = await getAdminContext();
+  if (!canManageSettings(admin.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   try {
     const supabase = getSupabaseClient();
 
@@ -35,10 +48,26 @@ export async function GET() {
 }
 
 export async function PATCH(request: NextRequest) {
+  const admin = await getAdminContext();
+  if (!canManageSettings(admin.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   try {
-    const body = await request.json();
+    const body: unknown = await request.json();
+    if (
+      !isJsonObject(body) ||
+      typeof body.id !== "string" ||
+      typeof body.default_timezone !== "string" ||
+      typeof body.default_language !== "string" ||
+      typeof body.maintenance_mode !== "boolean" ||
+      typeof body.support_email !== "string" ||
+      !isJsonObject(body.legal_footer_json) ||
+      !["private", "soft_launch", "public"].includes(String(body.public_launch_mode))
+    ) {
+      return NextResponse.json({ error: "Invalid system settings payload" }, { status: 400 });
+    }
     const supabase = getSupabaseClient();
-    const admin = await getAdminContext();
 
     const { error } = await supabase
       .from("global_settings")
@@ -61,7 +90,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    await logAdminAction(supabase, admin, {
+    const { error: auditError } = await logAdminAction(supabase, admin, {
       action: "SYSTEM_UPDATE",
       domain: "settings",
       entity_type: "system",
@@ -78,6 +107,13 @@ export async function PATCH(request: NextRequest) {
         },
       },
     });
+    if (auditError) {
+      console.error("System settings saved but audit logging failed:", auditError);
+      return NextResponse.json(
+        { error: "Settings were saved, but the audit log could not be written" },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ success: true });
   } catch (err) {

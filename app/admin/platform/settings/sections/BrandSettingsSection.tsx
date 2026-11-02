@@ -1,230 +1,203 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+import { CollapsibleSection } from "@/components/admin/CEO/CollapsibleSection";
+import { ThemeEditor } from "@/components/admin/themes/ThemeEditor";
+import type { ThemePersistence } from "@/components/admin/themes/ThemeState";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
-function CollapsibleJSON({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
+type ThemeRow = {
+  id: string;
+  status: "draft" | "published";
+  theme_json: unknown;
+  logo_asset_id: string | null;
+};
 
-  return (
-    <div className="border rounded p-3">
-      <div
-        className="flex justify-between items-center cursor-pointer"
-        onClick={() => setOpen(!open)}
-      >
-        <span className="font-medium">{label}</span>
-        <span>{open ? "▲" : "▼"}</span>
-      </div>
+type BrandSettingsResponse = {
+  draft: ThemeRow | null;
+  published: ThemeRow | null;
+};
 
-      {open && (
-        <textarea
-          className="border rounded px-3 py-2 mt-3 w-full h-40"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      )}
-    </div>
-  );
+async function saveBrandAction(payload: Record<string, unknown>) {
+  const response = await fetch("/api/admin/settings/brand", {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const result = await response.json();
+  if (!response.ok) {
+    throw new Error(result?.error ?? "Failed to save global brand settings");
+  }
 }
 
 export default function BrandSettingsSection() {
+  const [brand, setBrand] = useState<BrandSettingsResponse | null>(null);
+  const [draftLogoAssetId, setDraftLogoAssetId] = useState("");
+  const [publishedLogoAssetId, setPublishedLogoAssetId] = useState("");
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [savingLogo, setSavingLogo] = useState(false);
   const [error, setError] = useState("");
 
-  const [settings, setSettings] = useState({
-    id: "",
-    primary_color: "#000000",
-    secondary_color: "#ffffff",
-    neutral_palette_json: "{}",
-    typography_json: "{}",
-    iconography_style: "outline",
-    motion_settings_json: "{}",
-    logo_asset_id: "",
-    dark_mode_enabled: false,
-    // Removed accessibility_defaults_json and child_safety_display_rules_json as they are no longer used
-  });
-
   useEffect(() => {
+    let active = true;
     async function load() {
-      const res = await fetch("/api/admin/settings/brand", { cache: "no-store" });
-      const json = await res.json();
-
-      setSettings({
-        ...json,
-        neutral_palette_json: JSON.stringify(json.neutral_palette_json, null, 2),
-        typography_json: JSON.stringify(json.typography_json, null, 2),
-        motion_settings_json: JSON.stringify(json.motion_settings_json, null, 2),
-      });
-
-      setLoading(false);
+      try {
+        const response = await fetch("/api/admin/settings/brand", {
+          cache: "no-store",
+          credentials: "include",
+        });
+        const result = (await response.json()) as BrandSettingsResponse & {
+          error?: string;
+        };
+        if (!response.ok) throw new Error(result.error ?? "Failed to load global brand settings");
+        if (!result.draft || !result.published) {
+          throw new Error(
+            "Global brand draft and published rows are required. No rows were created."
+          );
+        }
+        if (active) {
+          setBrand(result);
+          setDraftLogoAssetId(result.draft.logo_asset_id ?? "");
+          setPublishedLogoAssetId(result.published.logo_asset_id ?? "");
+        }
+      } catch (loadError) {
+        console.error("Failed to load global brand settings:", loadError);
+        if (active) {
+          const message =
+            loadError instanceof Error ? loadError.message : "Failed to load global brand settings";
+          setError(message);
+          toast.error(message);
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
     }
-    load();
+    void load();
+    return () => {
+      active = false;
+    };
   }, []);
 
-  async function save() {
-    setSaving(true);
-    setError("");
+  const persistence = useMemo<ThemePersistence>(
+    () => ({
+      saveDraft: (theme) =>
+        saveBrandAction({ action: "save_draft", theme_json: theme }),
+      publishTheme: (theme) =>
+        saveBrandAction({
+          action: "publish",
+          theme_json: theme,
+          logo_asset_id: draftLogoAssetId || null,
+        }),
+    }),
+    [draftLogoAssetId]
+  );
 
+  const uploadLogo = useCallback(async (file: File | undefined) => {
+    if (!file) return;
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("asset_type", "logo");
     try {
-      JSON.parse(settings.neutral_palette_json);
-      JSON.parse(settings.typography_json);
-      JSON.parse(settings.motion_settings_json);
-
-    } catch {
-      setError("One or more JSON fields are invalid.");
-      setSaving(false);
-      return;
-    }
-
-    await fetch("/api/admin/settings/brand", {
-      method: "PATCH",
-      body: JSON.stringify({
-        ...settings,
-        neutral_palette_json: JSON.parse(settings.neutral_palette_json),
-        typography_json: JSON.parse(settings.typography_json),
-        motion_settings_json: JSON.parse(settings.motion_settings_json),
-        // Removed accessibility_defaults_json and child_safety_display_rules_json as they are no longer used
-      }),
-    });
-
-    setSaving(false);
-  }
-
-  if (loading) return <div>Loading…</div>;
-
-  return (
-    <div className="space-y-6">
-      <h1 className="text-xl font-semibold">Brand Settings</h1>
-
-      {error && <div className="text-red-600">{error}</div>}
-
-      {/* Primary Color */}
-      <div className="flex flex-col gap-2">
-        <label>Primary Color</label>
-        <input
-          type="color"
-          className="border rounded px-3 py-2 h-10 w-20"
-          value={settings.primary_color}
-          onChange={(e) =>
-            setSettings({ ...settings, primary_color: e.target.value })
-          }
-        />
-      </div>
-
-      {/* Secondary Color */}
-      <div className="flex flex-col gap-2">
-        <label>Secondary Color</label>
-        <input
-          type="color"
-          className="border rounded px-3 py-2 h-10 w-20"
-          value={settings.secondary_color}
-          onChange={(e) =>
-            setSettings({ ...settings, secondary_color: e.target.value })
-          }
-        />
-      </div>
-
-      {/* Iconography Style */}
-      <div className="flex flex-col gap-2">
-        <label>Iconography Style</label>
-        <select
-          className="border rounded px-3 py-2"
-          value={settings.iconography_style}
-          onChange={(e) =>
-            setSettings({ ...settings, iconography_style: e.target.value })
-          }
-        >
-          <option value="outline">Outline</option>
-          <option value="filled">Filled</option>
-          <option value="duotone">Duotone</option>
-          <option value="rounded">Rounded</option>
-          <option value="sharp">Sharp</option>
-        </select>
-      </div>
-
-      {/* Logo Uploader */}
-<div className="flex flex-col gap-2">
-  <label>Logo</label>
-
-  {settings.logo_asset_id && (
-    <img
-      src={`/api/admin/assets/${settings.logo_asset_id}`}
-      alt="Current Logo"
-      className="h-20 object-contain border rounded p-2 bg-white"
-    />
-  )}
-
-  <input
-    type="file"
-    accept="image/*"
-    onChange={async (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const uploadRes = await fetch("/api/admin/assets/upload", {
+      const response = await fetch("/api/admin/assets/upload", {
         method: "POST",
+        credentials: "include",
         body: formData,
       });
+      const result = await response.json();
+      if (!response.ok || typeof result.asset_id !== "string") {
+        throw new Error(result?.error ?? "Logo upload failed");
+      }
+      setDraftLogoAssetId(result.asset_id);
+      toast.success("Logo uploaded. Save the draft to retain it.");
+    } catch (uploadError) {
+      console.error("Failed to upload global brand logo:", uploadError);
+      toast.error(uploadError instanceof Error ? uploadError.message : "Logo upload failed");
+    }
+  }, []);
 
-      const { asset_id } = await uploadRes.json();
+  async function saveLogo() {
+    setSavingLogo(true);
+    try {
+      await saveBrandAction({
+        action: "save_logo",
+        logo_asset_id: draftLogoAssetId || null,
+      });
+      toast.success("Draft logo saved");
+    } catch (saveError) {
+      console.error("Failed to save global brand logo:", saveError);
+      toast.error(saveError instanceof Error ? saveError.message : "Failed to save logo");
+    } finally {
+      setSavingLogo(false);
+    }
+  }
 
-      setSettings({ ...settings, logo_asset_id: asset_id });
-    }}
-    className="border rounded px-3 py-2"
-  />
-</div>
-
-      {/* Dark Mode */}
-      <div className="flex items-center gap-3">
-        <input
-          type="checkbox"
-          checked={settings.dark_mode_enabled}
-          onChange={(e) =>
-            setSettings({ ...settings, dark_mode_enabled: e.target.checked })
-          }
-        />
-        <label>Dark Mode Enabled</label>
+  if (loading) {
+    return <p className="text-sm text-muted-foreground">Loading global brand settings…</p>;
+  }
+  if (error || !brand?.draft || !brand.published) {
+    return (
+      <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+        {error || "Global brand settings are unavailable."}
       </div>
+    );
+  }
 
-      {/* Collapsible JSON Editors */}
-      <CollapsibleJSON
-        label="Neutral Palette (JSON)"
-        value={settings.neutral_palette_json}
-        onChange={(v) =>
-          setSettings({ ...settings, neutral_palette_json: v })
-        }
-      />
-
-      <CollapsibleJSON
-        label="Typography (JSON)"
-        value={settings.typography_json}
-        onChange={(v) => setSettings({ ...settings, typography_json: v })}
-      />
-
-      <CollapsibleJSON
-        label="Motion Settings (JSON)"
-        value={settings.motion_settings_json}
-        onChange={(v) => setSettings({ ...settings, motion_settings_json: v })}
-      />
-     
-      <button
-        onClick={save}
-        disabled={saving}
-        className="px-4 py-2 bg-black text-white rounded"
+  return (
+    <div className="space-y-4">
+      <CollapsibleSection
+        title="Global brand assets"
+        description="The global logo is stored separately from the theme JSON."
+        defaultOpen
       >
-        {saving ? "Saving…" : "Save Settings"}
-      </button>
+        <div className="space-y-4">
+          {draftLogoAssetId ? (
+            <img
+              src={`/api/assets/${draftLogoAssetId}`}
+              alt="Global brand draft logo"
+              className="h-20 max-w-56 rounded-md border border-border bg-background p-2 object-contain"
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">No draft logo selected.</p>
+          )}
+          {publishedLogoAssetId ? (
+            <p className="text-xs text-muted-foreground">
+              Published logo asset: {publishedLogoAssetId}
+            </p>
+          ) : null}
+          <div className="space-y-2">
+            <Label htmlFor="global-brand-logo">Upload or replace global logo</Label>
+            <Input
+              id="global-brand-logo"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={(event) => void uploadLogo(event.target.files?.[0])}
+            />
+          </div>
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void saveLogo()}
+              disabled={savingLogo}
+            >
+              {savingLogo ? "Saving…" : "Save logo draft"}
+            </Button>
+          </div>
+        </div>
+      </CollapsibleSection>
+
+      <ThemeEditor
+        city={{ id: "global", name: "Global brand" }}
+        subjectLabel="global theme"
+        draftTheme={brand.draft.theme_json}
+        publishedTheme={brand.published.theme_json}
+        globalTheme={brand.published.theme_json}
+        persistence={persistence}
+      />
     </div>
   );
 }

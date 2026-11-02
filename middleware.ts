@@ -1,15 +1,28 @@
 import { NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/supabase/env";
 
-export function middleware(req: any) {
-  const adminSession = req.cookies.get("admin_session")?.value;
+export async function middleware(req: { cookies: { get: (arg0: any) => { (): any; new(): any; value: any; }; }; }) {
+  const res = NextResponse.next();
 
-  const isAdminRoute = req.nextUrl.pathname.startsWith("/admin");
+  const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    cookies: {
+      get(name: any) {
+        return req.cookies.get(name)?.value;
+      },
+      set(name: string, value: string, options: any) {
+        res.cookies.set(name, value, options);
+      },
+      remove(name: string, options: any) {
+        res.cookies.set(name, "", options);
+      },
+    },
+  });
 
-  if (isAdminRoute && !adminSession) {
-    return NextResponse.redirect(new URL("/login", req.url));
-  }
+  // Refresh session if needed
+  await supabase.auth.getSession();
 
-  return NextResponse.next();
+  return res;
 }
 
 export const config = {

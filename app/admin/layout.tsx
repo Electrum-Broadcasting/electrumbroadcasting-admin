@@ -7,8 +7,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   const brand = await getBrandSettings();
 
   return (
-    <html lang="en">
-      <body
+    <div
         className="min-h-screen"
         style={{
           backgroundColor: "var(--background)",
@@ -16,8 +15,9 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           fontFamily: "var(--font-body), sans-serif",
         }}
       >
-        <main className="p-10">{children}</main>
-      </body>
-    </html>
+        <ToastProvider>
+          <main className="p-10">{children}</main>
+        </ToastProvider>
+    </div>
   );
 }

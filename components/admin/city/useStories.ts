@@ -3,33 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { createBrowserClient } from "@/lib/supabase/client";
 import { useToastContext } from "@/components/ui/ToastProvider";
+import { Database } from "@/lib/database.types";
 
-export type StoryRow = {
-  id: string;
-  title: string | null;
-  body: string | null;
-  summary: string | null;
-  author_name: string | null;
-  contributor_id: string | null;
-  city_id: string | null;
-  slug: string | null;
-  category: string | null;
-  city: string | null;
-  year: number | null;
-  tags: string[] | null;
-  image_description: string | null;
-  related_place_ids: string[] | null;
-  related_entity_ids: string[] | null;
-  related_moment_ids: string[] | null;
-  date_range: string | null;
-  neighborhood: string | null;
-  cross_city_links: string[] | null;
-  entities: string[] | null;
-  is_published: boolean;
-  is_frozen: boolean;
-  created_at: string;
-  updated_at: string;
-};
+export type StoryRow = Database["public"]["Tables"]["civic_stories"]["Row"];
 
 export function useStories(cityId: string) {
   const supabase = createBrowserClient();

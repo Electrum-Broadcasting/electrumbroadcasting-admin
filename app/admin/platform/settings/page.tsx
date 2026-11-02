@@ -1,34 +1,17 @@
-"use client";
+import { redirect } from "next/navigation";
+import { AdminShell } from "@/components/admin/AdminShell";
+import { getAdminContext } from "@/lib/admin/context";
+import PlatformSettingsClient from "./PlatformSettingsClient";
 
-import SettingsLayout from "./SettingsLayout";
-import SystemSettingsSection from "./sections/SystemSettingsSection";
-import BrandSettingsSection from "./sections/BrandSettingsSection";
-import SafetySettingsSection from "./sections/SafetySettingsSection";
-import FeatureTogglesSection from "./sections/FeatureTogglesSection";
-import PermissionsSettingsSection from "./sections/PermissionsSettingsSection";
-import ContentSettingsSection from "./sections/ContentSettingsSection";
+export default async function PlatformSettingsPage() {
+  const admin = await getAdminContext();
+  if (admin.role !== "CEO" && admin.role !== "PLATFORM_ADMIN") {
+    redirect("/admin");
+  }
 
-export default function PlatformSettingsPage() {
   return (
-    <SettingsLayout>
-      {(active: string) => {
-        switch (active) {
-          case "system":
-            return <SystemSettingsSection />;
-          case "brand":
-            return <BrandSettingsSection />;
-          case "safety":
-            return <SafetySettingsSection />;
-          case "features":
-            return <FeatureTogglesSection />;
-          case "permissions":
-            return <PermissionsSettingsSection />;
-          case "content":
-            return <ContentSettingsSection />;
-          default:
-            return <SystemSettingsSection />;
-        }
-      }}
-    </SettingsLayout>
+    <AdminShell email={admin.email} role={admin.role} title="Platform Settings">
+      <PlatformSettingsClient />
+    </AdminShell>
   );
 }

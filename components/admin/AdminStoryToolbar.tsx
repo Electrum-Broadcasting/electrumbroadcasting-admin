@@ -1,6 +1,6 @@
 "use client";
 
-import { freezeStoryAdmin, unfreezeStoryAdmin, hideStoryAdmin, unhideStoryAdmin, deleteStoryAdmin, republishStoryAdmin } from "../../app/admin/(protected)/stories/actions";
+import { freezeStoryAdmin, unfreezeStoryAdmin, hideStoryAdmin, unhideStoryAdmin, republishStoryAdmin } from "../../app/admin/(protected)/stories/actions";
 
 export default function AdminStoryToolbar({ storyId }: { storyId: string }) {
   return (
@@ -19,9 +19,6 @@ export default function AdminStoryToolbar({ storyId }: { storyId: string }) {
       </button>
       <button onClick={() => republishStoryAdmin(storyId)} className="btn-admin">
         Republish
-      </button>
-      <button onClick={() => deleteStoryAdmin(storyId)} className="btn-admin text-red-600">
-        Delete
       </button>
     </div>
   );

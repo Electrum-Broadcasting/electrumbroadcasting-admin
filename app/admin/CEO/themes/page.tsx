@@ -8,7 +8,7 @@ export default async function ThemesListPage() {
   const { email, role } = await getAdminContext();
   const supabase = createSupabaseServerClient();
 
-  const [{ data: cities }, { data: themes }] = await Promise.all([
+  const [{ data: cities, error: cityError }, { data: themes, error: themeError }] = await Promise.all([
     supabase.from("cities").select("id, name, updated_at").order("name", { ascending: true }),
     supabase.from("city_design_system").select("city_id, draft_theme, published_theme"),
   ]);
@@ -16,16 +16,26 @@ export default async function ThemesListPage() {
   const themeByCityId = new Map(
     (themes ?? []).map((theme) => [theme.city_id, theme])
   );
+  const loadError = cityError ?? themeError;
 
   return (
     <AdminShell email={email} role={role} title="Themes">
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-slate-900">City Themes</h2>
+      <div className="space-y-5">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">City themes</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Compare and publish each city’s design system.
+          </p>
         </div>
 
-        <div className="border border-slate-200 rounded-lg divide-y divide-slate-200 bg-white">
-          {cities?.length ? (
+        {loadError ? (
+          <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+            City themes could not be loaded.
+          </div>
+        ) : null}
+
+        <div className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+          {!loadError && cities?.length ? (
             cities.map((city) => {
               const theme = themeByCityId.get(city.id);
 
@@ -33,11 +43,11 @@ export default async function ThemesListPage() {
                 <Link
                   key={city.id}
                   href={`/admin/CEO/themes/${city.id}`}
-                  className="flex items-center justify-between px-4 py-3 hover:bg-slate-50"
+                  className="flex flex-col gap-3 px-4 py-4 transition-colors hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div>
-                    <p className="font-medium text-slate-900">{city.name}</p>
-                    <p className="text-xs text-slate-500">
+                    <p className="font-medium">{city.name}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
                       Updated {new Date(city.updated_at).toLocaleString()}
                     </p>
                   </div>
@@ -46,14 +56,14 @@ export default async function ThemesListPage() {
                       draftTheme={theme?.draft_theme}
                       publishedTheme={theme?.published_theme}
                     />
-                    <span className="text-slate-400 text-sm">Edit →</span>
+                    <span className="text-sm text-primary">Edit theme →</span>
                   </div>
                 </Link>
               );
             })
           ) : (
-            <div className="p-4 text-sm text-slate-500">
-              No themes found. Create one to get started.
+            <div className="p-4 text-sm text-muted-foreground">
+              {loadError ? "Unable to display city themes." : "No cities found."}
             </div>
           )}
         </div>

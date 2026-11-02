@@ -6,6 +6,7 @@ export async function getBrandSettings() {
   const { data, error } = await supabase
     .from("global_brand_settings")
     .select("*")
+    .eq("status", "published")
     .single();
 
   if (error) {

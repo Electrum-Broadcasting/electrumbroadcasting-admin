@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useState } from "react";
 
 const SECTIONS = [
@@ -11,24 +12,30 @@ const SECTIONS = [
   { id: "content", label: "Content" },
 ];
 
-export default function SettingsLayout({ children }: { children: any }) {
-  const [active, setActive] = useState("system");
+type SettingsSectionId = (typeof SECTIONS)[number]["id"];
+
+export default function SettingsLayout({
+  children,
+}: {
+  children: (active: SettingsSectionId) => ReactNode;
+}) {
+  const [active, setActive] = useState<SettingsSectionId>("system");
 
   return (
-    <div className="flex gap-6 p-6">
-      {/* Left Navigation */}
-      <aside className="w-64 border-r pr-4">
-        <h2 className="text-lg font-semibold mb-4">CEO Settings</h2>
-
-        <nav className="space-y-2">
+    <div className="flex flex-col gap-5 lg:flex-row">
+      <aside className="h-fit shrink-0 rounded-lg border border-border bg-card p-4 shadow-sm lg:sticky lg:top-6 lg:w-64">
+        <h2 className="mb-3 text-base font-semibold tracking-tight">CEO Settings</h2>
+        <nav aria-label="Platform settings" className="flex gap-1 overflow-x-auto lg:flex-col">
           {SECTIONS.map((s) => (
             <button
               key={s.id}
+              type="button"
               onClick={() => setActive(s.id)}
-              className={`block w-full text-left px-3 py-2 rounded ${
+              aria-current={active === s.id ? "page" : undefined}
+              className={`block shrink-0 rounded-md px-3 py-2 text-left text-sm font-medium transition-colors lg:w-full ${
                 active === s.id
-                  ? "bg-black text-white"
-                  : "hover:bg-gray-100 text-gray-700"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
               }`}
             >
               {s.label}
@@ -37,8 +44,7 @@ export default function SettingsLayout({ children }: { children: any }) {
         </nav>
       </aside>
 
-      {/* Right Content */}
-      <main className="flex-1">{children(active)}</main>
+      <main className="min-w-0 flex-1">{children(active)}</main>
     </div>
   );
 }

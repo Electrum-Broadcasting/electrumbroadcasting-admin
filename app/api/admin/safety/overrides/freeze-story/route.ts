@@ -11,7 +11,7 @@ export async function POST(req: Request) {
 
   // 1. Freeze the story
   const { error: updateError } = await supabase
-    .from("stories")
+    .from("civic_stories")
     .update({ is_frozen: true })
     .eq("id", story_id);
 

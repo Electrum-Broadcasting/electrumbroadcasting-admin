@@ -66,19 +66,22 @@ export async function loginAdminAction(formData: FormData) {
 
   // 6. Write your admin_session cookie LAST
   cookieStore.set(
-    "admin_session",
-    JSON.stringify({
-      auth_uid: admin.auth_uid,
-      email: admin.email,
-      role: admin.role,
-    }),
-    {
-      httpOnly: true,
-      secure: true,
-      sameSite: "strict",
-      path: "/",
-    }
-  );
+  "admin_session",
+  JSON.stringify({
+    auth_uid: admin.user_id,   // FIXED
+    email: admin.email,
+    role: admin.role,
+    city_ids: admin.city_ids,
+    status: admin.status,
+    primary_city_slug: admin.primary_city_slug,
+  }),
+  {
+    httpOnly: true,
+    secure: true,
+    sameSite: "strict",
+    path: "/",
+  }
+);
 
   redirect("/admin");
 }

@@ -1,9 +1,55 @@
 import { AdminShell } from "@/components/admin/AdminShell";
 import { getAdminContext } from "@/lib/admin/context";
 import { redirect } from "next/navigation";
-import { supabasePublic } from "@/lib/supabase/public";
+import Link from "next/link";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export default async function SafetyPage() {
+const PAGE_SIZE = 10;
+
+function parsePage(value: string | string[] | undefined) {
+  const parsed = Number(Array.isArray(value) ? value[0] : value);
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 1000 ? parsed : 1;
+}
+
+function pageHref(flagsPage: number, signalsPage: number) {
+  return `/admin/CEO/safety?flagsPage=${flagsPage}&signalsPage=${signalsPage}`;
+}
+
+function Pager({
+  page,
+  hasNext,
+  prevHref,
+  nextHref,
+}: {
+  page: number;
+  hasNext: boolean;
+  prevHref: string;
+  nextHref: string;
+}) {
+  return (
+    <div className="mt-3 flex items-center justify-between text-sm text-slate-600">
+      <span>Page {page}</span>
+      <div className="flex gap-2">
+        {page > 1 ? (
+          <Link href={prevHref} className="rounded-md border border-slate-300 px-3 py-1 hover:bg-slate-50">
+            Previous 10
+          </Link>
+        ) : null}
+        {hasNext ? (
+          <Link href={nextHref} className="rounded-md border border-slate-300 px-3 py-1 hover:bg-slate-50">
+            Next 10
+          </Link>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+export default async function SafetyPage({
+  searchParams,
+}: {
+  searchParams?: { flagsPage?: string; signalsPage?: string };
+}) {
   const admin = await getAdminContext();
 
   // CEO-only access
@@ -11,14 +57,15 @@ export default async function SafetyPage() {
     redirect("/admin");
   }
 
-  const supabase = supabasePublic;
-
-  console.log("SAFETY PAGE LOADED");
-  console.log("SUPABASE CLIENT CREATED");
-  console.log("ADMIN CONTEXT:", admin);
+  // CEO-gated above; the service client is needed to read the safety tables.
+  const supabase = createSupabaseServerClient();
+  const flagsPage = parsePage(searchParams?.flagsPage);
+  const signalsPage = parsePage(searchParams?.signalsPage);
+  const flagsFrom = (flagsPage - 1) * PAGE_SIZE;
+  const signalsFrom = (signalsPage - 1) * PAGE_SIZE;
 
   // 1. Recent moderation events (unified feed)
-  const { data: recentFlags } = await supabase
+  const { data: flagRows } = await supabase
     .from("flag_events")
     .select(`
       id,
@@ -33,7 +80,7 @@ export default async function SafetyPage() {
       city:cities ( id, name )
     `)
     .order("created_at", { ascending: false })
-    .limit(20);
+    .range(flagsFrom, flagsFrom + PAGE_SIZE);
 
   // 2. Highest-risk contributors
   const { data: riskyContributors } = await supabase
@@ -49,10 +96,10 @@ export default async function SafetyPage() {
       city:cities ( id, name )
     `)
     .order("fraud_score", { ascending: false })
-    .limit(20);
+    .limit(PAGE_SIZE);
 
   // 3. Recent fraud signals
-  const { data: signals } = await supabase
+  const { data: signalRows } = await supabase
     .from("fraud_signals")
     .select(`
       id,
@@ -68,7 +115,13 @@ export default async function SafetyPage() {
       city:cities ( id, name )
     `)
     .order("created_at", { ascending: false })
-    .limit(20);
+    .range(signalsFrom, signalsFrom + PAGE_SIZE);
+
+  // Fetched one extra row to know whether a next page exists.
+  const recentFlags = flagRows?.slice(0, PAGE_SIZE);
+  const flagsHasNext = (flagRows?.length ?? 0) > PAGE_SIZE;
+  const signals = signalRows?.slice(0, PAGE_SIZE);
+  const signalsHasNext = (signalRows?.length ?? 0) > PAGE_SIZE;
 
   return (
     <AdminShell email={admin.email} role={admin.role} title="Safety Dashboard">
@@ -106,6 +159,12 @@ export default async function SafetyPage() {
               </tbody>
             </table>
           </div>
+          <Pager
+            page={flagsPage}
+            hasNext={flagsHasNext}
+            prevHref={pageHref(flagsPage - 1, signalsPage)}
+            nextHref={pageHref(flagsPage + 1, signalsPage)}
+          />
         </section>
 
         {/* High-Risk Contributors */}
@@ -166,6 +225,12 @@ export default async function SafetyPage() {
               </tbody>
             </table>
           </div>
+          <Pager
+            page={signalsPage}
+            hasNext={signalsHasNext}
+            prevHref={pageHref(flagsPage, signalsPage - 1)}
+            nextHref={pageHref(flagsPage, signalsPage + 1)}
+          />
         </section>
       </div>
     </AdminShell>

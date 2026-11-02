@@ -70,7 +70,7 @@ export function AdminNav({ role, cityId }: AdminNavProps) {
   const links = getLinks(role, cityId);
 
   return (
-    <nav className="space-y-1">
+    <nav className="flex gap-1 overflow-x-auto lg:flex-col">
       {links.map((link) => {
         const active =
           pathname === link.href ||
@@ -80,10 +80,10 @@ export function AdminNav({ role, cityId }: AdminNavProps) {
           <Link
             key={link.href}
             href={link.href}
-            className={`block rounded-md px-3 py-2 text-sm font-medium transition ${
+            className={`block shrink-0 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
               active
-                ? "bg-ink text-paper"
-                : "text-slate hover:bg-slate-100"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
             }`}
           >
             {link.label}

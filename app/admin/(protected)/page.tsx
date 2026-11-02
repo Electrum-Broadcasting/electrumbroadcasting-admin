@@ -11,7 +11,7 @@ export default async function AdminDashboardPage() {
   const supabase = createSupabaseServerClient();
 
   const { data: logs } = await supabase
-    .from("system_logs")
+    .from("admin_action_logs")
     .select("id, event_type, severity, created_at")
     .order("created_at", { ascending: false })
     .limit(5);

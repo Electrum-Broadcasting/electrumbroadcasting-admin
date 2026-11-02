@@ -1,6 +1,6 @@
-# EDITORIAL_WORKFLOW
+# EDITORIAL_WORKFLOW.md
 # Electrum — Editorial Lifecycle Specification
-# Last updated: 2026-09-01
+
 
 ---
 
@@ -50,6 +50,26 @@ can execute the final publish action after an Editor has set `review_status = ap
 - Reassign a story to another city
 
 ### 2.2 City Admin
+
+Administrative Unpublish (CEO)
+The CEO may perform an administrative unpublish for safety, override, or escalation reasons. This does not modify editorial publication fields (review_status, published_at, published_by).
+This action:
+
+hides the story from public view
+
+freezes the story
+
+logs the action
+
+does not modify editorial review_status
+
+does not modify production_units
+
+does not modify payout batches
+
+does not constitute editorial unpublishing
+
+Editorial unpublish remains the sole authority of City Admins.
 
 | Permitted Action                          | Notes                                                               |
 |-------------------------------------------|---------------------------------------------------------------------|
@@ -134,8 +154,7 @@ review_status = "revision_requested" revision_requested = true revision_notes = 
 - `revision_notes` is **required** and must be non-empty when `revision_requested = true`.
 - The Editor must specify at minimum one of: factual correction, structural change, or
   policy compliance item.
-- A story may undergo a maximum of **3 revision cycles** before the Editor must either
-  approve, reject, or escalate to City Admin.
+
 
 ### 6.3 Contributor Response
 - Contributor updates the story body and/or metadata.
@@ -146,10 +165,7 @@ review_status = "revision_requested" revision_requested = true revision_notes = 
 
 ### 6.4 Revision Cycle Limit
 On the 3rd returned revision without resolution:
-- The story is flagged `revision_limit_reached = true` (v3.2 field).
-- System notifies City Admin.
-- Editor must take a terminal action (approve / reject / unpublishable) within 48 hours or
-  City Admin may intervene.
+- Editors and City Admins will manage revision cycle limits manually.
 
 ---
 
@@ -235,6 +251,7 @@ Before publishing, City Admin confirms:
 - [ ] `reviewed_at` is populated
 - [ ] `review_notes` is non-empty
 - [ ] `revision_requested = false`
+- [ ] safety_hold = false
 - [ ] No active legal hold (system flag)
 - [ ] `city_budget` has sufficient remaining capacity if story is linked to a `production_unit`
 - [ ] Any `sponsor_allocations` attached to this story are in `active` status
@@ -249,9 +266,12 @@ No Editor fields are modified at publication time.
 
 ### 9.3 Post-Publication: Production Unit Attachment
 
-After publication, City Admin may attach a `production_unit` to the story:
+During publication, City Admin may attach a `production_unit` to the story:
 
-production_units: story_id = <story.id> city_id = <city.id> unit_type = "article" | "video" | "photo_essay" | ... unit_rate = <decimal> contributor_id = <contributor.id> payout_batch_id = <payout_batch.id> // assigned when batch is created/open status = "pending" | "batched" | "paid"
+production_units: story_id = <story.id> city_id = <city.id> 
+unit_type = "story" | "photo" | "caption" | "city_update" 
+unit_rate = <decimal> contributor_id = <contributor.id> 
+payout_batch_id = <payout_batch.id> // assigned when batch is created/open status = "pending" | "batched" | "paid"
 
 `production_units` are the billing record for a published story. They must not be created
 before `review_status = published`.
@@ -264,6 +284,7 @@ City Admin may unpublish a live story:
 - Associated `production_unit` is set to `status = suspended` pending City Admin action.
 - Active `payout_batch_items` referencing the story are flagged for review; payout is
   blocked until the story is re-published or the item is removed from the batch.
+- Unpublishing does not modify production_unit.content_tier.
 
 ---
 
@@ -283,7 +304,7 @@ city_budget: city_id : FK → cities fiscal_period : string (e.g. "2026-Q3") tot
 
 ### 10.2 `sponsor_allocations`
 
-sponsor_allocations: id : uuid PK city_id : FK → cities sponsor_id : FK → sponsors story_id : FK → stories (nullable; null = city-level allocation) amount : decimal status : "pending" | "active" | "exhausted" | "cancelled" valid_from : date valid_until : date
+sponsor_allocations: id : uuid PK city_id : FK → cities sponsor_id : FK → sponsors story_id : FK → stories (nullable; null = city-level allocation) amount : decimal valid_from : date valid_until : date
 
 - City Admin creates allocations before or after story submission; linking to a story
   is optional.
@@ -303,7 +324,7 @@ payout_batches: id : uuid PK city_id : FK → cities status : "open" | "submitte
 
 ### 10.4 `payout_batch_items`
 
-payout_batch_items: id : uuid PK payout_batch_id : FK → payout_batches production_unit_id : FK → production_units contributor_id : FK → contributors amount : decimal // typically = production_unit.unit_rate status : "pending" | "approved" | "blocked" | "paid"
+payout_batch_items: id : uuid PK payout_batch_id : FK → payout_batches production_unit_id : FK → production_units contributor_id : FK → contributors amount : decimal // typically = production_unit.unit_rate status : "pending" | "approved" | "paid" | "rejected"
 
 - Items are added automatically when a `production_unit` is assigned a `payout_batch_id`.
 - An item is `blocked` if the referenced story is unpublished after batching.
@@ -358,7 +379,7 @@ payout_batch_items: id : uuid PK payout_batch_id : FK → payout_batches product
 | `city_budget.remaining` insufficient   | City Admin        | Increase budget ceiling or defer production unit       |
 | Emergency override of `unpublishable`  | City Admin        | Audit log written; legal review recommended            |
 | Duplicate submission detected          | System → Editor   | Editor rejects duplicate; links canonical story ID     |
-
+| Safety hold active                     | City Admin	     | Lift safety_hold or resolve safety concern before publishing |
 ---
 
 *This document is authoritative for all Electrum editorial workflow implementations.

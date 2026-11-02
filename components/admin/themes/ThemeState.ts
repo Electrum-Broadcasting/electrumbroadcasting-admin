@@ -1,180 +1,170 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { loadMergedTheme } from "@/lib/themes/loadTheme";
 import defaultTheme from "@/themes/default.json";
 
-/**
- * Canonical theme shape sanitizer
- * Ensures ThemeForm, ThemePreview, and loadMergedTheme all operate on the same schema.
- */
-function sanitizeTheme(theme: any) {
-  return {
-    colors: {
-      primary: theme?.colors?.primary,
-      secondary: theme?.colors?.secondary,
-      accent: theme?.colors?.accent,
-      background: theme?.colors?.background,
-      foreground: theme?.colors?.foreground,
-    },
-    typography: {
-      heading: theme?.typography?.heading,
-      body: theme?.typography?.body,
-    },
-  };
+type ThemeObject = Record<string, unknown>;
+
+export type ThemePersistence = {
+  saveDraft: (theme: ThemeObject) => Promise<void>;
+  publishTheme: (theme: ThemeObject) => Promise<void>;
+};
+
+function cloneTheme(theme: unknown): ThemeObject {
+  return theme && typeof theme === "object" && !Array.isArray(theme)
+    ? structuredClone(theme as ThemeObject)
+    : {};
 }
 
-/**
- * Deep equality check for canonical theme objects.
- */
-function themesMatch(left: any, right: any) {
-  return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
+function stableSerialize(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableSerialize).join(",")}]`;
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableSerialize(record[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
 }
 
-/**
- * Theme state manager for ThemeForm
- */
-export function useThemeState(city: any, draftTheme: any, publishedTheme: any) {
-  const [localDraftTheme, setLocalDraftTheme] = useState(
-    loadMergedTheme(sanitizeTheme(draftTheme ?? publishedTheme))
+function themesMatch(left: unknown, right: unknown) {
+  return stableSerialize(left ?? null) === stableSerialize(right ?? null);
+}
+
+export function useThemeState(
+  city: { id: string },
+  draftTheme: unknown,
+  publishedTheme: unknown,
+  globalTheme: unknown,
+  persistence?: ThemePersistence
+) {
+  const [localDraftTheme, setLocalDraftTheme] = useState<ThemeObject>(() =>
+    loadMergedTheme(draftTheme ?? publishedTheme, globalTheme ?? defaultTheme) as ThemeObject
   );
-
-  const [savedDraftTheme, setSavedDraftTheme] =
-  useState<any | null>(sanitizeTheme(draftTheme));
-
-
-  const [savedPublishedTheme, setSavedPublishedTheme] = useState(
-    sanitizeTheme(publishedTheme)
+  const [savedDraftTheme, setSavedDraftTheme] = useState<ThemeObject | null>(
+    draftTheme ? cloneTheme(draftTheme) : null
   );
-
+  const [savedPublishedTheme, setSavedPublishedTheme] = useState<ThemeObject>(
+    cloneTheme(publishedTheme)
+  );
   const [loading, setLoading] = useState(false);
 
-  /**
-   * Reinitialize when server props change
-   */
   useEffect(() => {
-  const sanitizedDraft = draftTheme ? sanitizeTheme(draftTheme) : null;
+    setLocalDraftTheme(
+      loadMergedTheme(draftTheme ?? publishedTheme, globalTheme ?? defaultTheme) as ThemeObject
+    );
+    setSavedDraftTheme(draftTheme ? cloneTheme(draftTheme) : null);
+    setSavedPublishedTheme(cloneTheme(publishedTheme));
+  }, [draftTheme, globalTheme, publishedTheme]);
 
-  setLocalDraftTheme(
-    loadMergedTheme(sanitizeTheme(draftTheme ?? publishedTheme))
-  );
-
-  setSavedDraftTheme(sanitizedDraft);
-  setSavedPublishedTheme(sanitizeTheme(publishedTheme));
-}, [draftTheme, publishedTheme]);
-
-
-  /**
-   * Whether the user has unsaved changes
-   */
   const isEditing = !themesMatch(
     localDraftTheme,
-    loadMergedTheme(savedDraftTheme ?? savedPublishedTheme)
+    loadMergedTheme(savedDraftTheme ?? savedPublishedTheme, globalTheme ?? defaultTheme)
   );
 
-  /**
-   * Update a single theme key
-   */
-  function updateTheme(
-    section: "colors" | "typography",
-    key: string,
-    value: string
-  ) {
-    setLocalDraftTheme((prev: any) => {
-      const next = structuredClone(prev);
-
-      if (!next[section]) next[section] = {};
-
-      // Only allow canonical keys
-      if (section === "colors") {
-        if (!["primary", "secondary", "accent", "background", "foreground"].includes(key)) {
-          return prev;
+  function updateThemePath(path: string[], value: unknown) {
+    setLocalDraftTheme((previous) => {
+      const next = structuredClone(previous);
+      let cursor: Record<string, unknown> = next;
+      for (const segment of path.slice(0, -1)) {
+        const current = cursor[segment];
+        if (!current || typeof current !== "object" || Array.isArray(current)) {
+          cursor[segment] = {};
         }
+        cursor = cursor[segment] as Record<string, unknown>;
       }
-
-      if (section === "typography") {
-        if (!["heading", "body"].includes(key)) {
-          return prev;
-        }
-      }
-
-      next[section][key] = value;
+      cursor[path[path.length - 1]] = value;
       return next;
     });
   }
 
-  /**
-   * Save Draft
-   */
+  function updateTheme(section: string, key: string, value: unknown) {
+    updateThemePath([section, key], value);
+  }
+
+  async function sendTheme(payload: Record<string, unknown>, errorLabel: string) {
+    const response = await fetch(`/api/admin/themes/${city.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const result = (await response.json().catch(() => null)) as
+      | { error?: string }
+      | null;
+    if (!response.ok) {
+      throw new Error(result?.error ?? errorLabel);
+    }
+  }
+
   async function saveDraft() {
     setLoading(true);
     try {
-      const response = await fetch(`/api/admin/themes/${city.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ draft_theme: localDraftTheme }),
-      });
-
-      if (!response.ok) throw new Error("Failed to save draft");
-
-      setSavedDraftTheme(localDraftTheme);
+      if (persistence) {
+        await persistence.saveDraft(localDraftTheme);
+      } else {
+        await sendTheme({ draft_theme: localDraftTheme }, "Failed to save draft");
+      }
+      setSavedDraftTheme(structuredClone(localDraftTheme));
       toast.success("Draft theme saved");
-    } catch {
-      toast.error("Failed to save draft theme");
+    } catch (error) {
+      console.error("Failed to save draft theme:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to save draft theme"
+      );
     } finally {
       setLoading(false);
     }
   }
 
   async function publishTheme() {
-  setLoading(true);
-  try {
-    const response = await fetch(`/api/admin/themes/${city.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        draft_theme: null,
-        published_theme: localDraftTheme,
-      }),
-    });
-
-    if (!response.ok) throw new Error("Failed to publish");
-
-    // Correct state transition
-    setSavedPublishedTheme(localDraftTheme);
-    setSavedDraftTheme(null);
-
-    toast.success("Theme published");
-  } catch {
-    toast.error("Failed to publish theme");
-  } finally {
-    setLoading(false);
-  }
-}
-
-  /**
-   * Restore Defaults
-   */
-  async function restoreDefaults() {
     setLoading(true);
-
-    const defaultDraft = loadMergedTheme(defaultTheme);
-
     try {
-      const response = await fetch(`/api/admin/themes/${city.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ draft_theme: defaultDraft }),
-      });
+      if (persistence) {
+        await persistence.publishTheme(localDraftTheme);
+      } else {
+        await sendTheme(
+          { draft_theme: null, published_theme: localDraftTheme },
+          "Failed to publish theme"
+        );
+      }
+      setSavedPublishedTheme(structuredClone(localDraftTheme));
+      setSavedDraftTheme(null);
+      toast.success("Theme published");
+    } catch (error) {
+      console.error("Failed to publish theme:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to publish theme"
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
 
-      if (!response.ok) throw new Error("Failed to restore defaults");
-
+  async function restoreDefaults() {
+    const defaultDraft = loadMergedTheme(globalTheme ?? defaultTheme) as ThemeObject;
+    setLoading(true);
+    try {
+      if (persistence) {
+        await persistence.saveDraft(defaultDraft);
+      } else {
+        await sendTheme(
+          { draft_theme: defaultDraft },
+          "Failed to restore defaults"
+        );
+      }
       setLocalDraftTheme(defaultDraft);
-      setSavedDraftTheme(defaultDraft);
+      setSavedDraftTheme(structuredClone(defaultDraft));
       toast.success("Default theme restored");
-    } catch {
-      toast.error("Failed to restore defaults");
+    } catch (error) {
+      console.error("Failed to restore theme defaults:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to restore defaults"
+      );
     } finally {
       setLoading(false);
     }
@@ -187,6 +177,7 @@ export function useThemeState(city: any, draftTheme: any, publishedTheme: any) {
     isEditing,
     loading,
     updateTheme,
+    updateThemePath,
     saveDraft,
     publishTheme,
     restoreDefaults,

@@ -62,19 +62,19 @@ export function ContributorsPanel({
     : null;
 
   return (
-    <section className="border rounded-lg p-6 space-y-4 relative overflow-visible">
+    <section className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Contributors</h2>
+        <h2 className="text-base font-semibold tracking-tight">Contributors</h2>
       </div>
 
       <div className="flex flex-col gap-6">
         {/* Row 1: Dropdown */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Select
             value={selectedContributorId}
             onValueChange={onSelectContributor}
           >
-            <SelectTrigger className="min-w-[560px] max-w-[960px]">
+            <SelectTrigger className="w-full sm:max-w-2xl">
               <SelectValue placeholder="Select contributor" />
             </SelectTrigger>
 
@@ -131,7 +131,7 @@ export function ContributorsPanel({
         </div>
 
         {/* Row 2: Actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Button
             onClick={onLock}
             disabled={!selectedContributor || selectedContributor.locked}

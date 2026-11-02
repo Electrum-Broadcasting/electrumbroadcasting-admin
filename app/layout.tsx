@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 
 import "./globals.css";
 import type { CSSProperties, ReactNode } from "react";
+import { Toaster } from "sonner";
 
 import { getBrandSettings } from "../lib/settings/getBrandSettings";
 
@@ -75,6 +76,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 
       <body>
         {children}
+        <Toaster richColors position="top-right" />
       </body>
     </html>
   );

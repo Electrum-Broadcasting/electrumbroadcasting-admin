@@ -10,7 +10,7 @@ export async function POST(req: Request) {
 
   // 1. Unhide the story (corrected: unhide = is_published = true)
   const { error: updateError } = await supabase
-    .from("stories")
+    .from("civic_stories")
     .update({ is_published: true })
     .eq("id", story_id);
 

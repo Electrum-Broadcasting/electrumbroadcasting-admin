@@ -10,11 +10,11 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "13.0.5"
   }
   public: {
     Tables: {
-      ad_clicks: {
+      ad_clicks_DEPRECATED: {
         Row: {
           creative_id: string
           id: string
@@ -41,12 +41,12 @@ export type Database = {
             foreignKeyName: "ad_clicks_creative_id_fkey"
             columns: ["creative_id"]
             isOneToOne: false
-            referencedRelation: "ad_creatives"
+            referencedRelation: "ad_creatives_DEPRECATED"
             referencedColumns: ["id"]
           },
         ]
       }
-      ad_creatives: {
+      ad_creatives_DEPRECATED: {
         Row: {
           body: string | null
           call_to_action: string | null
@@ -82,7 +82,7 @@ export type Database = {
         }
         Relationships: []
       }
-      ad_impressions: {
+      ad_impressions_DEPRECATED: {
         Row: {
           creative_id: string
           id: string
@@ -109,12 +109,12 @@ export type Database = {
             foreignKeyName: "ad_impressions_creative_id_fkey"
             columns: ["creative_id"]
             isOneToOne: false
-            referencedRelation: "ad_creatives"
+            referencedRelation: "ad_creatives_DEPRECATED"
             referencedColumns: ["id"]
           },
         ]
       }
-      ad_slots: {
+      ad_slots_DEPRECATED: {
         Row: {
           created_at: string | null
           description: string | null
@@ -479,6 +479,7 @@ export type Database = {
           social_facebook: string | null
           social_instagram: string | null
           social_youtube: string | null
+          status: string
           summary: string | null
           updated_at: string | null
           updated_by: string | null
@@ -503,6 +504,7 @@ export type Database = {
           social_facebook?: string | null
           social_instagram?: string | null
           social_youtube?: string | null
+          status?: string
           summary?: string | null
           updated_at?: string | null
           updated_by?: string | null
@@ -527,6 +529,7 @@ export type Database = {
           social_facebook?: string | null
           social_instagram?: string | null
           social_youtube?: string | null
+          status?: string
           summary?: string | null
           updated_at?: string | null
           updated_by?: string | null
@@ -1492,6 +1495,8 @@ export type Database = {
           revision_notes: string | null
           revision_requested: boolean | null
           revision_submitted_at: string | null
+          safety_hold: boolean
+          safety_hold_notes: string | null
           slug: string | null
           sponsor_360_url: string | null
           sponsor_alt_text: string | null
@@ -1539,6 +1544,8 @@ export type Database = {
           revision_notes?: string | null
           revision_requested?: boolean | null
           revision_submitted_at?: string | null
+          safety_hold?: boolean
+          safety_hold_notes?: string | null
           slug?: string | null
           sponsor_360_url?: string | null
           sponsor_alt_text?: string | null
@@ -1586,6 +1593,8 @@ export type Database = {
           revision_notes?: string | null
           revision_requested?: boolean | null
           revision_submitted_at?: string | null
+          safety_hold?: boolean
+          safety_hold_notes?: string | null
           slug?: string | null
           sponsor_360_url?: string | null
           sponsor_alt_text?: string | null
@@ -1624,6 +1633,8 @@ export type Database = {
           bio: string | null
           city_id: string | null
           created_at: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           display_name: string
           email: string
           id: string
@@ -1637,6 +1648,8 @@ export type Database = {
           bio?: string | null
           city_id?: string | null
           created_at?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           display_name: string
           email: string
           id?: string
@@ -1650,6 +1663,8 @@ export type Database = {
           bio?: string | null
           city_id?: string | null
           created_at?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           display_name?: string
           email?: string
           id?: string
@@ -1671,6 +1686,54 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "public_cities"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      creative_assets: {
+        Row: {
+          asset_id: string
+          asset_type: string
+          asset_url: string
+          campaign_id: string
+          created_at: string
+          metadata: Json
+          sponsor_id: string
+          updated_at: string
+        }
+        Insert: {
+          asset_id?: string
+          asset_type: string
+          asset_url: string
+          campaign_id: string
+          created_at?: string
+          metadata?: Json
+          sponsor_id: string
+          updated_at?: string
+        }
+        Update: {
+          asset_id?: string
+          asset_type?: string
+          asset_url?: string
+          campaign_id?: string
+          created_at?: string
+          metadata?: Json
+          sponsor_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_asset_campaign"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "sponsorship_campaigns"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "fk_asset_sponsor"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "sponsor_profiles"
+            referencedColumns: ["sponsor_id"]
           },
         ]
       }
@@ -1984,185 +2047,6 @@ export type Database = {
           },
         ]
       }
-      game_answers: {
-        Row: {
-          answer_text: string
-          created_at: string | null
-          id: string
-          is_correct: boolean | null
-          question_id: string
-        }
-        Insert: {
-          answer_text: string
-          created_at?: string | null
-          id?: string
-          is_correct?: boolean | null
-          question_id: string
-        }
-        Update: {
-          answer_text?: string
-          created_at?: string | null
-          id?: string
-          is_correct?: boolean | null
-          question_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "game_answers_question_id_fkey"
-            columns: ["question_id"]
-            isOneToOne: false
-            referencedRelation: "game_questions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "game_answers_question_id_fkey"
-            columns: ["question_id"]
-            isOneToOne: false
-            referencedRelation: "public_game_questions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      game_attempts: {
-        Row: {
-          city_id: string
-          completed_at: string | null
-          game_id: string
-          id: string
-          score: number | null
-          started_at: string | null
-          user_id: string
-        }
-        Insert: {
-          city_id: string
-          completed_at?: string | null
-          game_id: string
-          id?: string
-          score?: number | null
-          started_at?: string | null
-          user_id: string
-        }
-        Update: {
-          city_id?: string
-          completed_at?: string | null
-          game_id?: string
-          id?: string
-          score?: number | null
-          started_at?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "game_attempts_city_id_fkey"
-            columns: ["city_id"]
-            isOneToOne: false
-            referencedRelation: "cities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "game_attempts_city_id_fkey"
-            columns: ["city_id"]
-            isOneToOne: false
-            referencedRelation: "public_cities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "game_attempts_game_id_fkey"
-            columns: ["game_id"]
-            isOneToOne: false
-            referencedRelation: "games"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "game_attempts_game_id_fkey"
-            columns: ["game_id"]
-            isOneToOne: false
-            referencedRelation: "public_games"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      game_question_options: {
-        Row: {
-          created_at: string | null
-          id: string
-          is_correct: boolean | null
-          option_text: string
-          question_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          is_correct?: boolean | null
-          option_text: string
-          question_id: string
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          is_correct?: boolean | null
-          option_text?: string
-          question_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "game_question_options_question_id_fkey"
-            columns: ["question_id"]
-            isOneToOne: false
-            referencedRelation: "game_questions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "game_question_options_question_id_fkey"
-            columns: ["question_id"]
-            isOneToOne: false
-            referencedRelation: "public_game_questions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      game_questions: {
-        Row: {
-          ai_assisted: boolean | null
-          created_at: string | null
-          game_id: string
-          id: string
-          question_text: string
-          status: string
-        }
-        Insert: {
-          ai_assisted?: boolean | null
-          created_at?: string | null
-          game_id: string
-          id?: string
-          question_text: string
-          status?: string
-        }
-        Update: {
-          ai_assisted?: boolean | null
-          created_at?: string | null
-          game_id?: string
-          id?: string
-          question_text?: string
-          status?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "game_questions_game_id_fkey"
-            columns: ["game_id"]
-            isOneToOne: false
-            referencedRelation: "games"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "game_questions_game_id_fkey"
-            columns: ["game_id"]
-            isOneToOne: false
-            referencedRelation: "public_games"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       game_scores: {
         Row: {
           city_name: string
@@ -2208,100 +2092,156 @@ export type Database = {
             referencedRelation: "games"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      game_users: {
+        Row: {
+          avatar_url: string | null
+          city_id: string | null
+          created_at: string | null
+          display_name: string | null
+          games_played: number
+          id: string
+          session_token: string | null
+          total_score: number
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          city_id?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          games_played?: number
+          id?: string
+          session_token?: string | null
+          total_score?: number
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          city_id?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          games_played?: number
+          id?: string
+          session_token?: string | null
+          total_score?: number
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
           {
-            foreignKeyName: "game_scores_game_id_fkey"
-            columns: ["game_id"]
+            foreignKeyName: "game_users_city_id_fkey"
+            columns: ["city_id"]
             isOneToOne: false
-            referencedRelation: "public_games"
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_users_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "public_cities"
             referencedColumns: ["id"]
           },
         ]
       }
       games: {
         Row: {
-          city_name: string
           created_at: string
           difficulty: string
           game_data: Json
           game_type: string
           id: string
-          owner_id: string | null
-          published: boolean
-          published_at: string | null
           updated_at: string
-          visibility: string | null
         }
         Insert: {
-          city_name: string
           created_at?: string
           difficulty?: string
           game_data: Json
           game_type: string
           id?: string
-          owner_id?: string | null
-          published?: boolean
-          published_at?: string | null
           updated_at?: string
-          visibility?: string | null
         }
         Update: {
-          city_name?: string
           created_at?: string
           difficulty?: string
           game_data?: Json
           game_type?: string
           id?: string
-          owner_id?: string | null
-          published?: boolean
-          published_at?: string | null
           updated_at?: string
-          visibility?: string | null
         }
         Relationships: []
       }
       global_brand_settings: {
         Row: {
-          
           created_at: string | null
-          dark_mode_enabled: boolean | null
-          iconography_style: string | null
           id: string
           logo_asset_id: string | null
-          motion_settings_json: Json | null
-          neutral_palette_json: Json | null
-          primary_color: string | null
-          secondary_color: string | null
-          typography_json: Json | null
+          status: string
+          theme_json: Json | null
           updated_at: string | null
           updated_by: string | null
         }
         Insert: {
-          // Removed accessibility_defaults_json and child_safety_display_rules_json as they are no longer used
           created_at?: string | null
-          dark_mode_enabled?: boolean | null
-          iconography_style?: string | null
           id?: string
           logo_asset_id?: string | null
-          motion_settings_json?: Json | null
-          neutral_palette_json?: Json | null
-          primary_color?: string | null
-          secondary_color?: string | null
-          typography_json?: Json | null
+          status?: string
+          theme_json?: Json | null
           updated_at?: string | null
           updated_by?: string | null
         }
         Update: {
-          // Removed accessibility_defaults_json and child_safety_display_rules_json as they are no longer used
           created_at?: string | null
-          dark_mode_enabled?: boolean | null
-          iconography_style?: string | null
           id?: string
           logo_asset_id?: string | null
-          motion_settings_json?: Json | null
-          neutral_palette_json?: Json | null
-          primary_color?: string | null
-          secondary_color?: string | null
-          typography_json?: Json | null
+          status?: string
+          theme_json?: Json | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      global_content_settings: {
+        Row: {
+          about_html: string | null
+          accessibility_html: string | null
+          contact_html: string | null
+          created_at: string | null
+          faq_json: Json | null
+          homepage_sections_json: Json | null
+          id: string
+          privacy_html: string | null
+          terms_html: string | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          about_html?: string | null
+          accessibility_html?: string | null
+          contact_html?: string | null
+          created_at?: string | null
+          faq_json?: Json | null
+          homepage_sections_json?: Json | null
+          id?: string
+          privacy_html?: string | null
+          terms_html?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          about_html?: string | null
+          accessibility_html?: string | null
+          contact_html?: string | null
+          created_at?: string | null
+          faq_json?: Json | null
+          homepage_sections_json?: Json | null
+          id?: string
+          privacy_html?: string | null
+          terms_html?: string | null
           updated_at?: string | null
           updated_by?: string | null
         }
@@ -2442,6 +2382,87 @@ export type Database = {
           support_email?: string | null
           updated_at?: string | null
           updated_by?: string | null
+        }
+        Relationships: []
+      }
+      hotspots: {
+        Row: {
+          city_id: string
+          civic_object_id: string
+          civic_object_type: string
+          created_at: string | null
+          created_by: string | null
+          icon: string | null
+          id: string
+          label: string | null
+          pan_x: number
+          pan_y: number
+          panorama_id: string
+          status: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          city_id: string
+          civic_object_id: string
+          civic_object_type: string
+          created_at?: string | null
+          created_by?: string | null
+          icon?: string | null
+          id?: string
+          label?: string | null
+          pan_x: number
+          pan_y: number
+          panorama_id: string
+          status?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          city_id?: string
+          civic_object_id?: string
+          civic_object_type?: string
+          created_at?: string | null
+          created_by?: string | null
+          icon?: string | null
+          id?: string
+          label?: string | null
+          pan_x?: number
+          pan_y?: number
+          panorama_id?: string
+          status?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      media_assets: {
+        Row: {
+          alt_text: string | null
+          created_at: string | null
+          id: string
+          metadata: Json
+          type: string
+          updated_at: string | null
+          url: string
+        }
+        Insert: {
+          alt_text?: string | null
+          created_at?: string | null
+          id: string
+          metadata: Json
+          type: string
+          updated_at?: string | null
+          url: string
+        }
+        Update: {
+          alt_text?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json
+          type?: string
+          updated_at?: string | null
+          url?: string
         }
         Relationships: []
       }
@@ -2680,6 +2701,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      panoramas: {
+        Row: {
+          city_id: string
+          civic_object_id: string
+          civic_object_type: string
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          display_order: number | null
+          equirectangular_url: string
+          id: string
+          is_published: boolean | null
+          label: string | null
+          status: string
+          thumbnail_url: string | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          city_id: string
+          civic_object_id: string
+          civic_object_type: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          display_order?: number | null
+          equirectangular_url: string
+          id?: string
+          is_published?: boolean | null
+          label?: string | null
+          status?: string
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          city_id?: string
+          civic_object_id?: string
+          civic_object_type?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          display_order?: number | null
+          equirectangular_url?: string
+          id?: string
+          is_published?: boolean | null
+          label?: string | null
+          status?: string
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
       }
       payout_batch_items: {
         Row: {
@@ -2977,13 +3052,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "points_ledger_game_id_fkey"
-            columns: ["game_id"]
-            isOneToOne: false
-            referencedRelation: "public_games"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "points_ledger_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
@@ -2996,6 +3064,7 @@ export type Database = {
         Row: {
           city_budget_id: string | null
           city_id: string
+          content_tier: string
           contributor_payout: number | null
           created_at: string
           created_by: string
@@ -3016,6 +3085,7 @@ export type Database = {
         Insert: {
           city_budget_id?: string | null
           city_id: string
+          content_tier?: string
           contributor_payout?: number | null
           created_at?: string
           created_by: string
@@ -3036,6 +3106,7 @@ export type Database = {
         Update: {
           city_budget_id?: string | null
           city_id?: string
+          content_tier?: string
           contributor_payout?: number | null
           created_at?: string
           created_by?: string
@@ -3216,6 +3287,78 @@ export type Database = {
         }
         Relationships: []
       }
+      search_index: {
+        Row: {
+          city_id: string
+          entity_id: string
+          entity_type: string
+          entity_weight: number
+          facet: string
+          id: string
+          indexed_at: string
+          is_published: boolean
+          keywords: string[]
+          route: string
+          search_vector: unknown
+          source_updated_at: string
+          subtitle: string | null
+          summary: string | null
+          thumbnail_url: string | null
+          title: string
+        }
+        Insert: {
+          city_id: string
+          entity_id: string
+          entity_type: string
+          entity_weight?: number
+          facet?: string
+          id?: string
+          indexed_at?: string
+          is_published?: boolean
+          keywords?: string[]
+          route: string
+          search_vector: unknown
+          source_updated_at: string
+          subtitle?: string | null
+          summary?: string | null
+          thumbnail_url?: string | null
+          title: string
+        }
+        Update: {
+          city_id?: string
+          entity_id?: string
+          entity_type?: string
+          entity_weight?: number
+          facet?: string
+          id?: string
+          indexed_at?: string
+          is_published?: boolean
+          keywords?: string[]
+          route?: string
+          search_vector?: unknown
+          source_updated_at?: string
+          subtitle?: string | null
+          summary?: string | null
+          thumbnail_url?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "search_index_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "search_index_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "public_cities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       security_audit_log: {
         Row: {
           action: string
@@ -3320,7 +3463,43 @@ export type Database = {
           },
         ]
       }
-      sponsors: {
+      sponsor_profiles: {
+        Row: {
+          brand_safety_status: string
+          contact_email: string
+          created_at: string
+          good_standing_status: string
+          metadata: Json
+          organization_name: string
+          sponsor_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brand_safety_status?: string
+          contact_email: string
+          created_at?: string
+          good_standing_status?: string
+          metadata?: Json
+          organization_name: string
+          sponsor_id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brand_safety_status?: string
+          contact_email?: string
+          created_at?: string
+          good_standing_status?: string
+          metadata?: Json
+          organization_name?: string
+          sponsor_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      sponsors_DEPRECATED: {
         Row: {
           contact_email: string | null
           created_at: string | null
@@ -3355,6 +3534,131 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: []
+      }
+      sponsorship_campaigns: {
+        Row: {
+          campaign_id: string
+          city_id: string
+          created_at: string
+          created_by: string | null
+          end_date: string
+          metadata: Json
+          placement_type: string
+          pricing_tier: string
+          sponsor_id: string
+          start_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          campaign_id?: string
+          city_id: string
+          created_at?: string
+          created_by?: string | null
+          end_date: string
+          metadata?: Json
+          placement_type: string
+          pricing_tier: string
+          sponsor_id: string
+          start_date: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          campaign_id?: string
+          city_id?: string
+          created_at?: string
+          created_by?: string | null
+          end_date?: string
+          metadata?: Json
+          placement_type?: string
+          pricing_tier?: string
+          sponsor_id?: string
+          start_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_campaign_city"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_campaign_city"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "public_cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_campaign_sponsor"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "sponsor_profiles"
+            referencedColumns: ["sponsor_id"]
+          },
+        ]
+      }
+      sponsorship_placements: {
+        Row: {
+          campaign_id: string
+          city_id: string
+          created_at: string
+          is_active: boolean | null
+          page_id: string | null
+          page_type: string
+          placement_id: string
+          slot_name: string
+          updated_at: string
+        }
+        Insert: {
+          campaign_id: string
+          city_id: string
+          created_at?: string
+          is_active?: boolean | null
+          page_id?: string | null
+          page_type: string
+          placement_id?: string
+          slot_name: string
+          updated_at?: string
+        }
+        Update: {
+          campaign_id?: string
+          city_id?: string
+          created_at?: string
+          is_active?: boolean | null
+          page_id?: string | null
+          page_type?: string
+          placement_id?: string
+          slot_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_placement_campaign"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "sponsorship_campaigns"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "fk_placement_city"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_placement_city"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "public_cities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -3945,107 +4249,6 @@ export type Database = {
           },
         ]
       }
-      public_game_question_options: {
-        Row: {
-          id: string | null
-          option_text: string | null
-          question_id: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "game_question_options_question_id_fkey"
-            columns: ["question_id"]
-            isOneToOne: false
-            referencedRelation: "game_questions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "game_question_options_question_id_fkey"
-            columns: ["question_id"]
-            isOneToOne: false
-            referencedRelation: "public_game_questions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      public_game_questions: {
-        Row: {
-          ai_assisted: boolean | null
-          created_at: string | null
-          game_id: string | null
-          id: string | null
-          question_text: string | null
-        }
-        Insert: {
-          ai_assisted?: boolean | null
-          created_at?: string | null
-          game_id?: string | null
-          id?: string | null
-          question_text?: string | null
-        }
-        Update: {
-          ai_assisted?: boolean | null
-          created_at?: string | null
-          game_id?: string | null
-          id?: string | null
-          question_text?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "game_questions_game_id_fkey"
-            columns: ["game_id"]
-            isOneToOne: false
-            referencedRelation: "games"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "game_questions_game_id_fkey"
-            columns: ["game_id"]
-            isOneToOne: false
-            referencedRelation: "public_games"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      public_games: {
-        Row: {
-          city_name: string | null
-          created_at: string | null
-          difficulty: string | null
-          game_data: Json | null
-          game_type: string | null
-          id: string | null
-          published: boolean | null
-          published_at: string | null
-          updated_at: string | null
-          visibility: string | null
-        }
-        Insert: {
-          city_name?: string | null
-          created_at?: string | null
-          difficulty?: string | null
-          game_data?: Json | null
-          game_type?: string | null
-          id?: string | null
-          published?: boolean | null
-          published_at?: string | null
-          updated_at?: string | null
-          visibility?: string | null
-        }
-        Update: {
-          city_name?: string | null
-          created_at?: string | null
-          difficulty?: string | null
-          game_data?: Json | null
-          game_type?: string | null
-          id?: string | null
-          published?: boolean | null
-          published_at?: string | null
-          updated_at?: string | null
-          visibility?: string | null
-        }
-        Relationships: []
-      }
       public_neighborhoods: {
         Row: {
           city_id: string | null
@@ -4093,34 +4296,47 @@ export type Database = {
       }
     }
     Functions: {
-      admin_create_city: {
-        Args: {
-          country: string
-          domain: string
-          incorporated_year: number
-          latitude: number
-          longitude: number
-          metadata?: Json
-          name: string
-          population: number
-          slug: string
-          state_province: string
-          status: string
-        }
-        Returns: string
-      }
+      admin_create_city:
+        | {
+            Args: {
+              country: string
+              domain: string
+              incorporated_year: number
+              latitude: number
+              longitude: number
+              metadata?: Json
+              name: string
+              population: number
+              slug: string
+              state_province: string
+              status: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_country: string
+              p_domain: string
+              p_incorporated_year: number
+              p_latitude: number
+              p_longitude: number
+              p_name: string
+              p_population: number
+              p_slug: string
+              p_state_province: string
+              p_status: string
+            }
+            Returns: string
+          }
       admin_delete_city: {
         Args: { city_id: string; metadata?: Json }
-        Returns: undefined
-      }
-      admin_freeze_story: {
-        Args: { story_id: string }
         Returns: undefined
       }
       admin_freeze_city: {
         Args: { city_id: string; metadata?: Json }
         Returns: undefined
       }
+      admin_freeze_story: { Args: { story_id: string }; Returns: undefined }
       admin_get_contributor_actions: {
         Args: { _contributor_id: string }
         Returns: {
@@ -4189,6 +4405,7 @@ export type Database = {
           body: string
           category: string
           city: string
+          city_id: string
           created_at: string
           date_range: string
           id: string
@@ -4196,7 +4413,6 @@ export type Database = {
           is_frozen: boolean
           is_published: boolean
           neighborhood: string
-          primary_city_id: string
           related_entity_ids: string[]
           related_moment_ids: string[]
           related_place_ids: string[]
@@ -4206,10 +4422,6 @@ export type Database = {
           updated_at: string
           year: number
         }[]
-      }
-      admin_hide_city: {
-        Args: { city_id: string; metadata?: Json }
-        Returns: undefined
       }
       admin_get_user_contact_info: {
         Args: { justification: string; target_user_id: string }
@@ -4243,22 +4455,20 @@ export type Database = {
           user_id: string
         }[]
       }
-      admin_hide_story: {
-        Args: { story_id: string }
+      admin_hide_city: {
+        Args: { city_id: string; metadata?: Json }
         Returns: undefined
       }
+      admin_hide_story: { Args: { story_id: string }; Returns: undefined }
       admin_lock_contributor: {
         Args: { city_id: string; contributor_id: string }
-        Returns: undefined
-      }
-      admin_republish_story: {
-        Args: { story_id: string }
         Returns: undefined
       }
       admin_republish_city: {
         Args: { city_id: string; metadata?: Json }
         Returns: undefined
       }
+      admin_republish_story: { Args: { story_id: string }; Returns: undefined }
       admin_set_fraud_level: {
         Args: { city_id: string; contributor_id: string; fraud_level: string }
         Returns: undefined
@@ -4267,14 +4477,11 @@ export type Database = {
         Args: { city_id: string; contributor_id: string; fraud_score: number }
         Returns: undefined
       }
-      admin_unfreeze_story: {
-        Args: { story_id: string }
-        Returns: undefined
-      }
       admin_unfreeze_city: {
         Args: { city_id: string; metadata?: Json }
         Returns: undefined
       }
+      admin_unfreeze_story: { Args: { story_id: string }; Returns: undefined }
       admin_unlock_contributor: {
         Args: { city_id: string; contributor_id: string }
         Returns: undefined
@@ -4640,6 +4847,8 @@ export type Database = {
           revision_notes: string | null
           revision_requested: boolean | null
           revision_submitted_at: string | null
+          safety_hold: boolean
+          safety_hold_notes: string | null
           slug: string | null
           sponsor_360_url: string | null
           sponsor_alt_text: string | null
@@ -4969,7 +5178,18 @@ export type Database = {
         Returns: undefined
       }
       log_admin_action:
-        {
+        | {
+            Args: {
+              action: string
+              metadata?: Json
+              new_role?: string
+              old_role?: string
+              target_user_id?: string
+              user_id: string
+            }
+            Returns: undefined
+          }
+        | {
             Args: {
               action: string
               actor_admin_id: string
@@ -4984,7 +5204,7 @@ export type Database = {
               user_agent?: string
             }
             Returns: undefined
-        }
+          }
       log_sensitive_operation: {
         Args: {
           additional_details?: Json
@@ -5013,6 +5233,64 @@ export type Database = {
         Args: { city_admin_id: string; story_id: string }
         Returns: undefined
       }
+      publish_story_with_tier: {
+        Args: { city_admin_id: string; content_tier: string; story_id: string }
+        Returns: {
+          author_name: string | null
+          body: string | null
+          category: string | null
+          city: string | null
+          city_id: string | null
+          contributor_id: string | null
+          created_at: string | null
+          cross_city_links: string[] | null
+          date_range: string | null
+          editor_id: string | null
+          entities: string[] | null
+          flag_reason: string | null
+          hero_360_url: string | null
+          hero_image_url: string | null
+          id: string
+          image_description: string | null
+          inline_360_urls: string[] | null
+          is_frozen: boolean | null
+          is_published: boolean | null
+          neighborhood: string | null
+          neighborhood_360_url: string | null
+          published_at: string | null
+          related_entity_ids: string[] | null
+          related_event_ids: string[] | null
+          related_moment_ids: string[] | null
+          related_place_ids: string[] | null
+          review_notes: string | null
+          review_status: string | null
+          reviewed_at: string | null
+          revision_notes: string | null
+          revision_requested: boolean | null
+          revision_submitted_at: string | null
+          safety_hold: boolean
+          safety_hold_notes: string | null
+          slug: string | null
+          sponsor_360_url: string | null
+          sponsor_alt_text: string | null
+          sponsor_flat_url: string | null
+          sponsor_link: string | null
+          sponsor_name: string | null
+          summary: string | null
+          tags: string[] | null
+          thumbnail_360_url: string | null
+          title: string
+          updated_at: string | null
+          updated_by: string | null
+          year: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "civic_stories"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       recalculate_city_budget: { Args: { city_id: string }; Returns: undefined }
       redeem_points: {
         Args: { p_city_slug: string; p_points: number; p_user_id: string }
@@ -5028,9 +5306,92 @@ export type Database = {
         Args: { admin_user_id: string }
         Returns: undefined
       }
+      rpc_activate_campaign: {
+        Args: { campaign_id: string }
+        Returns: undefined
+      }
       rpc_apply_suggestion: {
         Args: { suggestion_id: string }
         Returns: undefined
+      }
+      rpc_autocomplete: {
+        Args: { p_city_id: string; p_limit?: number; p_query: string }
+        Returns: {
+          entity_type: string
+          route: string
+          title: string
+        }[]
+      }
+      rpc_expire_campaign: { Args: { campaign_id: string }; Returns: undefined }
+      rpc_game_add_score: {
+        Args: { p_game_user_id: string; p_points: number }
+        Returns: undefined
+      }
+      rpc_game_increment_attempt: {
+        Args: { p_game_user_id: string }
+        Returns: undefined
+      }
+      rpc_game_leaderboard: {
+        Args: { p_city_id: string; p_limit?: number }
+        Returns: {
+          avatar_url: string | null
+          city_id: string | null
+          created_at: string | null
+          display_name: string | null
+          games_played: number
+          id: string
+          session_token: string | null
+          total_score: number
+          updated_at: string | null
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "game_users"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      rpc_get_active_sponsorships:
+        | {
+            Args: { city_id: string }
+            Returns: {
+              campaign_id: string
+              city_id: string
+              created_at: string
+              is_active: boolean | null
+              page_id: string | null
+              page_type: string
+              placement_id: string
+              slot_name: string
+              updated_at: string
+            }[]
+            SetofOptions: {
+              from: "*"
+              to: "sponsorship_placements"
+              isOneToOne: false
+              isSetofReturn: true
+            }
+          }
+        | { Args: { p_city_id: string; p_page_type: string }; Returns: Json[] }
+      rpc_get_sponsor_assets: {
+        Args: { sponsor_id: string }
+        Returns: {
+          asset_id: string
+          asset_type: string
+          asset_url: string
+          campaign_id: string
+          created_at: string
+          metadata: Json
+          sponsor_id: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "creative_assets"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       rpc_ingest_raw: {
         Args: { payload: Json; source_name: string; source_object_id: string }
@@ -5041,6 +5402,43 @@ export type Database = {
         Returns: undefined
       }
       rpc_normalize_object: { Args: { raw_id: string }; Returns: undefined }
+      rpc_search: {
+        Args: {
+          p_city_id: string
+          p_limit?: number
+          p_offset?: number
+          p_query: string
+        }
+        Returns: {
+          city_id: string
+          entity_id: string
+          entity_type: string
+          entity_weight: number
+          facet: string
+          id: string
+          indexed_at: string
+          is_published: boolean
+          keywords: string[]
+          route: string
+          search_vector: unknown
+          source_updated_at: string
+          subtitle: string | null
+          summary: string | null
+          thumbnail_url: string | null
+          title: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "search_index"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      rpc_terminate_campaign: {
+        Args: { campaign_id: string }
+        Returns: undefined
+      }
+      rpc_validate_sponsor: { Args: { sponsor_id: string }; Returns: boolean }
       safe_delete_artifact: { Args: { artifact_id: string }; Returns: boolean }
       safe_delete_civic_item: {
         Args: { item_id: string; item_type: string }
@@ -5057,6 +5455,40 @@ export type Database = {
           table_name: string
         }[]
       }
+      search_index_entity: {
+        Args: { p_entity_id: string; p_entity_type: string }
+        Returns: undefined
+      }
+      search_ranked: {
+        Args: { p_city_id: string; p_query: string }
+        Returns: {
+          city_id: string
+          entity_id: string
+          entity_type: string
+          entity_weight: number
+          facet: string
+          id: string
+          indexed_at: string
+          is_published: boolean
+          keywords: string[]
+          route: string
+          search_vector: unknown
+          source_updated_at: string
+          subtitle: string | null
+          summary: string | null
+          thumbnail_url: string | null
+          title: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "search_index"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_reindex_all: { Args: never; Returns: undefined }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       track_ad_click: {
         Args: { placement_id: string; post_id_param?: number }
         Returns: undefined

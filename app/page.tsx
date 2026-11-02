@@ -74,9 +74,6 @@ export default async function HomePage() {
           FAQ
         </Link>
 
-        <Link href="/login" className="underline" style={{ color: "var(--primary)" }}>
-          Admin Login
-        </Link>
       </div>
 
       {/* Footer */}

@@ -7,7 +7,7 @@ export default async function ThemeEditorPage({ params }: { params: { cityId: st
   const { email, role } = await getAdminContext();
   const supabase = createSupabaseServerClient();
 
-  const [{ data: city, error }, { data: themeRow }] = await Promise.all([
+  const [{ data: city, error }, { data: themeRow }, { data: globalSettings, error: globalThemeError }] = await Promise.all([
     supabase
       .from("cities")
       .select("id, name")
@@ -18,12 +18,22 @@ export default async function ThemeEditorPage({ params }: { params: { cityId: st
       .select("city_id, draft_theme, published_theme")
       .eq("city_id", params.cityId)
       .maybeSingle(),
+    supabase
+      .from("global_brand_settings")
+      .select("theme_json")
+      .eq("status", "published")
+      .maybeSingle(),
   ]);
 
-  if (error || !city) {
+  if (error || globalThemeError || !city) {
+    console.error("Failed to load CEO theme editor:", error ?? globalThemeError);
     return (
       <AdminShell email={email} role={role} title="Theme Not Found">
-        <p className="text-slate-500 text-sm">City or theme not found.</p>
+        <p role="alert" className="text-sm text-destructive">
+          {error || !city
+            ? "City or theme not found."
+            : "Global brand defaults could not be loaded."}
+        </p>
       </AdminShell>
     );
   }
@@ -34,6 +44,7 @@ export default async function ThemeEditorPage({ params }: { params: { cityId: st
         city={city}
         draftTheme={themeRow?.draft_theme ?? null}
         publishedTheme={themeRow?.published_theme ?? null}
+        globalTheme={globalSettings?.theme_json ?? null}
       />
     </AdminShell>
   );

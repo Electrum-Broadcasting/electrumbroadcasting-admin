@@ -1,22 +1,30 @@
 "use client";
 
-function themesMatch(leftTheme: any, rightTheme: any) {
-  return JSON.stringify(leftTheme ?? null) === JSON.stringify(rightTheme ?? null);
+function stableSerialize(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableSerialize).join(",")}]`;
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableSerialize(record[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
 }
 
 export function ThemeStatusBadge({
   draftTheme,
   publishedTheme,
 }: {
-  draftTheme: any;
-  publishedTheme: any;
+  draftTheme: unknown;
+  publishedTheme: unknown;
 }) {
   const hasDraft = draftTheme !== null && draftTheme !== undefined;
   const hasPublished = publishedTheme !== null && publishedTheme !== undefined;
 
   const isPublished =
     hasPublished &&
-    ( !hasDraft || themesMatch(draftTheme, publishedTheme) );
+    (!hasDraft || stableSerialize(draftTheme) === stableSerialize(publishedTheme));
 
   const label =
     !hasDraft && !hasPublished
@@ -25,16 +33,15 @@ export function ThemeStatusBadge({
       ? "Published"
       : "Draft";
 
-  const color =
-    !hasDraft && !hasPublished
-      ? "bg-gray-100 text-gray-800 border-gray-200"
-      : isPublished
-      ? "bg-green-100 text-green-800 border-green-200"
-      : "bg-yellow-100 text-yellow-800 border-yellow-200";
+  const color = !hasDraft && !hasPublished
+    ? "bg-muted text-muted-foreground"
+    : isPublished
+      ? "bg-primary/10 text-primary"
+      : "bg-accent/30 text-accent-foreground";
 
   return (
     <span
-      className={`inline-block rounded border px-2 py-1 text-xs font-medium ${color}`}
+      className={`inline-flex items-center rounded-full border border-border px-2.5 py-1 text-xs font-medium ${color}`}
     >
       {label}
     </span>

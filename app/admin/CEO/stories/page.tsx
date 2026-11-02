@@ -3,6 +3,9 @@ import { AdminShell } from "@/components/admin/AdminShell";
 import { CEOStoriesPanel } from "@/components/admin/CEO/stories/StoriesPanel";
 import { getAdminContext } from "@/lib/admin/context";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function CEOStoriesPage() {
   const admin = await getAdminContext();
   const supabase = createSupabaseServerClient();
