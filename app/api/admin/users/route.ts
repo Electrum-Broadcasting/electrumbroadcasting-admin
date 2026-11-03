@@ -4,8 +4,14 @@ import { createClient } from "@supabase/supabase-js";
 import { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } from "@/lib/supabase/env";
 import type { AdminRole } from "@/lib/admin/types";
 import { getAdminContext } from "@/lib/admin/context";
+import { apiRequirePlatformAdmin } from "@/lib/admin/guards";
+
+const ADMIN_ROLES: string[] = ["CEO", "PLATFORM_ADMIN", "CITY_ADMIN", "EDITOR"];
 
 export async function GET() {
+  const guard = await apiRequirePlatformAdmin();
+  if (guard.response) return guard.response;
+
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   // 1. Load admin_users
@@ -22,8 +28,6 @@ export async function GET() {
   const { data: cities } = await supabase
     .from("cities")
     .select("id, name, domain");
-
-    console.log("CITY IDS RECEIVED:", adminRows.map(row => row.city_ids));
 
   // 3. Load all auth users
   const { data: authUsers } = await supabase.auth.admin.listUsers();
@@ -60,31 +64,65 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { email, role, city_ids, status, primary_city_slug } = body;
+    const { role, city_ids, status, primary_city_slug } = body;
+    const email = String(body.email ?? "").trim().toLowerCase();
+
+    if (!email || !ADMIN_ROLES.includes(role)) {
+      return NextResponse.json({ error: "Valid email and role are required" }, { status: 400 });
+    }
 
     const normalizedCityIds = Array.isArray(city_ids) ? city_ids : [];
     const normalizedStatus = status === "inactive" ? "inactive" : "active";
     const normalizedPrimaryCitySlug =
       primary_city_slug?.trim() || null;
 
-    const tempPassword =
-  crypto.randomUUID().replace(/-/g, "") + "Aa1!";
+    // Stop before any mutation if an admin_users record already uses this email,
+    // even when no Supabase Auth identity exists. ilike is escaped to match literally.
+    const escapedEmail = email.replace(/[\\%_]/g, "\\$&");
+    const { data: existingAdminRows, error: existingAdminError } = await service
+      .from("admin_users")
+      .select("id")
+      .ilike("email", escapedEmail)
+      .limit(1);
 
-const { data: authUser, error: authError } =
-  await service.auth.admin.createUser({
-    email,
-    password: tempPassword,
-    email_confirm: true, 
-    user_metadata: {
-      role,
-      city_ids: normalizedCityIds,
-      status: normalizedStatus,
-      primary_city_slug: normalizedPrimaryCitySlug,
-    },
-  });
+    if (existingAdminError) {
+      console.error("Failed to check existing admin_users:", existingAdminError);
+      return NextResponse.json({ error: "Failed to check existing accounts" }, { status: 500 });
+    }
+
+    if (existingAdminRows && existingAdminRows.length > 0) {
+      return NextResponse.json(
+        { error: "An admin record with this email already exists. No changes were made.", code: "ADMIN_RECORD_EXISTS" },
+        { status: 409 }
+      );
+    }
+
+    // Stop before any mutation if the email already has a Supabase Auth identity.
+    for (let page = 1; ; page++) {
+      const { data: pageData, error: listError } =
+        await service.auth.admin.listUsers({ page, perPage: 1000 });
+
+      if (listError || !pageData) {
+        console.error("Failed to check existing auth users:", listError);
+        return NextResponse.json({ error: "Failed to check existing accounts" }, { status: 500 });
+      }
+
+      if (pageData.users.some((u) => u.email?.toLowerCase() === email)) {
+        return NextResponse.json(
+          { error: "An account with this email already exists. No changes were made.", code: "ACCOUNT_EXISTS" },
+          { status: 409 }
+        );
+      }
+
+      if (pageData.users.length < 1000) break;
+    }
+
+    // Supabase emails the invitation; the user sets their own password.
+    const { data: authUser, error: authError } =
+      await service.auth.admin.inviteUserByEmail(email);
 
     if (authError || !authUser?.user) {
-      console.error("Failed to create auth user:", authError);
+      console.error("Failed to invite auth user:", authError);
       return NextResponse.json({ error: "Failed to create user" }, { status: 500 });
     }
 
@@ -107,11 +145,6 @@ const { data: authUser, error: authError } =
       await service.auth.admin.deleteUser(authUid);
       return NextResponse.json({ error: "Failed to create admin user" }, { status: 500 });
     }
-
-    await service.auth.admin.generateLink({
-      type: "recovery",
-      email,
-    });
 
     return NextResponse.json({ success: true });
   } catch (err) {
