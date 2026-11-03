@@ -2,12 +2,12 @@ import Link from "next/link";
 import { DashboardCards } from "@/components/admin/DashboardCards";
 import { adminTableNames, adminTables } from "@/lib/admin/config";
 import { getTableCount } from "@/lib/admin/data";
-import { getAdminContext } from "@/lib/admin/context";
+import { requirePlatformAdmin } from "@/lib/admin/guards";
 import { logoutAction } from "@/app/admin/(auth)/actions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function AdminDashboardPage() {
-  const { email, role } = await getAdminContext();
+  const { role } = await requirePlatformAdmin();
   const supabase = createSupabaseServerClient();
 
   const { data: logs } = await supabase

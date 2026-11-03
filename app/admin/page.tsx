@@ -9,15 +9,18 @@ export default async function AdminLandingPage() {
       redirect("/admin/CEO");
 
     case "PLATFORM_ADMIN":
-      redirect("/admin/platform");
+      redirect("/admin/dashboard");
 
     case "CITY_ADMIN":
-      redirect(`/admin/city/${city_ids[0]}`);
+      if (city_ids.length > 0) {
+        redirect(`/admin/city/${city_ids[0]}/pages`);
+      }
+      redirect("/login?error=No city assigned");
 
     case "EDITOR":
-      redirect("/admin/editor");
+      redirect("/login?error=Editor access is not yet available");
 
     default:
-      redirect("/admin/unauthorized");
+      redirect("/login?error=Unauthorized");
   }
 }
