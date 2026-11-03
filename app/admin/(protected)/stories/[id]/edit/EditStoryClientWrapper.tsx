@@ -36,14 +36,12 @@ type EditStoryClientWrapperProps = {
     sponsor_alt_text: string;
     is_published: boolean;
   };
-  admin: {
-    city_slug: string;
-  };
+  citySlug: string;
 };
 
 export default function EditStoryClientWrapper({
   story,
-  admin,
+  citySlug,
 }: EditStoryClientWrapperProps) {
   const router = useRouter();
 
@@ -84,7 +82,7 @@ const [inline360Urls] = useState(story.inline_360_urls ?? []);
   async function handleSave() {
     await saveStory({
       storyId: story.id,
-      citySlug: admin.city_slug,
+      citySlug: citySlug,
       router,
 
       title,
@@ -137,7 +135,7 @@ const [inline360Urls] = useState(story.inline_360_urls ?? []);
       <StoryHeroImageForm
         heroImageUrl={heroImageUrl}
         setHeroImageUrl={setHeroImageUrl}
-        citySlug={admin.city_slug}
+        citySlug={citySlug}
         slug={slug}
       />
 
@@ -148,7 +146,7 @@ const [inline360Urls] = useState(story.inline_360_urls ?? []);
   setThumbnail360Url={setThumbnail360Url}
   neighborhood360Url={neighborhood360Url}
   setNeighborhood360Url={setNeighborhood360Url}
-  citySlug={admin.city_slug}
+  citySlug={citySlug}
   slug={slug}
 />
 

@@ -35,3 +35,14 @@ export function canEdit(role: AdminRole): boolean {
 export function canDelete(role: AdminRole): boolean {
   return role === "CEO" || role === "PLATFORM_ADMIN";
 }
+
+export function canAccessCity(
+  admin: { role: AdminRole; city_ids: string[] },
+  cityId: string
+): boolean {
+  if (admin.role === "CEO" || admin.role === "PLATFORM_ADMIN") return true;
+  if (admin.role === "CITY_ADMIN" || admin.role === "EDITOR") {
+    return Array.isArray(admin.city_ids) && admin.city_ids.includes(cityId);
+  }
+  return false;
+}
