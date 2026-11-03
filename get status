@@ -1,0 +1,130 @@
+[1mdiff --git a/app/admin/(auth)/actions.ts b/app/admin/(auth)/actions.ts[m
+[1mindex 7ae477e..622572d 100644[m
+[1m--- a/app/admin/(auth)/actions.ts[m
+[1m+++ b/app/admin/(auth)/actions.ts[m
+[36m@@ -4,15 +4,27 @@[m [mimport { redirect } from "next/navigation";[m
+ import { cookies } from "next/headers";[m
+ import { createServerClient } from "@supabase/ssr";[m
+ import { createClient } from "@supabase/supabase-js";[m
+[31m-import { verifyPassword } from "@/lib/admin/password";[m
+[32m+[m[32mimport { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } from "@/lib/supabase/env";[m
+[32m+[m
+[32m+[m[32mconst INVALID_CREDENTIALS = "/login?error=Invalid credentials";[m
+[32m+[m
+[32m+[m[32m// Only same-origin /admin paths are honoured; anything else falls back to /admin.[m
+[32m+[m[32mfunction safeAdminNext(value: FormDataEntryValue | null): string {[m
+[32m+[m[32m  const next = typeof value === "string" ? value : "";[m
+[32m+[m[32m  const isAdminPath = next === "/admin" || next.startsWith("/admin/");[m
+[32m+[m[32m  if (!isAdminPath || next.startsWith("//") || next.includes("\\")) {[m
+[32m+[m[32m    return "/admin";[m
+[32m+[m[32m  }[m
+[32m+[m[32m  return next;[m
+[32m+[m[32m}[m
+ [m
+ export async function loginAdminAction(formData: FormData) {[m
+[31m-  const email = formData.get("email") as string;[m
+[31m-  const password = formData.get("password") as string;[m
+[32m+[m[32m  const email = String(formData.get("email") ?? "").trim();[m
+[32m+[m[32m  const password = String(formData.get("password") ?? "");[m
+[32m+[m[32m  const next = safeAdminNext(formData.get("next"));[m
+ [m
+   const cookieStore = cookies();[m
+ [m
+[31m-  // ONE client only — SSR client with cookie adapter[m
+   const supabaseSSR = createServerClient([m
+     process.env.NEXT_PUBLIC_SUPABASE_URL!,[m
+     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,[m
+[36m@@ -31,59 +43,33 @@[m [mexport async function loginAdminAction(formData: FormData) {[m
+     }[m
+   );[m
+ [m
+[31m-  // 1. Load admin user from your DB[m
+[31m-  const { data: admin } = await supabaseSSR[m
+[31m-    .from("admin_users")[m
+[31m-    .select("*")[m
+[31m-    .eq("email", email)[m
+[31m-    .maybeSingle();[m
+[31m-[m
+[31m-  if (!admin) redirect("/login?error=Invalid credentials");[m
+[31m-[m
+[31m-  // 2. Verify custom password hash[m
+[31m-  const valid = await verifyPassword(password, admin.password_hash);[m
+[31m-  if (!valid) redirect("/login?error=Invalid credentials");[m
+[32m+[m[32m  // 1. Supabase Auth is the only password authority[m
+[32m+[m[32m  const { data: signInData, error: signInError } =[m
+[32m+[m[32m    await supabaseSSR.auth.signInWithPassword({ email, password });[m
+ [m
+[31m-  // 3. REAL Supabase Auth login using SSR client[m
+[31m-  const { data: sessionData, error: sessionError } =[m
+[31m-    await supabaseSSR.auth.signInWithPassword({[m
+[31m-      email,[m
+[31m-      password,[m
+[31m-    });[m
+[31m-[m
+[31m-  if (sessionError) redirect("/login?error=Invalid credentials");[m
+[31m-[m
+[31m-  // ⭐ 4. VERIFY the Supabase Auth session (CRITICAL)[m
+[31m-  const { data: authData, error: authError } = await supabaseSSR.auth.getUser();[m
+[31m-  if (authError || !authData?.user) {[m
+[31m-    redirect("/login?error=Invalid credentials");[m
+[32m+[m[32m  const authUser = signInData?.user;[m
+[32m+[m[32m  if (signInError || !authUser) {[m
+[32m+[m[32m    await supabaseSSR.auth.signOut();[m
+[32m+[m[32m    redirect(INVALID_CREDENTIALS);[m
+   }[m
+ [m
+[31m-  // 5. Attach role metadata[m
+[31m-  await supabaseSSR.auth.updateUser({[m
+[31m-    data: { role: admin.role },[m
+[32m+[m[32m  // 2. The authenticated user must map to an active admin_users row[m
+[32m+[m[32m  const service = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {[m
+[32m+[m[32m    auth: { persistSession: false, autoRefreshToken: false },[m
+   });[m
+ [m
+[31m-  // 6. Write your admin_session cookie LAST[m
+[31m-  cookieStore.set([m
+[31m-  "admin_session",[m
+[31m-  JSON.stringify({[m
+[31m-    auth_uid: admin.user_id,   // FIXED[m
+[31m-    email: admin.email,[m
+[31m-    role: admin.role,[m
+[31m-    city_ids: admin.city_ids,[m
+[31m-    status: admin.status,[m
+[31m-    primary_city_slug: admin.primary_city_slug,[m
+[31m-  }),[m
+[31m-  {[m
+[31m-    httpOnly: true,[m
+[31m-    secure: true,[m
+[31m-    sameSite: "strict",[m
+[31m-    path: "/",[m
+[32m+[m[32m  const { data: admin, error: adminError } = await service[m
+[32m+[m[32m    .from("admin_users")[m
+[32m+[m[32m    .select("status")[m
+[32m+[m[32m    .eq("auth_uid", authUser.id)[m
+[32m+[m[32m    .maybeSingle();[m
+[32m+[m
+[32m+[m[32m  if (adminError || !admin || admin.status !== "active") {[m
+[32m+[m[32m    await supabaseSSR.auth.signOut();[m
+[32m+[m[32m    redirect(INVALID_CREDENTIALS);[m
+   }[m
+[31m-);[m
+ [m
+[31m-  redirect("/admin");[m
+[32m+[m[32m  redirect(next);[m
+ }[m
+ [m
+ export async function logoutAction() {[m
+[36m@@ -109,13 +95,5 @@[m [mexport async function logoutAction() {[m
+ [m
+   await supabase.auth.signOut();[m
+ [m
+[31m-  // Clear admin cookie too[m
+[31m-  cookieStore.set("admin_session", "", {[m
+[31m-    httpOnly: true,[m
+[31m-    secure: true,[m
+[31m-    sameSite: "strict",[m
+[31m-    path: "/",[m
+[31m-  });[m
+[31m-[m
+   redirect("/login");[m
+ }[m

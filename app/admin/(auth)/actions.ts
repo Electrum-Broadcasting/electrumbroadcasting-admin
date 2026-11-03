@@ -4,15 +4,27 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
-import { verifyPassword } from "@/lib/admin/password";
+import { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } from "@/lib/supabase/env";
+
+const INVALID_CREDENTIALS = "/login?error=Invalid credentials";
+
+// Only same-origin /admin paths are honoured; anything else falls back to /admin.
+function safeAdminNext(value: FormDataEntryValue | null): string {
+  const next = typeof value === "string" ? value : "";
+  const isAdminPath = next === "/admin" || next.startsWith("/admin/");
+  if (!isAdminPath || next.startsWith("//") || next.includes("\\")) {
+    return "/admin";
+  }
+  return next;
+}
 
 export async function loginAdminAction(formData: FormData) {
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
+  const email = String(formData.get("email") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+  const next = safeAdminNext(formData.get("next"));
 
   const cookieStore = cookies();
 
-  // ONE client only — SSR client with cookie adapter
   const supabaseSSR = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -31,59 +43,33 @@ export async function loginAdminAction(formData: FormData) {
     }
   );
 
-  // 1. Load admin user from your DB
-  const { data: admin } = await supabaseSSR
-    .from("admin_users")
-    .select("*")
-    .eq("email", email)
-    .maybeSingle();
+  // 1. Supabase Auth is the only password authority
+  const { data: signInData, error: signInError } =
+    await supabaseSSR.auth.signInWithPassword({ email, password });
 
-  if (!admin) redirect("/login?error=Invalid credentials");
-
-  // 2. Verify custom password hash
-  const valid = await verifyPassword(password, admin.password_hash);
-  if (!valid) redirect("/login?error=Invalid credentials");
-
-  // 3. REAL Supabase Auth login using SSR client
-  const { data: sessionData, error: sessionError } =
-    await supabaseSSR.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-  if (sessionError) redirect("/login?error=Invalid credentials");
-
-  // ⭐ 4. VERIFY the Supabase Auth session (CRITICAL)
-  const { data: authData, error: authError } = await supabaseSSR.auth.getUser();
-  if (authError || !authData?.user) {
-    redirect("/login?error=Invalid credentials");
+  const authUser = signInData?.user;
+  if (signInError || !authUser) {
+    await supabaseSSR.auth.signOut();
+    redirect(INVALID_CREDENTIALS);
   }
 
-  // 5. Attach role metadata
-  await supabaseSSR.auth.updateUser({
-    data: { role: admin.role },
+  // 2. The authenticated user must map to an active admin_users row
+  const service = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  // 6. Write your admin_session cookie LAST
-  cookieStore.set(
-  "admin_session",
-  JSON.stringify({
-    auth_uid: admin.user_id,   // FIXED
-    email: admin.email,
-    role: admin.role,
-    city_ids: admin.city_ids,
-    status: admin.status,
-    primary_city_slug: admin.primary_city_slug,
-  }),
-  {
-    httpOnly: true,
-    secure: true,
-    sameSite: "strict",
-    path: "/",
-  }
-);
+  const { data: admin, error: adminError } = await service
+    .from("admin_users")
+    .select("status")
+    .eq("auth_uid", authUser.id)
+    .maybeSingle();
 
-  redirect("/admin");
+  if (adminError || !admin || admin.status !== "active") {
+    await supabaseSSR.auth.signOut();
+    redirect(INVALID_CREDENTIALS);
+  }
+
+  redirect(next);
 }
 
 export async function logoutAction() {
@@ -108,14 +94,6 @@ export async function logoutAction() {
   );
 
   await supabase.auth.signOut();
-
-  // Clear admin cookie too
-  cookieStore.set("admin_session", "", {
-    httpOnly: true,
-    secure: true,
-    sameSite: "strict",
-    path: "/",
-  });
 
   redirect("/login");
 }
