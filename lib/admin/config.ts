@@ -6,7 +6,7 @@ export const adminTableNames = [
   "places",
   "stories",
   "game_scores",
-  "universal_media",
+  "media_assets",
   "admin_users"
 ] as const;
 
@@ -96,15 +96,13 @@ export const adminTables: AdminTablesMap = {
     ]
   },
 
-  universal_media: {
-    key: "universal_media",
+  media_assets: {
+    key: "media_assets",
     label: "Media Assets",
     route: "/admin/media-assets",
     titleField: "url",
     fields: [
       { name: "id", label: "ID", type: "text", readOnly: true },
-      { name: "story_id", label: "Story ID", type: "text" },
-      { name: "place_id", label: "Place ID", type: "text" },
       { name: "url", label: "URL", type: "text", required: true },
       { name: "alt_text", label: "Alt Text", type: "text" },
       { name: "type", label: "Type", type: "text" },
