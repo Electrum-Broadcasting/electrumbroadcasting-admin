@@ -2,10 +2,14 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { apiRequirePlatformAdmin } from "@/lib/admin/guards";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const guard = await apiRequirePlatformAdmin();
+  if (guard.response) return guard.response;
+
   try {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

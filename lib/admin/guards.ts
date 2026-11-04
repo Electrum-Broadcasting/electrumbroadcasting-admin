@@ -70,3 +70,12 @@ export function apiRequireRole(minimum: AdminRole): Promise<ApiGuardResult> {
 export function apiRequireCityAccess(cityId: string): Promise<ApiGuardResult> {
   return apiAuthorize((a) => canAccessCity(a, cityId));
 }
+
+export function isValidCityId(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value
+    )
+  );
+}

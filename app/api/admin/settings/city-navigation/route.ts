@@ -1,14 +1,20 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { apiRequireCityAccess, isValidCityId } from "@/lib/admin/guards";
 
 export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const cityId = searchParams.get("cityId");
+  if (!isValidCityId(cityId)) {
+    return NextResponse.json({ error: "Invalid cityId" }, { status: 400 });
+  }
+  const guard = await apiRequireCityAccess(cityId);
+  if (guard.response) return guard.response;
+
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
-
-  const { searchParams } = new URL(req.url);
-  const cityId = searchParams.get("cityId");
 
   const { data, error } = await supabase
     .from("city_navigation")
@@ -25,12 +31,17 @@ export async function GET(req: Request) {
 }
 
 export async function PATCH(req: Request) {
+  const { cityId, items } = await req.json();
+  if (!isValidCityId(cityId)) {
+    return NextResponse.json({ error: "Invalid cityId" }, { status: 400 });
+  }
+  const guard = await apiRequireCityAccess(cityId);
+  if (guard.response) return guard.response;
+
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
-
-  const { cityId, items } = await req.json();
 
   // Delete existing nav items
   await supabase.from("city_navigation").delete().eq("city_id", cityId);
