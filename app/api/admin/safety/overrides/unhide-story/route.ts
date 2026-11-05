@@ -22,20 +22,11 @@ export async function POST(req: Request) {
     );
   }
 
-  // 2. Resolve admin identity (session already verified by getAdminContext above)
-  const { data: adminRow } = await supabase
-    .from("admin_users")
-    .select("id")
-    .eq("auth_uid", admin.auth_uid)
-    .single();
-
-  const adminId = adminRow?.id ?? null;
-
   // 4. Insert override log entry
   const { error: logError } = await supabase
     .from("admin_override_logs")
     .insert({
-      admin_id: adminId,
+      admin_id: admin.id,
       target_type: "story",
       target_id: story_id,
       action: "unhide_story",

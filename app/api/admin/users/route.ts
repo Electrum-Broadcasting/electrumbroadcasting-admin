@@ -17,7 +17,7 @@ export async function GET() {
   // 1. Load admin_users
   const { data: adminRows, error: adminError } = await supabase
     .from("admin_users")
-    .select("user_id, role, city_ids, status");
+    .select("id, user_id, auth_uid, role, city_ids, status");
 
   if (adminError || !adminRows) {
     console.error("Failed to load admin_users:", adminError);
@@ -34,14 +34,14 @@ export async function GET() {
 
   // 4. Join everything
   const users = adminRows.map((row) => {
-    const auth = authUsers.users.find((u) => u.id === row.user_id);
+    const auth = authUsers.users.find((u) => u.id === row.auth_uid);
 
     // city_ids is an array — we take the first one
     const cityId = Array.isArray(row.city_ids) ? row.city_ids[0] : null;
     const city = cities?.find((c) => c.id === cityId);
 
     return {
-      id: row.user_id,
+      id: row.id,
       email: auth?.email ?? "unknown",
       created_at: auth?.created_at ?? null,
       role: row.role,

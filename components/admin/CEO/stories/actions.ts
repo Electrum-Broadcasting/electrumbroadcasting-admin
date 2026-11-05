@@ -115,16 +115,9 @@ export async function updateStoryStatusAction(
     }
   }
 
-  const { data: adminRow } = await supabase
-    .from("admin_users")
-    .select("id")
-    .eq("email", admin.email)
-    .eq("status", "active")
-    .maybeSingle();
-
-  if (adminRow?.id) {
+  if (admin.id) {
     const { error: logError } = await supabase.from("admin_override_logs").insert({
-      admin_id: adminRow.id,
+      admin_id: admin.id,
       action: action === "delete" ? "delete_story" : action,
       target_type: "story",
       target_id: storyId,

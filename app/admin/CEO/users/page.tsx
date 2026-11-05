@@ -1,5 +1,6 @@
 import { AdminShell } from "@/components/admin/AdminShell";
-import { getAdminContext } from "@/lib/admin/context";;
+import { requirePlatformAdmin } from "@/lib/admin/guards";
+import { listAdminUsersForManagement } from "@/lib/admin/user-management";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { ToastTrigger } from "@/components/ui/ToastTrigger";
@@ -8,6 +9,7 @@ import { CeoUsersHeader } from "@/components/admin/CEO/users/CeoUsersHeader";
 
 // Types for strict mode
 type AdminUserRow = {
+  id: string;
   user_id: string;
   email: string;
   role: string;
@@ -19,16 +21,6 @@ type CityRow = {
   id: string;
   name: string;
 };
-
-async function getUsers(): Promise<AdminUserRow[]> {
-  const supabase = createSupabaseServerClient();
-  const { data } = await supabase
-    .from("admin_users")
-    .select("user_id, email, role, city_ids, status")
-    .order("email");
-
-  return (data as AdminUserRow[]) ?? [];
-}
 
 async function getCities(): Promise<CityRow[]> {
   const supabase = createSupabaseServerClient();
@@ -45,8 +37,11 @@ export default async function UsersPage({
 }: {
   searchParams: { toast?: string };
 }) {
-  const admin = await getAdminContext();
-  const [users, cities] = await Promise.all([getUsers(), getCities()]);
+  const admin = await requirePlatformAdmin();
+  const [users, cities] = await Promise.all([
+    listAdminUsersForManagement(),
+    getCities(),
+  ]);
 
   // Strictly typed city map
   const cityMap: Map<string, string> = new Map(
@@ -92,7 +87,7 @@ export default async function UsersPage({
 
             <tbody className="divide-y divide-slate-200 bg-white">
               {users.map((user: AdminUserRow) => (
-                <tr key={user.user_id}>
+                <tr key={user.id}>
                   <td className="px-4 py-3 text-sm text-ink">
                     {user.email}
                   </td>
@@ -137,14 +132,14 @@ export default async function UsersPage({
 
                   <td className="px-4 py-3 text-right text-sm">
                     <Link
-                      href={`/admin/CEO/users/${user.user_id}`}
+                      href={`/admin/CEO/users/${user.id}`}
                       className="text-ink hover:underline mr-4"
                     >
                       Edit
                     </Link>
 
                     <Link
-                      href={`/admin/CEO/users/${user.user_id}/delete`}
+                      href={`/admin/CEO/users/${user.id}/delete`}
                       className="text-red-600 hover:underline"
                     >
                       Delete

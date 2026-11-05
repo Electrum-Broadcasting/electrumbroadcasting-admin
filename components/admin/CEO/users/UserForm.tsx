@@ -3,12 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { createBrowserClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { CollapsibleSection } from "@/components/admin/CEO/CollapsibleSection";
 import type { AdminRole } from "@/lib/admin/types";
 
 export type AdminUserRow = {
+  id: string;
   user_id: string;
   email: string;
   role: AdminRole | string;
@@ -48,7 +48,6 @@ export function UserForm({
   cities: CityRow[];
 }) {
   const router = useRouter();
-  const supabase = createBrowserClient();
 
   const [form, setForm] = useState<UserFormState>({
     email: user?.email ?? "",
@@ -121,21 +120,27 @@ export function UserForm({
           return;
         }
       } else {
-        if (!user?.user_id) {
+        if (!user?.id) {
           toast.error("Missing user record");
           return;
         }
 
-        const { error } = await supabase.rpc("admin_update_user", {
-          p_user_id: user.user_id,
-          p_role: form.role,
-          p_city_ids: normalizedCityIds,
-          p_status: form.status,
-          p_primary_city_slug: form.primary_city_slug || null,
+        const response = await fetch(`/api/admin/users/${user.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            role: form.role,
+            city_ids: normalizedCityIds,
+            status: form.status,
+            primary_city_slug: form.primary_city_slug || null,
+          }),
         });
 
-        if (error) {
-          toast.error("Failed to update user");
+        const result = (await response.json().catch(() => null)) as
+          | { error?: string }
+          | null;
+        if (!response.ok) {
+          toast.error(result?.error ?? "Failed to update user");
           return;
         }
       }

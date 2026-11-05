@@ -1,6 +1,5 @@
-import { adminTables } from "@/lib/admin/config";
-import { EditRecordPage } from "@/components/admin/EditRecordPage";
+import { redirect } from "next/navigation";
 
 export default async function EditAdminUserPage({ params }: { params: { id: string } }) {
-  return <EditRecordPage table={adminTables.admin_users.key} id={params.id} />;
+  redirect(`/admin/CEO/users/${params.id}`);
 }

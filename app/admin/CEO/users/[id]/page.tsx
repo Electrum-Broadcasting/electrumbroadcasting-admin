@@ -4,20 +4,10 @@ import {
   type AdminUserRow,
   type CityRow,
 } from "@/components/admin/CEO/users/UserForm";
-import { getAdminContext } from "@/lib/admin/context";
+import { requirePlatformAdmin } from "@/lib/admin/guards";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import Link from "next/link";
-
-async function getUserById(id: string): Promise<AdminUserRow | null> {
-  const supabase = createSupabaseServerClient();
-  const { data } = await supabase
-    .from("admin_users")
-    .select("user_id, email, role, city_ids, status, primary_city_slug")
-    .eq("user_id", id)
-    .single();
-
-  return (data as AdminUserRow) ?? null;
-}
+import { getAdminUserForManagement } from "@/lib/admin/user-management";
 
 async function getCities(): Promise<CityRow[]> {
   const supabase = createSupabaseServerClient();
@@ -34,8 +24,8 @@ export default async function EditUserPage({
 }: {
   params: { id: string };
 }) {
-  const admin = await getAdminContext();
-  const user = await getUserById(params.id);
+  const admin = await requirePlatformAdmin();
+  const user = await getAdminUserForManagement(params.id);
   const cities = await getCities();
 
   if (!user) {
@@ -57,7 +47,7 @@ export default async function EditUserPage({
 
         <div className="pt-4">
           <Link
-            href={`/admin/CEO/users/${user.user_id}/delete`}
+            href={`/admin/CEO/users/${user.id}/delete`}
             className="text-red-600 hover:underline text-sm"
           >
             Delete User

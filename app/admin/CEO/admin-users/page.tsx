@@ -1,6 +1,5 @@
-import { adminTables } from "@/lib/admin/config";
-import { TableModulePage } from "@/components/admin/TableModulePage";
+import { redirect } from "next/navigation";
 
 export default async function AdminUsersPage() {
-  return <TableModulePage table={adminTables.admin_users.key} />;
+  redirect("/admin/CEO/users");
 }
