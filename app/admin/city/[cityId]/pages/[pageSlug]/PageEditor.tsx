@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import {
+  errorMessage,
+  fetchCityPages,
+  saveCityPages,
+} from "@/lib/admin/cityPagesClient";
 
 export default function PageEditor({ params }: { params: { cityId: string; pageSlug: string } }) {
   const router = useRouter();
@@ -19,65 +18,54 @@ export default function PageEditor({ params }: { params: { cityId: string; pageS
   const [slug, setSlug] = useState(pageSlug);
   const [modules, setModules] = useState<Array<{ type: string; limit: number; [key: string]: any }>>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadPage() {
-      const { data, error } = await supabase
-        .from("city_brand_settings")
-        .select("pages")
-        .eq("city_id", cityId)
-        .single();
+      try {
+        const pages = await fetchCityPages(cityId);
+        const page = pages.find((p) => p.slug === pageSlug);
 
-      if (error) {
-        console.error("Error loading pages:", error);
+        if (!page) {
+          setError(`Page "${pageSlug}" was not found.`);
+          return;
+        }
+
+        setPageData(page as any);
+        setTitle(page.title);
+        setSlug(page.slug);
+        setModules((page.modules as any) || []);
+      } catch (e) {
+        setError(errorMessage(e));
         return;
+      } finally {
+        setLoading(false);
       }
-
-      const pages = data.pages || [];
-      const page = pages.find((p: any) => p.slug === pageSlug);
-
-      if (!page) {
-        console.error("Page not found:", pageSlug);
-        return;
-      }
-
-      setPageData(page);
-      setTitle(page.title);
-      setSlug(page.slug);
-      setModules(page.modules || []);
-      setLoading(false);
     }
 
     loadPage();
   }, [cityId, pageSlug]);
 
   async function savePage() {
-    const { data, error } = await supabase
-      .from("city_brand_settings")
-      .select("pages")
-      .eq("city_id", cityId)
-      .single();
+    setError(null);
 
-    if (error) {
-      console.error("Error loading pages:", error);
-      return;
-    }
+    try {
+      const pages = await fetchCityPages(cityId);
 
-    const pages = data.pages || [];
+      if (!pages.some((p) => p.slug === pageSlug)) {
+        setError(`Page "${pageSlug}" no longer exists.`);
+        return;
+      }
 
-    const updatedPages = pages.map((p: any) =>
-      p.slug === pageSlug
-        ? { ...p, title, slug, modules }
-        : p
-    );
+      const updatedPages = pages.map((p) =>
+        p.slug === pageSlug
+          ? { ...p, title, slug, modules }
+          : p
+      );
 
-    const { error: updateError } = await supabase
-      .from("city_brand_settings")
-      .update({ pages: updatedPages })
-      .eq("city_id", cityId);
-
-    if (updateError) {
-      console.error("Error saving page:", updateError);
+      await saveCityPages(cityId, updatedPages);
+    } catch (e) {
+      setError(errorMessage(e));
       return;
     }
 
@@ -124,6 +112,16 @@ export default function PageEditor({ params }: { params: { cityId: string; pageS
 
   if (loading) {
     return <div className="p-6">Loading page editor…</div>;
+  }
+
+  if (!pageData) {
+    return (
+      <div className="p-6">
+        <div role="alert" className="border border-red-300 bg-red-50 text-red-700 rounded p-3">
+          {error ?? "Page could not be loaded."}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -234,6 +232,12 @@ export default function PageEditor({ params }: { params: { cityId: string; pageS
           </button>
         </div>
       </div>
+
+      {error && (
+        <div role="alert" className="border border-red-300 bg-red-50 text-red-700 rounded p-3">
+          {error}
+        </div>
+      )}
 
       {/* Save */}
       <button

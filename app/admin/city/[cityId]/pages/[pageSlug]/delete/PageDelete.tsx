@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-);
+import {
+  errorMessage,
+  fetchCityPages,
+  saveCityPages,
+} from "@/lib/admin/cityPagesClient";
 
 export default function PageDelete({ params }: { params: { cityId: string; pageSlug: string } }) {
   const router = useRouter();
@@ -18,30 +17,25 @@ export default function PageDelete({ params }: { params: { cityId: string; pageS
   const [page, setPage] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadPage() {
-      const { data, error } = await supabase
-        .from("city_brand_settings")
-        .select("pages")
-        .eq("city_id", cityId)
-        .single();
+      try {
+        const pages = await fetchCityPages(cityId);
+        const foundPage = pages.find((p) => p.slug === pageSlug);
 
-      if (error) {
-        console.error("Error loading pages:", error);
-        return;
+        if (!foundPage) {
+          setError(`Page "${pageSlug}" was not found.`);
+          return;
+        }
+
+        setPage(foundPage);
+      } catch (e) {
+        setError(errorMessage(e));
+      } finally {
+        setLoading(false);
       }
-
-      const pages = data.pages || [];
-      const foundPage = pages.find((p: any) => p.slug === pageSlug);
-
-      if (!foundPage) {
-        console.error("Page not found:", pageSlug);
-        return;
-      }
-
-      setPage(foundPage);
-      setLoading(false);
     }
 
     loadPage();
@@ -49,29 +43,14 @@ export default function PageDelete({ params }: { params: { cityId: string; pageS
 
   async function deletePage() {
     setDeleting(true);
+    setError(null);
 
-    const { data, error } = await supabase
-      .from("city_brand_settings")
-      .select("pages")
-      .eq("city_id", cityId)
-      .single();
-
-    if (error) {
-      console.error("Error loading pages:", error);
-      setDeleting(false);
-      return;
-    }
-
-    const pages = data.pages || [];
-    const updatedPages = pages.filter((p: any) => p.slug !== pageSlug);
-
-    const { error: updateError } = await supabase
-      .from("city_brand_settings")
-      .update({ pages: updatedPages })
-      .eq("city_id", cityId);
-
-    if (updateError) {
-      console.error("Error deleting page:", updateError);
+    try {
+      const pages = await fetchCityPages(cityId);
+      const updatedPages = pages.filter((p) => p.slug !== pageSlug);
+      await saveCityPages(cityId, updatedPages);
+    } catch (e) {
+      setError(errorMessage(e));
       setDeleting(false);
       return;
     }
@@ -81,6 +60,16 @@ export default function PageDelete({ params }: { params: { cityId: string; pageS
 
   if (loading) {
     return <div className="p-6">Loading delete confirmation…</div>;
+  }
+
+  if (!page) {
+    return (
+      <div className="p-6">
+        <div role="alert" className="border border-red-300 bg-red-50 text-red-700 rounded p-3">
+          {error ?? "Page could not be loaded."}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -106,6 +95,12 @@ export default function PageDelete({ params }: { params: { cityId: string; pageS
           This action cannot be undone.
         </p>
       </div>
+
+      {error && (
+        <div role="alert" className="border border-red-300 bg-red-50 text-red-700 rounded p-3">
+          {error}
+        </div>
+      )}
 
       <div className="flex gap-4">
         <button

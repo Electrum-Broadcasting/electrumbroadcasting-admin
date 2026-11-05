@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createBrowserClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-
-const supabase = createBrowserClient();
+import {
+  errorMessage,
+  fetchCityPages,
+  saveCityPages,
+} from "@/lib/admin/cityPagesClient";
 
 export default function ReorderModules({ params }: { params: { cityId: string; pageSlug: string } }) {
   const router = useRouter();
@@ -16,31 +18,26 @@ export default function ReorderModules({ params }: { params: { cityId: string; p
   const [modules, setModules] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadPage() {
-      const { data, error } = await supabase
-        .from("city_brand_settings")
-        .select("pages")
-        .eq("city_id", cityId)
-        .single();
+      try {
+        const pages = await fetchCityPages(cityId);
+        const foundPage = pages.find((p) => p.slug === pageSlug);
 
-      if (error) {
-        console.error("Error loading pages:", error);
-        return;
+        if (!foundPage) {
+          setError(`Page "${pageSlug}" was not found.`);
+          return;
+        }
+
+        setPage(foundPage);
+        setModules(foundPage.modules || []);
+      } catch (e) {
+        setError(errorMessage(e));
+      } finally {
+        setLoading(false);
       }
-
-      const pages = data.pages || [];
-      const foundPage = pages.find((p: any) => p.slug === pageSlug);
-
-      if (!foundPage) {
-        console.error("Page not found:", pageSlug);
-        return;
-      }
-
-      setPage(foundPage);
-      setModules(foundPage.modules || []);
-      setLoading(false);
     }
 
     loadPage();
@@ -66,32 +63,24 @@ export default function ReorderModules({ params }: { params: { cityId: string; p
 
   async function saveOrder() {
     setSaving(true);
+    setError(null);
 
-    const { data, error } = await supabase
-      .from("city_brand_settings")
-      .select("pages")
-      .eq("city_id", cityId)
-      .single();
+    try {
+      const pages = await fetchCityPages(cityId);
 
-    if (error) {
-      console.error("Error loading pages:", error);
-      setSaving(false);
-      return;
-    }
+      if (!pages.some((p) => p.slug === pageSlug)) {
+        setError(`Page "${pageSlug}" no longer exists.`);
+        setSaving(false);
+        return;
+      }
 
-    const pages = data.pages || [];
+      const updatedPages = pages.map((p) =>
+        p.slug === pageSlug ? { ...p, modules } : p
+      );
 
-    const updatedPages = pages.map((p: any) =>
-      p.slug === pageSlug ? { ...p, modules } : p
-    );
-
-    const { error: updateError } = await supabase
-      .from("city_brand_settings")
-      .update({ pages: updatedPages })
-      .eq("city_id", cityId);
-
-    if (updateError) {
-      console.error("Error saving module order:", updateError);
+      await saveCityPages(cityId, updatedPages);
+    } catch (e) {
+      setError(errorMessage(e));
       setSaving(false);
       return;
     }
@@ -101,6 +90,16 @@ export default function ReorderModules({ params }: { params: { cityId: string; p
 
   if (loading) {
     return <div className="p-6">Loading module order…</div>;
+  }
+
+  if (!page) {
+    return (
+      <div className="p-6">
+        <div role="alert" className="border border-red-300 bg-red-50 text-red-700 rounded p-3">
+          {error ?? "Page could not be loaded."}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -140,6 +139,12 @@ export default function ReorderModules({ params }: { params: { cityId: string; p
           </div>
         ))}
       </div>
+
+      {error && (
+        <div role="alert" className="border border-red-300 bg-red-50 text-red-700 rounded p-3">
+          {error}
+        </div>
+      )}
 
       <button
         className="px-4 py-2 bg-green-600 text-white rounded"

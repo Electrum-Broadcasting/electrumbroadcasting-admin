@@ -18,7 +18,7 @@ export default function CityPagesEditor({ cityId }: { cityId: string }) {
     async function load() {
       const res = await fetch(`/api/admin/settings/city-pages?cityId=${cityId}`);
       const data = await res.json();
-      setPages(data);
+      setPages(Array.isArray(data?.pages) ? data.pages : []);
       setLoading(false);
     }
     load();

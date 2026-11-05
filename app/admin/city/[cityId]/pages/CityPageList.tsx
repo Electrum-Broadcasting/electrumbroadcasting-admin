@@ -2,18 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
-interface Page {
-  slug: string;
-  title: string;
-  modules?: unknown[];
-}
+import {
+  errorMessage,
+  fetchCityPages,
+  saveCityPages,
+  type CityPage as Page,
+} from "@/lib/admin/cityPagesClient";
 
 interface CityPageListProps {
   params: {
@@ -25,19 +19,14 @@ export default function CityPageList({ params }: CityPageListProps) {
   const cityId = params.cityId;
   const [pages, setPages] = useState<Page[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadPages() {
-      const { data, error } = await supabase
-        .from("city_brand_settings")
-        .select("pages")
-        .eq("city_id", cityId)
-        .single();
-
-      if (error) {
-        console.error("Error loading pages:", error);
-      } else {
-        setPages(data.pages || []);
+      try {
+        setPages(await fetchCityPages(cityId));
+      } catch (e) {
+        setError(errorMessage(e));
       }
 
       setLoading(false);
@@ -63,7 +52,13 @@ export default function CityPageList({ params }: CityPageListProps) {
         </Link>
       </div>
 
-      {pages.length === 0 && (
+      {error && (
+        <div role="alert" className="border border-red-300 bg-red-50 text-red-700 rounded p-3">
+          {error}
+        </div>
+      )}
+
+      {pages.length === 0 && !error && (
         <div className="text-gray-500">No pages created yet.</div>
       )}
 
@@ -103,15 +98,11 @@ export default function CityPageList({ params }: CityPageListProps) {
                     (p) => p.slug !== page.slug
                   );
 
-                  const { error } = await supabase
-                    .from("city_brand_settings")
-                    .update({ pages: updatedPages })
-                    .eq("city_id", cityId);
-
-                  if (error) {
-                    console.error("Error deleting page:", error);
-                  } else {
-                    setPages(updatedPages);
+                  try {
+                    setPages(await saveCityPages(cityId, updatedPages));
+                    setError(null);
+                  } catch (e) {
+                    setError(errorMessage(e));
                   }
                 }}
               >

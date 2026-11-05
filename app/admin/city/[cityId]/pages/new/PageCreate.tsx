@@ -1,13 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-);
+import { errorMessage, fetchCityPages, saveCityPages } from "@/lib/admin/cityPagesClient";
 
 export default function PageCreate({ params }: { params: { cityId: string } }) {
   const router = useRouter();
@@ -17,6 +12,7 @@ export default function PageCreate({ params }: { params: { cityId: string } }) {
   const [slug, setSlug] = useState("");
   const [modules, setModules] = useState<Array<{ type: string; limit: number }>>([]);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   type Module = { type: string; limit: number };
 
@@ -27,36 +23,20 @@ export default function PageCreate({ params }: { params: { cityId: string } }) {
     }
 
     setSaving(true);
+    setError(null);
 
-    const { data, error } = await supabase
-      .from("city_brand_settings")
-      .select("pages")
-      .eq("city_id", cityId)
-      .single();
+    try {
+      const pages = await fetchCityPages(cityId);
 
-    if (error) {
-      console.error("Error loading pages:", error);
-      setSaving(false);
-      return;
-    }
+      if (pages.some((p) => p.slug === slug)) {
+        setError(`A page with slug "${slug}" already exists.`);
+        setSaving(false);
+        return;
+      }
 
-    const pages = data.pages || [];
-
-    const newPage = {
-      title,
-      slug,
-      modules,
-    };
-
-    const updatedPages = [...pages, newPage];
-
-    const { error: updateError } = await supabase
-      .from("city_brand_settings")
-      .update({ pages: updatedPages })
-      .eq("city_id", cityId);
-
-    if (updateError) {
-      console.error("Error saving new page:", updateError);
+      await saveCityPages(cityId, [...pages, { title, slug, modules }]);
+    } catch (e) {
+      setError(errorMessage(e));
       setSaving(false);
       return;
     }
@@ -180,6 +160,12 @@ export default function PageCreate({ params }: { params: { cityId: string } }) {
           </button>
         </div>
       </div>
+
+      {error && (
+        <div role="alert" className="border border-red-300 bg-red-50 text-red-700 rounded p-3">
+          {error}
+        </div>
+      )}
 
       {/* Save */}
       <button
