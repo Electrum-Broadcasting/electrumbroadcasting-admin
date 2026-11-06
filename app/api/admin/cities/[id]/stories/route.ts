@@ -1,42 +1,16 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { resolveSafetyCity } from "@/lib/admin/safetyCity";
+import { safetyServiceClient } from "@/lib/admin/storyModeration";
 
-export async function GET(
-  req: Request,
-  context: { params: { id: string } }
-) {
-  const { params } = context;
-  const supabase = createSupabaseServerClient();
-
-  // 1. Look up city by slug
-  const { data: city, error: cityErr } = await supabase
-    .from("cities")
-    .select("id")
-    .eq("slug", params.id)
-    .maybeSingle();
-
-  if (cityErr || !city) {
-    console.error(cityErr);
-    return NextResponse.json([], { status: 200 });
-  }
-
-  // 2. Load stories via RPC
-  const { data, error } = await supabase
-    .rpc("admin_get_stories", { city_uuid: city.id});
-
+export async function GET(_request: Request, { params }: { params: { id: string } }) {
+  const context = await resolveSafetyCity(params.id);
+  if ("error" in context) return NextResponse.json({ error: context.error }, { status: context.status });
+  const { data, error } = await safetyServiceClient().from("civic_stories")
+    .select("id, title, city_id, is_published, is_frozen, review_status, safety_hold, safety_hold_notes")
+    .eq("city_id", context.city.id).order("title");
   if (error) {
-    console.error(error);
-    return NextResponse.json([], { status: 500 });
+    console.error("Failed to load city stories:", error);
+    return NextResponse.json({ error: "Failed to load stories" }, { status: 500 });
   }
-console.log("RPC RESULT:", data);
-
-  // 3. Return real moderation fields
-  const rows = data.map((s: any) => ({
-    id: s.id,
-    title: s.title,
-    is_published: s.is_published,
-    is_frozen: s.is_frozen,
-  }));
-
-  return NextResponse.json(rows);
+  return NextResponse.json(data);
 }

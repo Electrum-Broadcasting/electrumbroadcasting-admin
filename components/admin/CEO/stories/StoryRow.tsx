@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { StoryActions } from "@/components/admin/CEO/stories/StoryActions";
 import { StoryStatusBadge } from "@/components/admin/CEO/stories/StoryStatusBadge";
 
-import type { StoryActionName } from "@/components/admin/CEO/stories/actions";
 import type { StoryRow } from "@/lib/admin/types";
 
 interface StoryRowProps {
@@ -12,7 +11,6 @@ interface StoryRowProps {
   selected?: boolean;
   onSelect?: (story: StoryRow) => void;
   onOpenDrawer?: () => void;
-  onUpdated?: (storyId: string, action: StoryActionName) => void;
 }
 
 export function StoryRow({
@@ -20,7 +18,6 @@ export function StoryRow({
   selected = false,
   onSelect,
   onOpenDrawer,
-  onUpdated,
 }: StoryRowProps) {
   return (
     <div
@@ -70,7 +67,7 @@ export function StoryRow({
             )}
           </div>
 
-          <StoryActions story={story} onUpdated={onUpdated} />
+          <StoryActions story={story} />
         </div>
       </div>
     </div>

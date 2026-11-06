@@ -1,34 +1,16 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { resolveSafetyCity } from "@/lib/admin/safetyCity";
+import { safetyServiceClient } from "@/lib/admin/storyModeration";
 
-export async function GET(
-  req: Request,
-  context: { params: { id: string } }
-) {
-  const { params } = context;
-  const supabase = createSupabaseServerClient();
-
-  const { data, error } = await supabase
-    .from("admin_override_logs")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(50);
-
+export async function GET(_request: Request, { params }: { params: { id: string } }) {
+  const context = await resolveSafetyCity(params.id);
+  if ("error" in context) return NextResponse.json({ error: context.error }, { status: context.status });
+  const { data, error } = await safetyServiceClient().from("admin_override_logs")
+    .select("id, created_at, action, target_type, target_id")
+    .eq("city_id", context.city.id).order("created_at", { ascending: false }).limit(50);
   if (error) {
-    console.error(error);
-    return NextResponse.json([], { status: 500 });
+    console.error("Failed to load city override logs:", error);
+    return NextResponse.json({ error: "Failed to load override logs" }, { status: 500 });
   }
-
-  // Your UI expects admin_name, but your schema does not have it.
-  // We return null for now.
-  const rows = data.map((log) => ({
-    id: log.id,
-    created_at: log.created_at,
-    admin_name: null,
-    action: log.action,
-    target_type: log.target_type,
-    target_id: log.target_id,
-  }));
-
-  return NextResponse.json(rows);
+  return NextResponse.json(data.map((log) => ({ ...log, admin_name: null })));
 }

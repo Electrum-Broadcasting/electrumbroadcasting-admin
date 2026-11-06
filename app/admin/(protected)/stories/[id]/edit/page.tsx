@@ -40,7 +40,7 @@ export default async function EditStoryPage({
       role={admin.role}
       title={`Edit Story: ${story.title}`}
     >
-      <AdminStoryToolbar storyId={story.id} />
+      <AdminStoryToolbar storyId={story.id} role={admin.role} />
       <EditStoryClientWrapper story={story} citySlug={citySlug} />
     </AdminShell>
   );

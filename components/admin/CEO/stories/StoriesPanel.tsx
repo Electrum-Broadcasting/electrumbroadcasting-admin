@@ -5,19 +5,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { StoryDrawer } from "@/components/admin/CEO/stories/StoryDrawer";
 import { StoriesTable } from "@/components/admin/CEO/stories/StoriesTable";
-import type { StoryActionName } from "@/components/admin/CEO/stories/actions";
 import type { StoryRow } from "@/lib/admin/types";
 
 interface CEOStoriesPanelProps {
   stories: StoryRow[];
-}
-
-function applyStoryAction(story: StoryRow, action: StoryActionName): StoryRow | null {
-  if (action === "delete") return null;
-  if (action === "republish") return { ...story, is_published: true };
-  if (action === "hide") return { ...story, is_published: false };
-  if (action === "freeze") return { ...story, is_frozen: true };
-  return { ...story, is_frozen: false };
 }
 
 export function CEOStoriesPanel({ stories = [] }: CEOStoriesPanelProps) {
@@ -30,6 +21,7 @@ export function CEOStoriesPanel({ stories = [] }: CEOStoriesPanelProps) {
 
   useEffect(() => {
     setStoryRows(stories);
+    setSelectedStory((current) => stories.find((story) => story.id === current?.id) ?? null);
   }, [stories]);
 
   const filteredStories = useMemo(() => {
@@ -42,21 +34,6 @@ export function CEOStoriesPanel({ stories = [] }: CEOStoriesPanelProps) {
       return title.includes(needle) || authorName.includes(needle);
     });
   }, [storyRows, searchTerm]);
-
-  function handleStoryUpdated(storyId: string, action: StoryActionName) {
-    setStoryRows((current) =>
-      current.flatMap((story) => {
-        if (story.id !== storyId) return [story];
-        const next = applyStoryAction(story, action);
-        return next ? [next] : [];
-      }),
-    );
-    setSelectedStory((current) => {
-      if (!current || current.id !== storyId) return current;
-      return applyStoryAction(current, action);
-    });
-    if (action === "delete") setDrawerOpen(false);
-  }
 
   useEffect(() => {
     if (filteredStories.length === 0) {
@@ -100,7 +77,6 @@ export function CEOStoriesPanel({ stories = [] }: CEOStoriesPanelProps) {
           setDrawerOpen(true);
         }}
         onOpenDrawer={() => setDrawerOpen(true)}
-        onUpdated={handleStoryUpdated}
       />
 
       <StoryDrawer

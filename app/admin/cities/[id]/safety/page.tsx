@@ -1,40 +1,18 @@
+import { redirect } from "next/navigation";
 import { CitySafetyDashboard } from "@/components/admin/city/CitySafetyDashboard";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { resolveSafetyCity } from "@/lib/admin/safetyCity";
 
-export default async function CitySafetyPage({
-  params,
-}: {
-  params: { id: string };
-}) {
-  const supabase = createSupabaseServerClient();
-
-  // 1. Look up the city by slug
-  const { data: city, error } = await supabase
-    .from("cities")
-    .select("id, name, slug")
-    .eq("slug", params.id)
-    .single();
-
-  // 2. Handle missing city
-  if (error || !city) {
-    return (
-      <div className="p-6">
-        <h1 className="text-2xl font-semibold mb-4">Safety Dashboard</h1>
-        <p className="text-red-500">
-          City not found for slug: <strong>{params.id}</strong>
-        </p>
-      </div>
-    );
+export default async function CitySafetyPage({ params }: { params: { id: string } }) {
+  const context = await resolveSafetyCity(params.id);
+  if ("error" in context) {
+    if (context.status === 401) redirect("/login?error=Not authenticated");
+    if (context.status === 403) redirect("/admin");
+    throw new Error(context.error);
   }
-
-  // 3. Render dashboard with the real UUID
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-semibold mb-4">
-        Safety Dashboard — {city.name}
-      </h1>
-
-      <CitySafetyDashboard cityId={city.id} />
+      <h1 className="text-2xl font-semibold mb-4">Safety Dashboard — {context.city.name}</h1>
+      <CitySafetyDashboard citySlug={context.city.slug} role={context.admin.role} />
     </div>
   );
 }

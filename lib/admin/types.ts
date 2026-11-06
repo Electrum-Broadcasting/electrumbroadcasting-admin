@@ -97,5 +97,6 @@ export interface StoryRow {
   entities: string[] | null;
   is_published: boolean | null;
   is_frozen: boolean | null;
+  safety_hold: boolean;
   contributor_id: string | null;
 }

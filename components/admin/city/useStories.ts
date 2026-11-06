@@ -1,108 +1,36 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { createBrowserClient } from "@/lib/supabase/client";
-import { useToastContext } from "@/components/ui/ToastProvider";
-import { Database } from "@/lib/database.types";
+import { useCallback, useEffect, useState } from "react";
+import type { Database } from "@/lib/database.types";
 
 export type StoryRow = Database["public"]["Tables"]["civic_stories"]["Row"];
 
-export function useStories(cityId: string) {
-  const supabase = createBrowserClient();
-  const { showToast } = useToastContext();
+type SafetyStoryRow = {
+  id: string;
+  title: string;
+  city_id: string | null;
+  is_published: boolean | null;
+  is_frozen: boolean | null;
+  review_status: string | null;
+  safety_hold: boolean;
+  safety_hold_notes: string | null;
+};
 
-  const [stories, setStories] = useState<StoryRow[]>([]);
-
-  useEffect(() => {
-    if (!cityId) return;
-    loadStories();
-  }, [cityId]);
-
+export function useStories(citySlug: string) {
+  const [stories, setStories] = useState<SafetyStoryRow[]>([]);
+  const [error, setError] = useState("");
   const loadStories = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("civic_stories_public")
-      .select("*")
-      .eq("city_id", cityId);
-
-    if (error) {
-      console.error("loadStories error:", error);
-      showToast("Failed to load stories");
-      return;
+    try {
+      const response = await fetch(`/api/admin/cities/${encodeURIComponent(citySlug)}/stories`, { cache: "no-store" });
+      const body = await response.json();
+      if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : "Failed to load stories");
+      if (!Array.isArray(body)) throw new Error("Invalid stories response");
+      setStories(body);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load stories");
     }
-
-    setStories(data || []);
-  }, [supabase, cityId, showToast]);
-
-  // -----------------------------
-  // RPC ACTIONS
-  // -----------------------------
-
-  async function hideStory(id: string) {
-    const { error } = await supabase.rpc("admin_hide_story", {
-      story_id: id,
-    });
-
-    if (error) {
-      console.error("hideStory RPC error:", error);
-      showToast("Failed to hide story");
-      return;
-    }
-
-    showToast("Story hidden");
-    loadStories();
-  }
-
-  async function republishStory(id: string) {
-    const { error } = await supabase.rpc("admin_republish_story", {
-      story_id: id,
-    });
-
-    if (error) {
-      console.error("republishStory RPC error:", error);
-      showToast("Failed to republish story");
-      return;
-    }
-
-    showToast("Story republished");
-    loadStories();
-  }
-
-  async function freezeStory(id: string) {
-    const { error } = await supabase.rpc("admin_freeze_story", {
-      story_id: id,
-    });
-
-    if (error) {
-      console.error("freezeStory RPC error:", error);
-      showToast("Failed to freeze story");
-      return;
-    }
-
-    showToast("Story frozen");
-    loadStories();
-  }
-
-  async function unfreezeStory(id: string) {
-    const { error } = await supabase.rpc("admin_unfreeze_story", {
-      story_id: id,
-    });
-
-    if (error) {
-      console.error("unfreezeStory RPC error:", error);
-      showToast("Failed to unfreeze story");
-      return;
-    }
-
-    showToast("Story unfrozen");
-    loadStories();
-  }
-
-  return {
-    stories,
-    loadStories,
-    hideStory,
-    republishStory,
-    freezeStory,
-    unfreezeStory,
-  };
+  }, [citySlug]);
+  useEffect(() => { void loadStories(); }, [loadStories]);
+  return { stories, error, loadStories };
 }

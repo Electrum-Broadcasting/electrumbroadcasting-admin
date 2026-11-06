@@ -1,50 +1,25 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { logAdminAction } from "@/lib/admin/logging";
-import { getAdminContext } from "@/lib/admin/context";
+import { getAdminContextOrNull } from "@/lib/admin/context";
+import { moderateStory, ModerationError } from "@/lib/admin/storyModeration";
 
-export async function POST(req: Request) {
-  const supabase = createSupabaseServerClient();
-  const { story_id } = await req.json();
-  const admin = await getAdminContext();
-
-  // 1. Hide the story (corrected: hide = is_published = false)
-  const { error: updateError } = await supabase
-    .from("civic_stories")
-    .update({ is_published: false })
-    .eq("id", story_id);
-
-  if (updateError) {
-    console.error(updateError);
-    return NextResponse.json(
-      { error: "Failed to hide story" },
-      { status: 500 }
-    );
+export async function POST(request: Request) {
+  const admin = await getAdminContextOrNull();
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-
-  // 4. Insert override log entry
-  const { error: logError } = await supabase
-    .from("admin_override_logs")
-    .insert({
-      admin_id: admin.id,
-      target_type: "story",
-      target_id: story_id,
-      action: "hide_story",
-      metadata: {},
-    });
-
-  if (logError) {
-    console.error("Log error:", logError);
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
-
-  await logAdminAction(supabase, admin, {
-    action: "SAFETY_HIDE_STORY",
-    domain: "safety",
-    entity_type: "safety_override",
-    entity_id: null,
-    target_user_id: null,
-    metadata: { override_type: "hide_story", story_id },
-  });
-
-  return NextResponse.json({ success: true });
+  try {
+    const result = await moderateStory(admin, (body as Record<string, unknown>).story_id, "hide", null, null);
+    return NextResponse.json({ success: true, result });
+  } catch (error) {
+    if (error instanceof ModerationError) return NextResponse.json({ error: error.message }, { status: error.status });
+    console.error("Unexpected story moderation error:", error);
+    return NextResponse.json({ error: "Unable to confirm moderation result; refresh before retrying" }, { status: 500 });
+  }
 }

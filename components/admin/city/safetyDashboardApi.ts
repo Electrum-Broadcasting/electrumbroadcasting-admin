@@ -71,7 +71,6 @@ export async function loadStories(cityId: string) {
     .select("*")
     .eq("city_id", cityId);
 }
-
 export async function loadLogs(cityId: string) {
   const supabase = createBrowserClient();
   return supabase
@@ -80,40 +79,4 @@ export async function loadLogs(cityId: string) {
     .eq("city_id", cityId)
     .order("created_at", { ascending: false })
     .limit(50);
-}
-
-
-// -----------------------------
-// Story Actions (unused now — RPCs replaced these)
-// -----------------------------
-export async function hideStory(storyId: string, cityId: string) {
-  const supabase = createBrowserClient();
-  return supabase.rpc("admin_hide_story", {
-    story_id: storyId,
-    city_id: cityId,
-  });
-}
-
-export async function republishStory(storyId: string, cityId: string) {
-  const supabase = createBrowserClient();
-  return supabase.rpc("admin_republish_story", {
-    story_id: storyId,
-    city_id: cityId,
-  });
-}
-
-export async function freezeStory(storyId: string, cityId: string) {
-  const supabase = createBrowserClient();
-  return supabase.rpc("admin_freeze_story", {
-    story_id: storyId,
-    city_id: cityId,
-  });
-}
-
-export async function unfreezeStory(storyId: string, cityId: string) {
-  const supabase = createBrowserClient();
-  return supabase.rpc("admin_unfreeze_story", {
-    story_id: storyId,
-    city_id: cityId,
-  });
 }

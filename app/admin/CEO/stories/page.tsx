@@ -37,6 +37,7 @@ export default async function CEOStoriesPage() {
     entities,
     is_published,
     is_frozen,
+    safety_hold,
     contributor_id
   `)
   .order("created_at", { ascending: false });

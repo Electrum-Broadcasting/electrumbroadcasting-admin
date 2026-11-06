@@ -28,10 +28,12 @@ export function StoryDrawer({ open, story, onOpenChange }: StoryDrawerProps) {
   const [loading, setLoading] = useState(false);
   const [loadingActions, setLoadingActions] = useState(false);
   const [recentActions, setRecentActions] = useState<RecentAction[]>([]);
+  const [actionsError, setActionsError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !story) {
       setRecentActions([]);
+      setActionsError(null);
       return;
     }
 
@@ -53,15 +55,23 @@ export function StoryDrawer({ open, story, onOpenChange }: StoryDrawerProps) {
 
     async function loadRecentActions() {
       setLoadingActions(true);
-      const { data, error } = await getRecentStoryActionsAction(storyIdToLoad);
-
-      if (!isMounted) return;
-
-      if (!error && data) {
-        setRecentActions((data as RecentAction[]) ?? []);
+      setActionsError(null);
+      try {
+        const { data, error } = await getRecentStoryActionsAction(storyIdToLoad);
+        if (!isMounted) return;
+        if (error) {
+          setRecentActions([]);
+          setActionsError("Failed to load story audit history");
+        } else {
+          setRecentActions((data as RecentAction[]) ?? []);
+        }
+      } catch {
+        if (!isMounted) return;
+        setRecentActions([]);
+        setActionsError("Failed to load story audit history");
+      } finally {
+        if (isMounted) setLoadingActions(false);
       }
-
-      setLoadingActions(false);
     }
 
     void loadStoryDetails();
@@ -112,6 +122,8 @@ export function StoryDrawer({ open, story, onOpenChange }: StoryDrawerProps) {
 
               {loadingActions ? (
                 <p className="text-xs text-slate-500">Loading actions…</p>
+              ) : actionsError ? (
+                <p role="alert" className="text-xs text-red-700">{actionsError}</p>
               ) : recentActions.length === 0 ? (
                 <p className="text-xs text-slate-500">No recent actions for this story.</p>
               ) : (
