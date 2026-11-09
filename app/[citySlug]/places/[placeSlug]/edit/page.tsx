@@ -56,25 +56,25 @@ export default function EditPlacePage({
   if (!place) return <div className="p-6">Place not found</div>;
 
   async function save() {
-    const { error } = await supabase
-      .from("civic_places")
-      .update({
+    const response = await fetch(`/api/admin/civic-places/${place.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         name: place.name,
         slug: place.slug,
         place_type: place.place_type,
         description: place.description,
-        latitude: place.latitude ? Number(place.latitude) : null,
-        longitude: place.longitude ? Number(place.longitude) : null,
-        year_built: place.year_built ? Number(place.year_built) : null,
-        year_demolished: place.year_demolished ? Number(place.year_demolished) : null,
+        latitude: place.latitude == null || place.latitude === "" ? null : Number(place.latitude),
+        longitude: place.longitude == null || place.longitude === "" ? null : Number(place.longitude),
+        year_built: place.year_built == null || place.year_built === "" ? null : Number(place.year_built),
+        year_demolished: place.year_demolished == null || place.year_demolished === "" ? null : Number(place.year_demolished),
         neighborhood: place.neighborhood,
-        is_published: place.is_published,
-      })
-      .eq("id", place.id);
+      }),
+    });
 
-    if (error) {
-      console.error(error);
-      alert("Failed to save changes");
+    if (!response.ok) {
+      const result = await response.json().catch(() => null);
+      alert(result?.error || "Failed to save changes");
       return;
     }
 
@@ -113,26 +113,35 @@ export default function EditPlacePage({
         <input
           className="border p-2 w-full"
           value={place.latitude || ""}
-          onChange={(e) => setPlace({ ...place, latitude: Number(e.target.value) })}
+          onChange={(e) =>
+            setPlace({ ...place, latitude: e.target.value === "" ? null : Number(e.target.value) })
+          }
         />
 
         <input
           className="border p-2 w-full"
           value={place.longitude || ""}
-          onChange={(e) => setPlace({ ...place, longitude: Number(e.target.value) })}
+          onChange={(e) =>
+            setPlace({ ...place, longitude: e.target.value === "" ? null : Number(e.target.value) })
+          }
         />
 
         <input
           className="border p-2 w-full"
           value={place.year_built || ""}
-          onChange={(e) => setPlace({ ...place, year_built: Number(e.target.value) })}
+          onChange={(e) =>
+            setPlace({ ...place, year_built: e.target.value === "" ? null : Number(e.target.value) })
+          }
         />
 
         <input
           className="border p-2 w-full"
           value={place.year_demolished || ""}
           onChange={(e) =>
-            setPlace({ ...place, year_demolished: Number(e.target.value) })
+            setPlace({
+              ...place,
+              year_demolished: e.target.value === "" ? null : Number(e.target.value),
+            })
           }
         />
 
@@ -149,15 +158,6 @@ export default function EditPlacePage({
           ))}
         </select>
 
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={place.is_published}
-            onChange={(e) => setPlace({ ...place, is_published: e.target.checked })}
-          />
-          Published
-        </label>
-
         <button
           className="bg-blue-600 text-white px-4 py-2 rounded"
           onClick={save}
@@ -167,26 +167,25 @@ export default function EditPlacePage({
 
         <button
           onClick={async () => {
-            if (!confirm("Are you sure you want to delete this Place? This cannot be undone.")) {
+            if (!confirm("Hide this Place? It will no longer be publicly visible.")) {
               return;
             }
 
-            const { error } = await supabase
-              .from("civic_places")
-              .delete()
-              .eq("id", place.id);
+            const response = await fetch(`/api/admin/civic-places/${place.id}/hide`, {
+              method: "POST",
+            });
 
-            if (error) {
-              console.error(error);
-              alert("Error deleting place.");
+            if (!response.ok) {
+              const result = await response.json().catch(() => null);
+              alert(result?.error || "Error hiding Place.");
               return;
             }
 
             router.push(`/${citySlug}/places`);
           }}
-          className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+          className="bg-amber-600 text-white px-4 py-2 rounded hover:bg-amber-700"
         >
-          Delete Place
+          Hide Place
         </button>
 
         <button

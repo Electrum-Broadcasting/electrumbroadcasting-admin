@@ -20,7 +20,6 @@ export default function CreatePlacePage({ params }: { params: { citySlug: string
     year_built: "",
     year_demolished: "",
     neighborhood: "",
-    is_published: false,
   });
 
   const [neighborhoods, setNeighborhoods] = useState<any[]>([]);
@@ -48,38 +47,26 @@ export default function CreatePlacePage({ params }: { params: { citySlug: string
   }, [citySlug]);
 
   async function save() {
-    const { data: city } = await supabase
-      .from("cities")
-      .select("id")
-      .eq("slug", citySlug)
-      .single();
-
-    if (!city) {
-      alert("City not found");
-      return;
-    }
-
-    const slugValue =
-      form.slug?.trim() ||
-      form.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-
-    const { error } = await supabase.from("civic_places").insert({
-      city_id: city.id,
-      name: form.name,
-      slug: slugValue,
-      place_type: form.place_type,
-      description: form.description,
-      latitude: form.latitude ? Number(form.latitude) : null,
-      longitude: form.longitude ? Number(form.longitude) : null,
-      year_built: form.year_built ? Number(form.year_built) : null,
-      year_demolished: form.year_demolished ? Number(form.year_demolished) : null,
-      neighborhood: form.neighborhood,
-      is_published: form.is_published,
+    const response = await fetch("/api/admin/civic-places", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        citySlug,
+        name: form.name,
+        slug: form.slug,
+        place_type: form.place_type,
+        description: form.description,
+        latitude: form.latitude ? Number(form.latitude) : null,
+        longitude: form.longitude ? Number(form.longitude) : null,
+        year_built: form.year_built ? Number(form.year_built) : null,
+        year_demolished: form.year_demolished ? Number(form.year_demolished) : null,
+        neighborhood: form.neighborhood,
+      }),
     });
 
-    if (error) {
-      console.error(error);
-      alert("Failed to save place");
+    if (!response.ok) {
+      const result = await response.json().catch(() => null);
+      alert(result?.error || "Failed to save place");
       return;
     }
 
@@ -159,15 +146,6 @@ export default function CreatePlacePage({ params }: { params: { citySlug: string
             </option>
           ))}
         </select>
-
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={form.is_published}
-            onChange={(e) => setForm({ ...form, is_published: e.target.checked })}
-          />
-          Published
-        </label>
 
         <button
           className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"

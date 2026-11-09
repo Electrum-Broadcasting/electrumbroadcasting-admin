@@ -4296,6 +4296,17 @@ export type Database = {
       }
     }
     Functions: {
+      admin_mutate_civic_place: {
+        Args: {
+          p_actor_admin_id: string
+          p_actor_auth_uid: string
+          p_expected_city_id: string
+          p_operation: string
+          p_place_data: Json
+          p_place_id: string | null
+        }
+        Returns: Json
+      }
       admin_create_city:
         | {
             Args: {
