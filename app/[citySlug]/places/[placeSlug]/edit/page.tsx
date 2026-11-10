@@ -17,6 +17,15 @@ export default function EditPlacePage({
   const [place, setPlace] = useState<any>(null);
   const [neighborhoods, setNeighborhoods] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actions, setActions] = useState<{
+    status: string | null;
+    isPublished: boolean | null;
+    canEdit: boolean;
+    canApprove: boolean;
+    canHide: boolean;
+    canRestore: boolean;
+  } | null>(null);
+  const [authorizationError, setAuthorizationError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -46,6 +55,15 @@ export default function EditPlacePage({
 
       setPlace(placeData);
       setNeighborhoods(neighborhoodList || []);
+      if (placeData) {
+        const response = await fetch(`/api/admin/civic-places/${placeData.id}`);
+        const result = await response.json().catch(() => null);
+        if (response.ok && result?.actions) {
+          setActions(result.actions);
+        } else {
+          setAuthorizationError(result?.error || "You are not authorized to manage this Place.");
+        }
+      }
       setLoading(false);
     }
 
@@ -54,6 +72,29 @@ export default function EditPlacePage({
 
   if (loading) return <div className="p-6">Loading…</div>;
   if (!place) return <div className="p-6">Place not found</div>;
+  if (!actions) {
+    return <div className="p-6">{authorizationError || "Unable to load Place permissions."}</div>;
+  }
+
+  async function runLifecycleAction(action: "approve" | "hide" | "restore") {
+    const labels = {
+      approve: "Approve and publish this Place?",
+      hide: "Hide this Place?",
+      restore: "Restore this Place to pending and unpublished?",
+    };
+    if (!confirm(labels[action])) return;
+
+    const response = await fetch(`/api/admin/civic-places/${place.id}/${action}`, {
+      method: "POST",
+    });
+    if (!response.ok) {
+      const result = await response.json().catch(() => null);
+      alert(result?.error || `Place ${action} failed`);
+      return;
+    }
+
+    router.push(`/${citySlug}/places`);
+  }
 
   async function save() {
     const response = await fetch(`/api/admin/civic-places/${place.id}`, {
@@ -84,8 +125,11 @@ export default function EditPlacePage({
   return (
     <div className="p-6 space-y-6 max-w-3xl">
       <h1 className="text-3xl font-bold">Edit Place</h1>
+      <p className="text-gray-600">
+        Status: {place.status || "—"} · Published: {place.is_published ? "Yes" : "No"}
+      </p>
 
-      <div className="space-y-4">
+      {actions.canEdit && <div className="space-y-4">
         <input
           className="border p-2 w-full"
           value={place.name}
@@ -165,29 +209,33 @@ export default function EditPlacePage({
           Save Changes
         </button>
 
-        <button
-          onClick={async () => {
-            if (!confirm("Hide this Place? It will no longer be publicly visible.")) {
-              return;
-            }
+      </div>}
 
-            const response = await fetch(`/api/admin/civic-places/${place.id}/hide`, {
-              method: "POST",
-            });
-
-            if (!response.ok) {
-              const result = await response.json().catch(() => null);
-              alert(result?.error || "Error hiding Place.");
-              return;
-            }
-
-            router.push(`/${citySlug}/places`);
-          }}
-          className="bg-amber-600 text-white px-4 py-2 rounded hover:bg-amber-700"
-        >
-          Hide Place
-        </button>
-
+      <div className="flex gap-3">
+        {actions.canApprove && (
+          <button
+            onClick={() => runLifecycleAction("approve")}
+            className="bg-green-700 text-white px-4 py-2 rounded hover:bg-green-800"
+          >
+            Approve
+          </button>
+        )}
+        {actions.canHide && (
+          <button
+            onClick={() => runLifecycleAction("hide")}
+            className="bg-amber-600 text-white px-4 py-2 rounded hover:bg-amber-700"
+          >
+            Hide Place
+          </button>
+        )}
+        {actions.canRestore && (
+          <button
+            onClick={() => runLifecycleAction("restore")}
+            className="bg-indigo-700 text-white px-4 py-2 rounded hover:bg-indigo-800"
+          >
+            Restore to Pending
+          </button>
+        )}
         <button
           onClick={() => router.push(`/${citySlug}/places`)}
           className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400"

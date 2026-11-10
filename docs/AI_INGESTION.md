@@ -206,6 +206,12 @@ status = 'approved'
 is_published = true
 hero_360_url IS NOT NULL
 
+For `civic_places`, approval is restricted to the guarded transition
+`pending / false` → `approved / true`; the Place approval operation does not impose
+a hero-media eligibility check. This exception does not change other civic object
+types. Legacy `pending / true` Places are preserved and are not automatically
+reprocessed.
+
 ## 9. Governance & Safety
 ### 9.1 Versioning
 The ingestion pipeline is versioned:

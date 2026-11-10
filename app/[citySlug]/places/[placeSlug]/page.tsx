@@ -79,6 +79,9 @@ export default function PlaceDetailPage({
         <span className="font-medium">Published:</span>{" "}
         {place.is_published ? "Yes" : "No"}
       </div>
+      <div className="text-gray-500">
+        <span className="font-medium">Status:</span> {place.status || "—"}
+      </div>
 
       <div className="text-gray-400 text-sm">
         Created: {new Date(place.created_at).toLocaleString()}

@@ -10,6 +10,8 @@ export default function PlacesAdminListPage({ params }: { params: { citySlug: st
   const { citySlug } = params;
   const [places, setPlaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [canCreate, setCanCreate] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -30,6 +32,15 @@ export default function PlacesAdminListPage({ params }: { params: { citySlug: st
         .eq("city_id", city.id)
         .order("name", { ascending: true });
 
+      const accessResponse = await fetch(
+        `/api/admin/civic-places/access?citySlug=${encodeURIComponent(citySlug)}`,
+      );
+      const access = await accessResponse.json().catch(() => null);
+      if (accessResponse.ok && access?.actions) {
+        setCanCreate(access.actions.canCreate === true);
+        setCanEdit(access.actions.canEdit === true);
+      }
+
       setPlaces(data || []);
       setLoading(false);
     }
@@ -43,12 +54,14 @@ export default function PlacesAdminListPage({ params }: { params: { citySlug: st
     <div className="p-6 space-y-6">
       <h1 className="text-3xl font-bold">Places</h1>
 
-      <Link
-        href={`/${citySlug}/places/create`}
-        className="inline-block bg-blue-600 text-white px-4 py-2 rounded"
-      >
-        Create Place
-      </Link>
+      {canCreate && (
+        <Link
+          href={`/${citySlug}/places/create`}
+          className="inline-block bg-blue-600 text-white px-4 py-2 rounded"
+        >
+          Create Place
+        </Link>
+      )}
 
       <div className="mt-6 border rounded-lg">
         <table className="w-full text-left">
@@ -57,6 +70,7 @@ export default function PlacesAdminListPage({ params }: { params: { citySlug: st
               <th className="p-3">Name</th>
               <th className="p-3">Type</th>
               <th className="p-3">Neighborhood</th>
+              <th className="p-3">Status</th>
               <th className="p-3">Published</th>
               <th className="p-3">Actions</th>
             </tr>
@@ -68,6 +82,7 @@ export default function PlacesAdminListPage({ params }: { params: { citySlug: st
                 <td className="p-3">{p.name}</td>
                 <td className="p-3">{p.place_type || "—"}</td>
                 <td className="p-3">{p.neighborhood || "—"}</td>
+                <td className="p-3">{p.status || "—"}</td>
                 <td className="p-3">{p.is_published ? "Yes" : "No"}</td>
                 <td className="p-3 space-x-3">
                   <Link
@@ -76,19 +91,21 @@ export default function PlacesAdminListPage({ params }: { params: { citySlug: st
                   >
                     View
                   </Link>
-                  <Link
-                    href={`/${citySlug}/places/${p.slug}/edit`}
-                    className="text-blue-600 underline"
-                  >
-                    Edit
-                  </Link>
+                  {canEdit && (
+                    <Link
+                      href={`/${citySlug}/places/${p.slug}/edit`}
+                      className="text-blue-600 underline"
+                    >
+                      Edit
+                    </Link>
+                  )}
                 </td>
               </tr>
             ))}
 
             {places.length === 0 && (
               <tr>
-                <td className="p-3 text-gray-500" colSpan={5}>
+                <td className="p-3 text-gray-500" colSpan={6}>
                   No places found.
                 </td>
               </tr>

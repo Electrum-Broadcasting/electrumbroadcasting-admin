@@ -22,7 +22,23 @@ const PLACE_FIELDS = [
 
 type PlaceField = (typeof PLACE_FIELDS)[number];
 type PlaceData = Partial<Record<PlaceField, string | number | null>>;
-type PlaceOperation = "create_pending" | "edit_metadata" | "hide";
+type PlaceOperation = "create_pending" | "edit_metadata" | "hide" | "approve" | "restore";
+
+type CivicPlaceState = {
+  id: string;
+  cityId: string;
+  status: string | null;
+  isPublished: boolean | null;
+};
+
+export type CivicPlaceActions = {
+  status: string | null;
+  isPublished: boolean | null;
+  canEdit: boolean;
+  canApprove: boolean;
+  canHide: boolean;
+  canRestore: boolean;
+};
 
 export class CivicPlaceMutationError extends Error {
   constructor(
@@ -158,7 +174,33 @@ export async function createPendingCivicPlace(citySlug: unknown, input: unknown)
   return mutatePlace(admin, "create_pending", city.id, null, data);
 }
 
-async function resolveExistingPlace(placeId: unknown) {
+export async function getCivicPlaceCityActions(citySlug: unknown) {
+  const admin = await requirePlacesAdmin();
+  if (typeof citySlug !== "string" || !citySlug.trim()) {
+    throw new CivicPlaceMutationError("City is required", 400);
+  }
+  const sessionClient = createSupabaseServerClient();
+  const { data: city, error } = await sessionClient
+    .from("cities")
+    .select("id")
+    .eq("slug", citySlug.trim())
+    .maybeSingle();
+  if (error) {
+    console.error("Failed to resolve city for civic Place actions:", error);
+    throw new CivicPlaceMutationError("Unable to resolve city", 500);
+  }
+  if (!city) throw new CivicPlaceMutationError("City not found", 404);
+  if (!canAccessCity(admin, city.id)) {
+    throw new CivicPlaceMutationError("Forbidden", 403);
+  }
+
+  return {
+    canCreate: ["CEO", "PLATFORM_ADMIN", "CITY_ADMIN"].includes(admin.role),
+    canEdit: ["CEO", "PLATFORM_ADMIN", "CITY_ADMIN"].includes(admin.role),
+  };
+}
+
+async function resolveExistingPlace(placeId: unknown): Promise<CivicPlaceState> {
   if (!isValidCityId(placeId)) {
     throw new CivicPlaceMutationError("Invalid Place ID", 400);
   }
@@ -166,7 +208,7 @@ async function resolveExistingPlace(placeId: unknown) {
   const sessionClient = createSupabaseServerClient();
   const { data: place, error } = await sessionClient
     .from("civic_places")
-    .select("id, city_id")
+    .select("id, city_id, status, is_published")
     .eq("id", placeId)
     .maybeSingle();
   if (error) {
@@ -177,26 +219,70 @@ async function resolveExistingPlace(placeId: unknown) {
   if (!place.city_id || !isValidCityId(place.city_id)) {
     throw new CivicPlaceMutationError("Place has no valid city assignment", 403);
   }
-  return { id: place.id, cityId: place.city_id };
+  return {
+    id: place.id,
+    cityId: place.city_id,
+    status: place.status,
+    isPublished: place.is_published,
+  };
 }
 
-export async function editCivicPlaceMetadata(placeId: unknown, input: unknown) {
+async function requireAuthorizedPlace(placeId: unknown) {
   const admin = await requirePlacesAdmin();
-  const data = parseCivicPlaceData(input);
   const place = await resolveExistingPlace(placeId);
   if (!canAccessCity(admin, place.cityId)) {
     throw new CivicPlaceMutationError("Forbidden", 403);
   }
+  return { admin, place };
+}
+
+export async function getCivicPlaceActions(placeId: unknown): Promise<CivicPlaceActions> {
+  const { admin, place } = await requireAuthorizedPlace(placeId);
+  const stateIs = (status: string, isPublished: boolean) =>
+    place.status === status && place.isPublished === isPublished;
+  const cityAdmin = admin.role === "CITY_ADMIN";
+  const ceo = admin.role === "CEO";
+  const canModerate = cityAdmin || ceo;
+
+  return {
+    status: place.status,
+    isPublished: place.isPublished,
+    canEdit: ["CEO", "PLATFORM_ADMIN", "CITY_ADMIN"].includes(admin.role),
+    canApprove: cityAdmin && stateIs("pending", false),
+    canHide: canModerate
+      && (stateIs("approved", true) || stateIs("pending", true)),
+    canRestore: canModerate && stateIs("hidden", false),
+  };
+}
+
+export async function editCivicPlaceMetadata(placeId: unknown, input: unknown) {
+  const { admin, place } = await requireAuthorizedPlace(placeId);
+  const data = parseCivicPlaceData(input);
   return mutatePlace(admin, "edit_metadata", place.cityId, place.id, data);
 }
 
 export async function hideCivicPlace(placeId: unknown) {
-  const admin = await requirePlacesAdmin();
-  const place = await resolveExistingPlace(placeId);
-  if (!canAccessCity(admin, place.cityId)) {
+  const { admin, place } = await requireAuthorizedPlace(placeId);
+  if (!["CEO", "CITY_ADMIN"].includes(admin.role)) {
     throw new CivicPlaceMutationError("Forbidden", 403);
   }
   return mutatePlace(admin, "hide", place.cityId, place.id, {});
+}
+
+export async function approveCivicPlace(placeId: unknown) {
+  const { admin, place } = await requireAuthorizedPlace(placeId);
+  if (admin.role !== "CITY_ADMIN") {
+    throw new CivicPlaceMutationError("Forbidden", 403);
+  }
+  return mutatePlace(admin, "approve", place.cityId, place.id, {});
+}
+
+export async function restoreCivicPlace(placeId: unknown) {
+  const { admin, place } = await requireAuthorizedPlace(placeId);
+  if (!["CEO", "CITY_ADMIN"].includes(admin.role)) {
+    throw new CivicPlaceMutationError("Forbidden", 403);
+  }
+  return mutatePlace(admin, "restore", place.cityId, place.id, {});
 }
 
 export function parseCivicPlaceRequest(body: unknown) {

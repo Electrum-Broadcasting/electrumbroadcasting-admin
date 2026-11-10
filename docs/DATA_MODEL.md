@@ -291,6 +291,20 @@ ingestion_metadata	jsonb
 status	text
 Ingestion columns (ingestion_source, ingestion_metadata, status) inherit the RLS policies of their respective civic_ tables. No additional RLS rules are required.*
 
+#### Place lifecycle operations
+
+Guarded Admin Place mutations use `pending / false`, `approved / true`, and
+`hidden / false`. Approval is City Admin-only and requires an assigned city; CEO
+may edit, hide, and restore but may not approve; PLATFORM_ADMIN may edit only;
+EDITOR has no Place mutation authority. Restore returns `hidden / false` to
+`pending / false`. Hide is accepted from `approved / true` and the legacy
+`pending / true` state. Existing legacy rows are not normalized automatically.
+
+These are operation-level invariants, not a claim that the database has a status
+CHECK constraint. Authenticated direct DML remains revoked; all Place mutations
+use `admin_mutate_civic_place(...)` and write their audit record in the same
+transaction.
+
 ### 3.6 Table: civic_events
 
 Represents historical or contemporary events.
@@ -2923,6 +2937,7 @@ section.
 |            | object_escalated, object_overridden, metadata_edited, media_uploaded,                     |								
 |            | metadata_requested, media_360_requested, suggestion_accepted, suggestion_rejected,        |								
 |            | escalation_resolved, page_settings_edited                                                 |
+| places     | PLACE_CREATE_PENDING, PLACE_EDIT_METADATA, PLACE_HIDE, PLACE_APPROVE, PLACE_RESTORE         |
 | budget     | payout_batch_created, payout_batch_item_added, payout_batch_item_removed,                 |								
 |            | payout_batch_authorized, payout_batch_rejected, payout_dispute_resolved,                  |								
 |            | sponsor_credit_applied                                                                    |								

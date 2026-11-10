@@ -91,6 +91,11 @@ Objects become public when:
 - `is_published = true`
 - `hero_360_url IS NOT NULL`
 
+For `civic_places`, the guarded lifecycle operation does not enforce a hero-media
+requirement: approval transitions `pending / false` to `approved / true`.
+This Places-specific rule does not change the publication workflow for other civic
+object types.
+
 > **Note — hero_360_url and panoramas:** When a City Admin publishes a panorama with `display_order = 0` for a civic object, `hero_360_url` on the parent civic object is automatically updated to match the panorama's `equirectangular_url` (via trigger). City Admins do not need to set `hero_360_url` manually for objects that have a primary published panorama. See PANORAMA_MODEL.md §10.1.
 
 ---
@@ -198,6 +203,30 @@ A civic object is eligible for public display only when all of the following are
 ### 10.5 Audit
 
 All Object Manager actions (approve, hide, merge, escalate, metadata edit) are written to `admin_action_logs` with `entity_type` and `entity_id` populated. See §14.
+
+### 10.5.1 Place lifecycle
+
+The guarded Place operation supports these states and transitions:
+
+| Current state | Action | Result |
+|---|---|---|
+| `pending / false` | City Admin approves | `approved / true` |
+| `approved / true` | City Admin or CEO hides | `hidden / false` |
+| `pending / true` (legacy) | City Admin or CEO hides | `hidden / false` |
+| `hidden / false` | City Admin or CEO restores | `pending / false` |
+
+Approval is City Admin-only and requires the assigned city. CEO may edit, hide, and
+restore Places, but may not approve or publish them. PLATFORM_ADMIN may edit Places
+only. EDITOR has no Place mutation authority. All operations resolve the Place's
+trusted city and enforce City Admin assignment server-side.
+
+Restoration always returns a Place to pending and unpublished; it never restores a
+previous approval. Legacy `pending / true` rows are preserved as-is until an
+authorized hide operation; they are not automatically approved or normalized.
+
+The list displays both `status` and publication state. State- and role-eligible
+Approve, Hide, and Restore controls are shown on the Place edit page; direct API
+requests are independently checked by the guarded database operation.
 
 ---
 
@@ -790,4 +819,3 @@ Every existing section was preserved verbatim. Additions are integrated inline a
 - §16.9 Restrictions summary table (City Admin vs. CEO for every immersive media action)
 
 ---
-

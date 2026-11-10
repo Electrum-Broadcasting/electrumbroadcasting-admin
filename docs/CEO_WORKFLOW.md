@@ -60,6 +60,10 @@ CEO may:
 •	request additional metadata
 •	request additional 360° media
 
+For `civic_places`, the approved lifecycle is narrower: CEO may edit, hide, and
+restore, but may not approve or publish. Place approval is limited to an assigned
+City Admin.
+
 ### 3.3 Safety Enforcement
 CEO ensures:
 •	no harmful content
@@ -439,4 +443,3 @@ The CEO uses the Search Admin tool to:
 All CEO search governance actions are written to admin_action_logs (domain = search).
 The search domain is operational, not security-critical; no search action is written
 to security_audit_log.
-
