@@ -12,7 +12,16 @@ Follow a city_navigation link
 
 Navigate directly to /[objectType]/[slug]
 
-Tap an AR marker or scan a QR code anchored to a real-world location
+In a future AR experience (Future Possibility), tap an AR marker or scan a QR code anchored to a real-world location
+
+Object Pages follow the Bifocal Dual-Register Paradigm defined in
+[IMMERSIVE_EXPERIENCE_VISION.md](./IMMERSIVE_EXPERIENCE_VISION.md). The Spatial Register is the
+panorama stage for presence, orientation, sightlines, and place context. The Curatorial Register
+is the record for narrative, evidence, timelines, relationships, and history. Neither register
+substitutes for the other; when immersive media is unavailable, the page preserves the object's
+importance through the Curatorial Register rather than collapsing its composition.
+Specification authority is: IMMERSIVE_EXPERIENCE_VISION.md > OBJECT_PAGE_MODEL.md >
+PANORAMA_MODEL.md > HOTSPOT_MODEL.md > HOTSPOT_WORKFLOW.md.
 
 This document defines:
 
@@ -101,11 +110,11 @@ description	Hero body text
 is_published	Publication gate
 status	Ingestion gate
 tags	Tag chips (where available)
-hero_image_url	Hero image (entities, artifacts)
-hero_360_url	Viewer fallback (entities, artifacts, stories)
-thumbnail_360_url	Viewer fallback (events, moments)
-thumbnail_url	Card image (entities)
-media_urls	Media gallery (entities, artifacts)
+Primary hero attachment	Hero image; resolved through civic_media_attachments → media_assets
+Primary thumbnail attachment	Card image; resolved through civic_media_attachments → media_assets, falling back to the hero attachment
+Gallery / evidence attachments	Media gallery; resolved through civic_media_attachments → media_assets
+hero_image_url, thumbnail_url, media_urls	Legacy compatibility fields only; not authoritative
+hero_360_url	Generated compatibility URL from the primary published panoramas row; not authored or used as a separate source
 
 
 ### 3.2 Panoramas
@@ -119,11 +128,17 @@ WHERE civic_object_id   = :object_id
   AND civic_object_type = :object_type
   AND status            = 'published'
 ORDER BY display_order ASC;
-One or more rows → render the Panorama Viewer (§4.2) with the primary panorama (display_order lowest).
+One or more rows → render the Panorama Viewer (§4.2) with the primary panorama (lowest display_order among published rows).
 
-Zero rows, hero_360_url or thumbnail_360_url IS NOT NULL → render simplified viewer using that URL directly. Initial pan_x = 0.5, pan_y = 0.5.
+Zero rows → do not render an immersive viewer from a civic object's URL field. Render the
+primary hero attachment and other available civic_media_attachments instead. Legacy direct-URL
+rows may be read only as a migration fallback; new uploads and canonical reads use panoramas.
 
-Zero rows, no 360° URL → render static hero image (hero_image_url) or placeholder.
+If immersive media is absent, unavailable, or fails to load, apply the Archival Dignity Rule
+(§4.2): elevate available archival imagery, maps, blueprints, or illustrations while preserving
+the hero's proportion, page composition, and object importance. Never render broken imagery, an
+empty viewer state, or a collapsed page. A placeholder must not replace available curatorial
+media. This fallback does not change publication or media-approval requirements.
 
 ### 3.3 Hotspots
 sql
@@ -143,13 +158,21 @@ Stories are linked to civic objects via the related_*_ids array columns on civic
 sql
 
 -- For civic_place:
-SELECT id, title, slug, published_at, hero_image_url, summary, category
-FROM civic_stories
-WHERE city_id        = :city_id
-  AND review_status  = 'published'
-  AND safety_hold    = false
-  AND :object_id     = ANY(related_place_ids)
-ORDER BY published_at DESC
+SELECT s.id, s.title, s.slug, s.published_at, s.summary, s.category,
+       hero_asset.url AS hero_url
+FROM civic_stories s
+LEFT JOIN civic_media_attachments hero_attachment
+  ON hero_attachment.city_id = s.city_id
+ AND hero_attachment.civic_object_id = s.id
+ AND hero_attachment.civic_object_type = 'civic_story'
+ AND hero_attachment.role = 'hero'
+ AND hero_attachment.is_primary = true
+LEFT JOIN media_assets hero_asset ON hero_asset.id = hero_attachment.media_asset_id
+WHERE s.city_id        = :city_id
+  AND s.review_status  = 'published'
+  AND s.safety_hold    = false
+  AND :object_id       = ANY(s.related_place_ids)
+ORDER BY s.published_at DESC
 LIMIT 5;
 
 -- For civic_entity:
@@ -214,7 +237,7 @@ Sections render conditionally based on data availability. The order below is the
 │ 4.4  Hero — Name/Title, Description, Metadata Panel           │
 │      └── Action Bar (Share, Bookmark, Open in VR)             │
 ├───────────────────────────────────────────────────────────────┤
-│ 4.5  Media Gallery             (if media_urls present)        │
+│ 4.5  Media Gallery             (if gallery/evidence attached) │
 ├───────────────────────────────────────────────────────────────┤
 │ 4.6  Related Stories           (if any published stories)     │
 ├───────────────────────────────────────────────────────────────┤
@@ -234,9 +257,19 @@ Applies city_design_system.published_theme tokens (THEME_SCHEMA.md canonical sha
 ### 4.2 Panorama Viewer
 Full-width 360° interactive viewer.
 
-Opens at pan_x_initial, pan_y_initial from the primary panorama row. Falls back to 0.5, 0.5 when using hero_360_url / thumbnail_360_url directly.
+Opens at pan_x_initial, pan_y_initial from the primary panorama row. If no
+published panorama row exists, do not create an immersive viewer from a
+civic-object URL field.
 
-Renders all active hotspots for the loaded panorama at their (pan_x, pan_y) positions. The viewer converts pan_x/pan_y to its internal coordinate system at render time (HOTSPOT_MODEL.md §2).
+Renders all active hotspots by projecting their source-panorama UV coordinates into viewer space
+for the current camera orientation (HOTSPOT_MODEL.md §2). Stored pan_x/pan_y values are not
+viewport or screen-pixel coordinates.
+
+Intended viewer behavior / acceptance criteria: equirectangular panorama; auto-rotation at
+3°/second; pitch lock at +14° and -14°; drag interaction; compass awareness; camera-aware hotspot
+positioning and viewport clipping; auto-rotation yields to user interaction. The authoritative
+vision currently classifies the panorama canvas and normalized UV hotspots as Current
+Implementation; these criteria preserve that behavior contract and are not a scope expansion.
 
 Hotspot callout card on click/tap: label, metadata.short_description, icon, CTA button.
 
@@ -246,8 +279,12 @@ target_type	CTA action
 civic_entity / event / place / moment / artifact / neighborhood	Navigate to that Object Page
 civic_story	Navigate to Story Page
 panorama	Replace viewer with destination panorama (no page navigation)
-external_url	Open target_url in new tab
+external_url	Leave the Atlas intentionally by opening target_url in a new tab
 
+For civic-object targets, navigate to the corresponding target Object Page (for example, an
+Artifact hotspot opens the Artifact page). A Story hotspot navigates to the Story Page. A
+panorama target remains within the immersive viewer; its intended future transition is a seamless
+0.6-second exposure-style cross-fade while preserving the Curatorial Register and page context.
 
 Viewer controls: drag-to-look, pinch-to-zoom, fullscreen toggle, gyroscope (mobile).
 
@@ -255,9 +292,16 @@ Keyboard: arrow keys to look; Tab to cycle between hotspots; Enter to activate f
 
 Screen reader: each hotspot marker has aria-label = hotspot.label; hotspot list announced on viewer focus.
 
-Fallback: if WebGL unavailable → static thumbnail_url from the primary panorama row.
+Archival Dignity fallback: if WebGL is unavailable or the panorama cannot be rendered, do not
+show a broken image, empty viewer, or collapsed hero. Elevate an available archival image, map,
+blueprint, or illustration in a full-proportion hero, retaining the page's title, metadata,
+timeline, connected objects, and other curatorial context. A valid static panorama thumbnail may
+be used when it supports this composed fallback; it is not the only fallback.
 
-Conditional: section omitted entirely when no panorama and no 360° URL exists.
+If no published panorama exists, omit the interactive viewer; retain the
+Archival Dignity hero fallback and the Curatorial Register. Do not source an
+interactive viewer from a civic-object URL field. The Object Page must not
+collapse or be replaced with an empty state.
 
 ### 4.3 Panorama Carousel
 Rendered below the viewer when two or more published panoramas exist.
@@ -300,23 +344,29 @@ Share — native Web Share API; falls back to copy-link.
 
 Bookmark — authenticated users only; client-side, no server persistence in v1.
 
-Open in VR — shown when civic_object_page_settings.enable_vr_button = true AND navigator.xr is available (see §6.2).
+Open in VR — Intended Behavior; the setting and navigator.xr support do not imply that the
+WebXR renderer is currently implemented (see §7.2).
 
-Open in AR — shown when civic_object_page_settings.enable_ar_button = true AND the AR module launch flag is active (see §6.3).
+Open in AR — Future Possibility, not approved implementation scope (see §7.3).
 
 ### 4.5 Media Gallery
-Source: media_urls ARRAY (available on civic_entities, civic_artifacts). media_url (single, civic_artifacts) is also shown when present.
+Source: `civic_media_attachments` rows with role `gallery` or `evidence`,
+resolved through `media_assets.url`. Legacy `media_urls` and `media_url` values
+may be read only as migration fallbacks; they are not authoritative.
 
 Rendered as a masonry grid (≥ 3 items) or horizontal strip (1–2 items).
 
 Lightbox on click.
 
-Conditional: section hidden when media_urls is empty or NULL.
+Conditional: section hidden when no gallery/evidence attachment (or legacy
+migration fallback) is available.
 
 ### 4.6 Related Stories
 Source: civic_stories queried via related_*_ids array membership (see §3.4).
 
-Renders up to 5 story cards: hero_image_url, title, category, published_at, summary (truncated to 120 chars).
+Renders up to 5 story cards: primary hero attachment URL, title, category,
+published_at, summary (truncated to 120 chars). During migration only, the
+legacy hero_image_url may supply the image when no hero attachment exists.
 
 Each card links to /stories/[slug].
 
@@ -354,7 +404,8 @@ CREATE TABLE civic_object_page_settings (
                                 'civic_place',
                                 'civic_moment',
                                 'civic_artifact',
-                                'civic_neighborhood'
+                                'civic_neighborhood',
+                                'civic_story'
                               )),
 
   -- ── Section visibility ────────────────────────────────────────────────────
@@ -510,16 +561,39 @@ civic_stories (where is_published = true, safety_hold = false, object id in rela
 civic_object_page_settings (server-side loader; anon can select only the allowlisted presentation and SEO columns)
 
 ## 7. UI Requirements
+
+### 7.0 Feature State Classification
+Use the categories and meanings in IMMERSIVE_EXPERIENCE_VISION.md: Current Implementation means
+verified and implemented; Intended Behavior means an approved near-term target; Future Possibility
+is not approved implementation scope. A feature appearing in a data model or UI sketch does not
+by itself authorize implementation.
+
+The enable_vr_button and enable_ar_button fields in the documented settings shape do not establish
+that either capability is available; use the states below.
+
+| Capability | State |
+|---|---|
+| Equirectangular panorama, drag, ±14° pitch lock, 3°/second auto-rotation, compass, normalized UV hotspots | Current Implementation (per authoritative vision) |
+| Hotspot hover/detail versus direct-jump mechanics | Intended Behavior |
+| Seamless 0.6-second panorama cross-fade | Intended Behavior |
+| WebXR / headset mode | Intended Behavior; renderer integration is not represented as current |
+| Spatial audio | Intended Behavior |
+| AR | Future Possibility; no implementation approval is established by the vision |
+| Unity integration | Future Possibility; not approved implementation scope |
+| Volumetric reconstruction | Future Possibility |
+| Temporal slider | Future Possibility |
+| Community memory pinning | Future Possibility |
+
 Requirement	Detail
 SSR / ISR	Server-rendered; revalidated on civic object publish/update. CDN cache TTL: 60 s.
 On-demand revalidation	revalidatePath('/[type]/[slug]') called by publish RPC.
 404 behaviour	is_published = false → 404; no status leak.
 Slug redirect	Old slug → 301 to current slug for 90 days after slug change.
 Responsive	Mobile-first; panorama viewer full-width on small screens; metadata panel stacks below viewer.
-Viewer skeleton	Panorama section shows skeleton UI until equirectangular_url asset loaded.
-WebGL fallback	Viewer unavailable → static thumbnail_url; hotspot list rendered as accessible text list.
+Viewer loading	Panorama section may show a loading skeleton while equirectangular_url loads; it must not become a persistent empty viewer state.
+Archival Dignity fallback	If immersive media is unavailable, elevate available archival imagery, maps, blueprints, or illustrations in the hero while preserving page composition and object importance; do not show broken imagery or collapse the page. Retain the accessible hotspot list only when it has a meaningful corresponding panorama context.
 Theme	Applies published city_design_system canonical theme (THEME_SCHEMA.md).
-OG tags	og:title = name/title; og:image = og_image_url ?? primary panorama thumbnail_url ?? hero_image_url; og:type = place or article per object type.
+OG tags	og:title = name/title; og:image = og_image_url ?? primary panorama thumbnail_url ?? primary hero attachment URL; og:type = place or article per object type. Legacy hero_image_url is a migration fallback only.
 JSON-LD	TouristAttraction (places), Event (events), Person/Organization (entities), per schema.org.
 Analytics	Page view event emitted with city_id, civic_object_type, civic_object_id. Not emitted in admin preview mode.
 Print	Print stylesheet hides viewer, carousel, map, sponsor bar. Retains title, metadata panel, related stories list.
@@ -543,6 +617,10 @@ A floating admin toolbar appears with shortcuts to Object Manager, Panorama Edit
 Preview mode is activated when the server detects a valid admin session cookie and the requested object's city_id is in the admin's city_ids array.
 
 ### 7.2 Open in VR
+Intended Behavior — WebXR integration is an approved near-term target in the authoritative
+vision, not a claim that the renderer is currently implemented. This section documents target
+behavior and does not authorize implementation in the current reconciliation phase.
+
 When civic_object_page_settings.enable_vr_button = true and navigator.xr returns a supported immersive-vr session:
 
 Enters a WebXR immersive-vr session.
@@ -560,6 +638,9 @@ Supports 3DoF (Cardboard) and 6DoF (Quest, Vive) headsets.
 Behavior keys from hotspots.behavior are consumed by the VR layer (linger_ms, haptic_preset, animation, interaction_radius). See HOTSPOT_MODEL.md §12.
 
 ### 7.3 Open in AR
+Future Possibility — AR is not approved implementation scope. The following is retained as a
+concept for a future phase, not a current requirement.
+
 When civic_object_page_settings.enable_ar_button = true and the global AR launch flag is active:
 
 Checks panoramas.metadata.spatial_anchor_id on the primary panorama.
@@ -608,6 +689,9 @@ The action string is defined in CITY_ADMIN_WORKFLOW.md and DATA_MODEL.md §14.3.
 
 ## 10. Future-Proofing Notes
 ### 10.1 Unity Object Page
+Future Possibility — Unity integration is not approved implementation scope. The following
+mapping is conceptual only and is not an implementation requirement.
+
 The Unity client renders an equivalent Object Page as a CivicObjectScene:
 
 Panorama → Panorama360Controller.cs textures a sphere with equirectangular_url.
@@ -623,6 +707,8 @@ Related Stories → StoryCardList.cs renders cards in a scrollable Unity UI pane
 Nearby Map → NearbyObjectsMap.cs renders a mini-map using Mapbox SDK for Unity, consuming latitude/longitude directly.
 
 ### 10.2 AR Overlay
+Future Possibility — not approved implementation scope.
+
 When spatial_anchor_id is populated (PANORAMA_MODEL.md §14.2), the Electrum AR mobile app surfaces the Object Page metadata as a world-anchored floating card at the physical location of the civic object. No schema change required.
 
 ### 10.3 Per-type page templates (future)

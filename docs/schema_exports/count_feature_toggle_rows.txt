@@ -1,0 +1,11 @@
+select
+  count(*) as total_rows,
+  count(*) filter (where enabled is null) as null_enabled_rows
+from public.city_feature_toggles;
+
+[
+  {
+    "total_rows": 6,
+    "null_enabled_rows": 0
+  }
+]

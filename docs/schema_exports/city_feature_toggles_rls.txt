@@ -1,0 +1,10 @@
+[
+  {
+    "policyname": "CEO and platform_admin can manage city feature toggles",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "ALL",
+    "qual": "((auth.jwt() ->> 'role'::text) = ANY (ARRAY['ceo'::text, 'platform_admin'::text]))",
+    "with_check": "((auth.jwt() ->> 'role'::text) = ANY (ARRAY['ceo'::text, 'platform_admin'::text]))"
+  }
+]

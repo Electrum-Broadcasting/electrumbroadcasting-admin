@@ -1,0 +1,247 @@
+[
+  {
+    "table_name": "city_feature_toggles",
+    "grantee": "authenticated",
+    "privilege_type": "INSERT"
+  },
+  {
+    "table_name": "city_feature_toggles",
+    "grantee": "authenticated",
+    "privilege_type": "SELECT"
+  },
+  {
+    "table_name": "city_feature_toggles",
+    "grantee": "authenticated",
+    "privilege_type": "UPDATE"
+  },
+  {
+    "table_name": "city_feature_toggles",
+    "grantee": "authenticated",
+    "privilege_type": "DELETE"
+  },
+  {
+    "table_name": "city_feature_toggles",
+    "grantee": "authenticated",
+    "privilege_type": "TRUNCATE"
+  },
+  {
+    "table_name": "city_feature_toggles",
+    "grantee": "authenticated",
+    "privilege_type": "REFERENCES"
+  },
+  {
+    "table_name": "city_feature_toggles",
+    "grantee": "authenticated",
+    "privilege_type": "TRIGGER"
+  },
+  {
+    "table_name": "media_assets",
+    "grantee": "anon",
+    "privilege_type": "INSERT"
+  },
+  {
+    "table_name": "media_assets",
+    "grantee": "anon",
+    "privilege_type": "SELECT"
+  },
+  {
+    "table_name": "media_assets",
+    "grantee": "anon",
+    "privilege_type": "UPDATE"
+  },
+  {
+    "table_name": "media_assets",
+    "grantee": "anon",
+    "privilege_type": "DELETE"
+  },
+  {
+    "table_name": "media_assets",
+    "grantee": "anon",
+    "privilege_type": "TRUNCATE"
+  },
+  {
+    "table_name": "media_assets",
+    "grantee": "anon",
+    "privilege_type": "REFERENCES"
+  },
+  {
+    "table_name": "media_assets",
+    "grantee": "anon",
+    "privilege_type": "TRIGGER"
+  },
+  {
+    "table_name": "media_assets",
+    "grantee": "authenticated",
+    "privilege_type": "INSERT"
+  },
+  {
+    "table_name": "media_assets",
+    "grantee": "authenticated",
+    "privilege_type": "SELECT"
+  },
+  {
+    "table_name": "media_assets",
+    "grantee": "authenticated",
+    "privilege_type": "UPDATE"
+  },
+  {
+    "table_name": "media_assets",
+    "grantee": "authenticated",
+    "privilege_type": "DELETE"
+  },
+  {
+    "table_name": "media_assets",
+    "grantee": "authenticated",
+    "privilege_type": "TRUNCATE"
+  },
+  {
+    "table_name": "media_assets",
+    "grantee": "authenticated",
+    "privilege_type": "REFERENCES"
+  },
+  {
+    "table_name": "media_assets",
+    "grantee": "authenticated",
+    "privilege_type": "TRIGGER"
+  },
+  {
+    "table_name": "panoramas",
+    "grantee": "anon",
+    "privilege_type": "INSERT"
+  },
+  {
+    "table_name": "panoramas",
+    "grantee": "anon",
+    "privilege_type": "SELECT"
+  },
+  {
+    "table_name": "panoramas",
+    "grantee": "anon",
+    "privilege_type": "UPDATE"
+  },
+  {
+    "table_name": "panoramas",
+    "grantee": "anon",
+    "privilege_type": "DELETE"
+  },
+  {
+    "table_name": "panoramas",
+    "grantee": "anon",
+    "privilege_type": "TRUNCATE"
+  },
+  {
+    "table_name": "panoramas",
+    "grantee": "anon",
+    "privilege_type": "REFERENCES"
+  },
+  {
+    "table_name": "panoramas",
+    "grantee": "anon",
+    "privilege_type": "TRIGGER"
+  },
+  {
+    "table_name": "panoramas",
+    "grantee": "authenticated",
+    "privilege_type": "INSERT"
+  },
+  {
+    "table_name": "panoramas",
+    "grantee": "authenticated",
+    "privilege_type": "SELECT"
+  },
+  {
+    "table_name": "panoramas",
+    "grantee": "authenticated",
+    "privilege_type": "UPDATE"
+  },
+  {
+    "table_name": "panoramas",
+    "grantee": "authenticated",
+    "privilege_type": "DELETE"
+  },
+  {
+    "table_name": "panoramas",
+    "grantee": "authenticated",
+    "privilege_type": "TRUNCATE"
+  },
+  {
+    "table_name": "panoramas",
+    "grantee": "authenticated",
+    "privilege_type": "REFERENCES"
+  },
+  {
+    "table_name": "panoramas",
+    "grantee": "authenticated",
+    "privilege_type": "TRIGGER"
+  },
+  {
+    "table_name": "hotspots",
+    "grantee": "anon",
+    "privilege_type": "INSERT"
+  },
+  {
+    "table_name": "hotspots",
+    "grantee": "anon",
+    "privilege_type": "SELECT"
+  },
+  {
+    "table_name": "hotspots",
+    "grantee": "anon",
+    "privilege_type": "UPDATE"
+  },
+  {
+    "table_name": "hotspots",
+    "grantee": "anon",
+    "privilege_type": "DELETE"
+  },
+  {
+    "table_name": "hotspots",
+    "grantee": "anon",
+    "privilege_type": "TRUNCATE"
+  },
+  {
+    "table_name": "hotspots",
+    "grantee": "anon",
+    "privilege_type": "REFERENCES"
+  },
+  {
+    "table_name": "hotspots",
+    "grantee": "anon",
+    "privilege_type": "TRIGGER"
+  },
+  {
+    "table_name": "hotspots",
+    "grantee": "authenticated",
+    "privilege_type": "INSERT"
+  },
+  {
+    "table_name": "hotspots",
+    "grantee": "authenticated",
+    "privilege_type": "SELECT"
+  },
+  {
+    "table_name": "hotspots",
+    "grantee": "authenticated",
+    "privilege_type": "UPDATE"
+  },
+  {
+    "table_name": "hotspots",
+    "grantee": "authenticated",
+    "privilege_type": "DELETE"
+  },
+  {
+    "table_name": "hotspots",
+    "grantee": "authenticated",
+    "privilege_type": "TRUNCATE"
+  },
+  {
+    "table_name": "hotspots",
+    "grantee": "authenticated",
+    "privilege_type": "REFERENCES"
+  },
+  {
+    "table_name": "hotspots",
+    "grantee": "authenticated",
+    "privilege_type": "TRIGGER"
+  }
+]

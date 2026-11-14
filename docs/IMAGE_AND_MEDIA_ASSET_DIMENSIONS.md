@@ -3,15 +3,15 @@ Target Reference: CITY_ADMIN_DASHBOARD.md & Public UI Interfaces
 Storage Bucket: Unified Supabase storage bucket universal-media
 
 ## 1. Master Dimension Quick Reference
-Asset Category	Field / Placement Name	Aspect Ratio	Target Dimensions (W × H)	Minimum Resolution	Max File Size	Permitted Formats
+Asset Category	Attachment Role / Placement Name	Aspect Ratio	Target Dimensions (W × H)	Minimum Resolution	Max File Size	Permitted Formats
 Immersive 360°	panoramas.equirectangular_url	2:1	4096 × 2048 px (4K) / 8192 × 4096 px (8K)	2048 × 1024 px	50 MB (img) / 2 GB (video)	JPG, PNG, WebP, MP4
 Immersive 360°	panoramas.thumbnail_url	2:1 or 16:9	800 × 400 px or 640 × 360 px	400 × 200 px	2 MB	JPG, PNG, WebP
-Story Page	civic_stories.hero_image_url	3:2 or 16:9	1200 × 800 px or 1600 × 900 px	800 × 533 px	10 MB	JPG, PNG, WebP
+Story Page	Primary hero attachment (role: hero)	3:2 or 16:9	1200 × 800 px or 1600 × 900 px	800 × 533 px	10 MB	JPG, PNG, WebP
 Story Page	Inline Body Imagery	Flexible	Max width 1200 px (e.g. 1200 × 800 px)	600 px width	8 MB	JPG, PNG, WebP
 Story / Object	og_image_url (Social Share)	1.91:1	1200 × 630 px	600 × 315 px	5 MB	JPG, PNG
-Civic Object	hero_image_url (Fallback)	16:9 or 3:2	1600 × 900 px or 1200 × 800 px	800 × 450 px	10 MB	JPG, PNG, WebP
-Civic Object	thumbnail_url (List Card)	16:9 or 4:3	640 × 360 px or 800 × 600 px	320 × 180 px	2 MB	JPG, PNG, WebP
-Civic Object	media_urls (Archival Gallery)	Native	1600 – 2400 px on longest edge	800 px edge	15 MB	JPG, PNG, WebP
+Civic Object	Primary hero attachment (role: hero)	16:9 or 3:2	1600 × 900 px or 1200 × 800 px	800 × 450 px	10 MB	JPG, PNG, WebP
+Civic Object	Primary thumbnail attachment (role: thumbnail)	16:9 or 4:3	640 × 360 px or 800 × 600 px	320 × 180 px	2 MB	JPG, PNG, WebP
+Civic Object	Gallery attachment (role: gallery or evidence)	Native	1600 – 2400 px on longest edge	800 px edge	15 MB	JPG, PNG, WebP
 Sponsorship	story_promo	1:1 or 2:1	800 × 800 px or 1200 × 600 px	400 × 400 px	5 MB	JPG, PNG, WebP
 Sponsorship	object_promo	1:1 or 2:1	800 × 800 px or 1200 × 600 px	400 × 400 px	5 MB	JPG, PNG, WebP
 Sponsorship	timeline_promo	~8:3	1600 × 600 px or 1920 × 720 px	1200 × 450 px	8 MB	JPG, PNG, WebP

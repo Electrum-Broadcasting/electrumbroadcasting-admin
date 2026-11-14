@@ -4,7 +4,7 @@ Compatibility: DATA_MODEL.md · PANORAMA_MODEL.md · HOTSPOT_WORKFLOW.md
 Last updated: 2026-10-09
 
 ## 1. Purpose & Scope
-A hotspot is a spatial marker embedded inside a 360° panorama. It records a position within the panorama's image plane and a link to a civic object, a story, another panorama, or an external URL. When a user clicks, taps, or gazes at a hotspot, the viewer resolves the link target and navigates accordingly.
+A hotspot is a spatial marker anchored to a source equirectangular panorama. It records normalized source-panorama UV coordinates and a link to a civic object, a story, another panorama, or an external URL. The viewer projects those stored coordinates into viewer space based on the current camera orientation; stored coordinates are not viewport or screen-pixel coordinates.
 
 Hotspots are relationships — they sit between a panoramas row (the image) and a target record (an object, story, or URL). They are not standalone content; they derive meaning from both sides of that relationship.
 
@@ -24,10 +24,16 @@ Audit log wiring (admin_action_logs)
 
 DATA_MODEL.md §14.3 additions for the navigation domain
 
-Unity / VR / WebXR future-proofing fields
+Viewer behavior is governed by IMMERSIVE_EXPERIENCE_VISION.md. WebXR is Intended Behavior;
+Unity integration is a Future Possibility, not approved implementation scope. Reserved behavior
+fields do not establish an implementation requirement.
+Specification authority is: IMMERSIVE_EXPERIENCE_VISION.md > OBJECT_PAGE_MODEL.md >
+PANORAMA_MODEL.md > HOTSPOT_MODEL.md > HOTSPOT_WORKFLOW.md.
 
 ## 2. Coordinate System — pan_x / pan_y
-Hotspot positions are stored as normalized UV coordinates in the panorama's image plane.
+Hotspot positions are stored as normalized UV coordinates on the source equirectangular panorama.
+The values identify source-image positions and are not coordinates in the viewport or on the
+screen.
 
 Axis	Range	Meaning
 pan_x	0.0 – 1.0	Horizontal position. 0.0 = left edge, 1.0 = right edge, 0.5 = centre
@@ -36,9 +42,13 @@ pan_y	0.0 – 1.0	Vertical position. 0.0 = top edge, 1.0 = bottom edge, 0.5 = ho
 
 Why normalized UV?
 
-Viewer-agnostic: the same values work with Photo Sphere Viewer, Pannellum, Marzipano, Three.js, Unity, and WebXR without any coordinate conversion.
+Viewer-independent storage: the source UV values remain stable across viewers, while each viewer
+must project them from the panorama into its camera/view space.
 
-Maps 1:1 to drag-and-drop placement in the admin UI — the pointer position within the viewer's bounding box converts directly to (pan_x, pan_y).
+Placement is not a direct mapping from pointer position or viewer bounds to (pan_x, pan_y).
+Placement must convert the viewer interaction to a camera ray, intersect that ray with the
+panorama sphere, and map the resulting source direction to equirectangular UV coordinates.
+Dragging/repositioning uses the same projection path.
 
 Simple to interpolate, animate, and debug.
 
@@ -57,7 +67,28 @@ pan_y = 0.5   - pitch / 180.0
 // Normalized UV → Three.js spherical (radians)
 theta = pan_x * 2 * Math.PI     // azimuth
 phi   = pan_y * Math.PI         // polar angle from top
-These conversions live in the viewer layer, not in application data.
+These conversions live in the viewer layer, not in application data. They describe mapping
+between source UV and spherical direction; they do not mean that UV equals the current on-screen
+position.
+
+### 2.1 Navigation semantics
+Resolve the hotspot action by target type:
+
+| Target type | Navigation behavior |
+|---|---|
+| Civic object | Navigate to that object's Object Page. |
+| `civic_story` | Navigate to the Story Page. |
+| `panorama` | Remain within the immersive viewer and load the destination panorama while preserving curatorial context. Seamless 0.6-second exposure-style cross-fading is Intended Behavior. |
+| `external_url` | Leave the Atlas intentionally; open the external destination in a new tab. |
+
+### 2.2 Viewer behavior and feature state
+Intended viewer behavior/acceptance criteria are auto-rotation at 3°/second, pitch lock at +14°
+and -14°, drag interaction, compass awareness, camera-aware hotspot positioning, viewport
+clipping, and yielding auto-rotation to user interaction. The authoritative vision classifies
+the panorama canvas and normalized UV hotspots as Current Implementation; this specification
+records their required behavior without changing that status. Seamless panorama cross-fading and
+spatial audio are Intended Behavior. WebXR/headset mode is Intended Behavior; Unity integration
+is a Future Possibility and is not approved implementation scope.
 
 ## 3. Schema Definition
 
@@ -317,7 +348,9 @@ jsonc
 Consumers must handle missing keys gracefully.
 
 ## 12. behavior JSONB — Reserved Keys
-behavior carries viewer-layer and VR-layer runtime hints. These are advisory — consumers must handle missing keys with sensible defaults.
+behavior carries advisory viewer-layer and future immersive-runtime hints. Consumers must handle
+missing keys with sensible defaults. The presence of a key does not require implementing the
+associated capability.
 
 jsonc
 
@@ -326,7 +359,7 @@ jsonc
   "auto_open":        false,        // open callout card on panorama load without user click
   "open_delay_ms":    0,            // ms delay before auto_open fires
 
-  // Unity / WebXR
+  // Future immersive-runtime hints; not a current implementation commitment
   "linger_ms":        1500,         // gaze dwell duration before auto-trigger (VR)
   "haptic_preset":    "soft",       // "soft" | "medium" | "strong"
   "animation":        "pulse",      // entrance animation: "pulse" | "beacon" | "static" | "orbit"
@@ -336,7 +369,8 @@ jsonc
   "hide_above_pan_y": 0.15,         // hide when viewer looks too far up
   "hide_below_pan_y": 0.85          // hide when viewer looks too far down
 }
-Unity / WebXR coordinate note: When a hotspot needs a pre-computed 3D world-space position (to avoid per-frame UV→sphere projection), the Unity layer stores it as:
+Future Possibility — Unity-specific precomputed world positions are not approved implementation
+scope. If a future Unity phase requires them, it may use a representation such as:
 
 jsonc
 
@@ -361,4 +395,4 @@ GRANT SELECT ON public.hotspots TO anon;
 
 [ ] Encode metadata.domain = 'navigation' in every admin_action_logs write
 
-[ ] Store Unity/VR world-space overrides in behavior.world_position, not in new columns
+[ ] Treat Unity/VR world-space overrides in behavior.world_position as a Future Possibility, not an implementation requirement

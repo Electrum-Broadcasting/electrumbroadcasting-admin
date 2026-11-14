@@ -67,7 +67,7 @@ City Admins review:
 - pending civic objects
 - AI suggestions
 - merge candidates
-- missing 360° media
+- missing required panorama records
 - ingestion anomalies
 
 ### 3.2 Object Actions
@@ -76,7 +76,8 @@ City Admins may:
 - approve
 - hide
 - edit metadata
-- upload hero_360_url
+- attach ordinary media through `civic_media_attachments`
+- upload and publish panorama records
 - merge duplicates
 - accept/reject suggestions
 - escalate to CEO
@@ -89,14 +90,18 @@ City Admins may:
 Objects become public when:
 - `status = approved`
 - `is_published = true`
-- `hero_360_url IS NOT NULL`
+- a primary published `panoramas` row exists where the city configuration requires 360° media
 
-For `civic_places`, the guarded lifecycle operation does not enforce a hero-media
+For `civic_places`, the guarded lifecycle operation does not enforce a panorama
 requirement: approval transitions `pending / false` to `approved / true`.
 This Places-specific rule does not change the publication workflow for other civic
 object types.
 
-> **Note — hero_360_url and panoramas:** When a City Admin publishes a panorama with `display_order = 0` for a civic object, `hero_360_url` on the parent civic object is automatically updated to match the panorama's `equirectangular_url` (via trigger). City Admins do not need to set `hero_360_url` manually for objects that have a primary published panorama. See PANORAMA_MODEL.md §10.1.
+> **Note — hero_360_url and panoramas:** `hero_360_url` is a generated
+> compatibility field sourced from the primary published panorama (the
+> published row with the lowest `display_order`). City Admins upload and
+> publish panorama records; they do not upload or edit `hero_360_url`. See
+> PANORAMA_MODEL.md §10.1.
 
 ---
 
@@ -176,8 +181,9 @@ The Object Manager is the City Admin's primary interface for curating civic obje
 City Admins use the Object Manager to:
 - Review pending civic objects produced by ingestion workers or manual submission.
 - Accept or reject AI suggestions via `rpc_apply_suggestion`.
-- Edit metadata fields (title, description, slug, tags, media URLs) on any civic object scoped to their city.
-- Upload `hero_360_url` assets and bind them to civic objects.
+- Edit metadata fields (title, description, slug, tags) on any civic object scoped to their city.
+- Attach ordinary media to civic objects through `civic_media_attachments`.
+- Upload and manage panorama records through the Panoramas tab; `hero_360_url` is generated from the primary published panorama.
 - Merge duplicate civic objects identified during ingestion review.
 - Approve objects (`status = approved`, `is_published = true`) to make them visible on the public UI.
 - Hide objects (`is_published = false`) to remove them from the public UI without deletion.
@@ -196,9 +202,10 @@ City Admins use the Object Manager to:
 A civic object is eligible for public display only when all of the following are true:
 1. `status = approved`
 2. `is_published = true`
-3. `hero_360_url IS NOT NULL` (where 360° media is required by city configuration)
+3. A primary published `panoramas` row exists (where 360° media is required by city configuration)
 
-> Once the object has at least one published panorama, `hero_360_url` is maintained automatically. The gate remains unchanged; the auto-population trigger satisfies it without City Admin intervention.
+> `hero_360_url` is maintained automatically from the primary published
+> panorama. It is a compatibility projection, not the eligibility source.
 
 ### 10.5 Audit
 
@@ -724,7 +731,7 @@ City Admins may configure page-level display options for published civic objects
 | `seo_title` | — | Overrides `<title>` and OG title (max 70 chars) |
 | `seo_description` | — | Overrides meta description (max 160 chars) |
 | `og_image_url` | — | Overrides OG social share image |
-| `enable_vr_button` | true | Shows "Open in VR" in action bar |
+| `enable_vr_button` | true | Shows "Open in VR" when a primary published panorama exists |
 | `enable_ar_button` | false | Shows "Open in AR" (gated behind AR launch flag) |
 
 **Story Page Settings** (STORY_PAGE_MODEL.md §10):
@@ -734,12 +741,12 @@ City Admins may configure page-level display options for published civic objects
 | `show_related_stories` | true | Shows Related Stories section |
 | `show_sponsor_bar` | true | Shows Sponsor Attribution section |
 | `show_production_attribution` | false | Shows editorial transparency note |
-| `enable_inline_360` | true | Enables inline 360° embeds in story body |
-| `inline_360_captions` | {} | Per-embed captions keyed by array index |
+| `enable_inline_360` | true | Compatibility toggle for existing inline_360_urls embeds during migration |
+| `inline_360_captions` | {} | Captions for existing compatibility embeds, keyed by array index |
 | `seo_title` | — | Overrides `<title>` and OG title (max 70 chars) |
 | `seo_description` | — | Overrides meta description (max 160 chars) |
 | `og_image_url` | — | Overrides OG social share image |
-| `enable_vr_button` | true | Shows "Open in VR" (only when `hero_360_url` present) |
+| `enable_vr_button` | true | Shows "Open in VR" when a primary published story panorama exists |
 | `enable_ar_button` | false | Shows "Open in AR" (gated behind AR launch flag) |
 
 All page settings changes are written to `admin_action_logs` with `domain = civic` (object pages) or `domain = editorial` (story pages).

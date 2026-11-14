@@ -1,0 +1,18 @@
+[
+  {
+    "policyname": "hotspots_anon_select",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(panorama_id IN ( SELECT panoramas.id\n   FROM panoramas\n  WHERE (panoramas.status = 'published'::text)))",
+    "with_check": null
+  },
+  {
+    "policyname": "hotspots_city_admin_all",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.uid() IN ( SELECT admin_users.user_id\n   FROM admin_users\n  WHERE (hotspots.city_id = hotspots.city_id)))",
+    "with_check": null
+  }
+]

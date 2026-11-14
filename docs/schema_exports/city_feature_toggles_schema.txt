@@ -1,0 +1,12 @@
+create table public.city_feature_toggles (
+  id uuid not null default gen_random_uuid (),
+  city_id uuid not null,
+  feature_name text not null,
+  enabled boolean null default false,
+  created_at timestamp with time zone null default now(),
+  updated_at timestamp with time zone null default now(),
+  updated_by uuid null,
+  constraint city_feature_toggles_pkey primary key (id),
+  constraint city_feature_toggles_city_id_feature_name_key unique (city_id, feature_name),
+  constraint city_feature_toggles_city_id_fkey foreign KEY (city_id) references cities (id) on delete CASCADE
+) TABLESPACE pg_default;

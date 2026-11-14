@@ -6,6 +6,10 @@ Last updated: 2026-10-09
 1. Purpose & Scope
 This document defines the end-to-end workflow City Admins follow to create, configure, activate, and manage hotspots within 360° panoramas.
 
+Specification authority is: IMMERSIVE_EXPERIENCE_VISION.md > OBJECT_PAGE_MODEL.md >
+PANORAMA_MODEL.md > HOTSPOT_MODEL.md > HOTSPOT_WORKFLOW.md. This workflow must not override
+behavior or feature states in the higher-level specifications.
+
 For schema details, field definitions, RLS policies, and coordinate system documentation, see HOTSPOT_MODEL.md.
 For panorama upload and lifecycle, see PANORAMA_MODEL.md.
 
@@ -43,7 +47,7 @@ Reorder hotspots (own city)	✅	✅
 Delete hotspot within 24 h of creation	✅	✅
 Delete hotspot after 24 h	❌	✅
 View hotspots across all cities	❌	✅
-Link hotspot to a target in another city	❌	✅
+Link hotspot to a target in another city	❌	❌
 
 
 City Admin scope is enforced by the hotspots_admin RLS policy (HOTSPOT_MODEL.md §8). Every mutation RPC additionally validates city_id server-side before committing.
@@ -83,16 +87,18 @@ civic_moment	is_published = true
 civic_artifact	is_published = true
 civic_neighborhood	is_published = true
 civic_story	review_status = 'published'
-panorama	status = 'published'; must belong to the same city (cross-city: CEO only)
+panorama	status = 'published'; must belong to the same city; activation is deferred for the MVP
 external_url	Valid absolute https:// URL; no further record-level validation
 
 
 4.5 Cross-city restriction
-City Admins may not link a hotspot to any target record (target_id) belonging to a different city_id. Attempting to do so returns a validation error:
+No actor may link a hotspot to a target record (target_id) belonging to a different city_id. Attempting to do so returns a validation error:
 
 "Link target is outside your city scope."
 
-CEOs may create cross-city links via the CEO Dashboard.
+Cross-city hotspot traversal
+deferred to future
+multi-city governance work.
 
 5. rpc_validate_hotspot_target
 The admin UI calls this RPC before enabling the Save button. It must also be called server-side before any INSERT or UPDATE that modifies target_type, target_id, or target_url.
@@ -123,7 +129,7 @@ Copy
 3. Confirm p_target_id is not null.
 4. Look up the target record in the table corresponding to p_target_type.
 5. Confirm the target record exists.
-6. Confirm target city_id = p_city_id (or caller is CEO).
+6. Confirm target city_id = p_city_id for every actor.
 7. Check publication state:
      - civic_* types: is_published = true
      - civic_story:   review_status = 'published'
@@ -133,7 +139,7 @@ Copy
 reason	Condition
 "target_not_found"	No record for p_target_id in the target table
 "target_not_published"	Record exists but fails publication check
-"target_outside_city_scope"	target city_id ≠ p_city_id and caller is not CEO
+"target_outside_city_scope"	target city_id ≠ p_city_id
 "invalid_target_type"	p_target_type not in allowed enum
 "invalid_url"	external_url missing or not https://
 
@@ -144,9 +150,11 @@ Navigate to Object Manager → [Civic object] → Panoramas → [Published panor
 
 The Hotspot Editor loads the panorama in the 360° interactive viewer in placement mode. A crosshair cursor indicates placement is active.
 
-Click or tap anywhere within the viewer to drop an anchor at that position.
+Click or tap the desired point in the panorama. The viewer maps the interaction through the
+current camera ray to the source panorama before storing the hotspot position.
 
-The viewer captures the pointer's position within its bounding box and converts it to pan_x/pan_y (see §6.2).
+The viewer converts the interaction to source-panorama UV coordinates pan_x/pan_y (see §6.2);
+viewport coordinates are never stored.
 
 A temporary anchor marker renders at the clicked position.
 
@@ -183,20 +191,22 @@ Code
 
 
 Copy
-pan_x = pointerX / viewerWidth
-pan_y = pointerY / viewerHeight
-Where pointerX/pointerY is the click position relative to the top-left corner of the viewer's bounding box, and viewerWidth/viewerHeight is the current rendered size of the viewer element.
+The interaction point is converted to a camera ray, intersected with the panorama sphere, and
+mapped from the resulting source direction to normalized UV coordinates on the equirectangular
+panorama. The resulting source UV values are saved as pan_x and pan_y.
 
-Both values are clamped to [0.0, 1.0] before being sent to the server.
-
-The viewer layer converts pan_x/pan_y to its internal coordinate system (yaw/pitch, spherical, or UV) at render time. See HOTSPOT_MODEL.md §2 for the conversion formulas. No conversion happens at the database layer.
+pan_x and pan_y are normalized coordinates on the source panorama, not viewport or screen-pixel
+coordinates. The same source-to-viewer projection is used to render and reposition hotspots;
+visible marker positions change with camera orientation. See HOTSPOT_MODEL.md §2. No conversion
+happens at the database layer.
 
 6.3 Position adjustment after save
-City Admin may reposition an existing hotspot by:
+City Admin may reposition an existing hotspot by dragging its projected marker within the viewer;
+the viewer converts the drag through the camera ray back to source-panorama UV coordinates.
 
-Dragging the marker within the viewer — pan_x/pan_y update on drag-end.
-
-Entering exact values in the Configuration Panel's coordinate fields (two numeric inputs, 4 decimal places, range 0–1).
+City Admin may also enter exact source-panorama UV values in the Configuration Panel's coordinate
+fields (two numeric inputs, 4 decimal places, range 0–1). Input changes preview the projected
+marker at the corresponding camera-relative viewer position.
 
 Each save writes a hotspot_updated entry to admin_action_logs with metadata.changed_fields containing the old and new values.
 
@@ -232,12 +242,13 @@ Hotspots that fail validation are skipped; a summary is shown: "3 of 5 hotspots 
 
 Each mutation generates its own admin_action_logs entry.
 
-7.4 Automatic deactivation by system
-Hotspots are automatically set to is_active = false (without City Admin action) in two cases:
+7.4 Publication changes and automatic deactivation
+Only archiving the parent automatically sets its active hotspots to is_active = false:
 
 Trigger	Mechanism
 Parent panorama archived (status → 'archived')	trg_panorama_archive_cascade trigger on panoramas (PANORAMA_MODEL.md §6)
-Target record unpublished or hidden	Not automatic — City Admin is responsible for auditing active hotspots when civic objects are hidden. The Stale Hotspots warning (§11.4) surfaces these.
+Target record unpublished or hidden	Not automatic; target eligibility is checked at activation, not continuously thereafter. Continuous enforcement is deferred.
+Parent panorama returned to draft	Active flags remain unchanged, but public RLS hides hotspots while the parent is draft. They can become visible again when the panorama is republished. Accepted Category B limitation.
 
 
 8. Reordering Hotspots
@@ -247,7 +258,7 @@ The sequence of hotspot markers in the viewer's list-mode overlay (for low-motio
 
 The tab order when multiple hotspot callout cards are open simultaneously
 
-The pre-load priority queue in the Unity / WebXR renderer
+The pre-load priority queue in a future Unity / WebXR renderer (not an implementation requirement)
 
 City Admin reorders by drag-and-drop on the Hotspot List Panel rows. On drop, the system updates display_order for all affected rows in a single transaction.
 
@@ -265,16 +276,18 @@ Select the destination panorama. rpc_validate_hotspot_target confirms status = '
 
 Set Icon to navigate (auto-suggested; overridable).
 
-9.2 Behaviour in the viewer
-When a user activates a navigation hotspot:
+9.2 Navigation behavior by target type
 
-The viewer replaces the current panorama in-place with the destination panorama.
+| Target type | Visitor behavior |
+|---|---|
+| `panorama` | Remain within the immersive viewer and load the destination panorama. Preserve the curatorial context and page shell. A seamless 0.6-second exposure-style cross-fade is Intended Behavior; panorama switching does not navigate to a civic-object page. |
+| Civic object (`civic_entity`, `civic_event`, `civic_place`, `civic_moment`, `civic_artifact`, `civic_neighborhood`) | Navigate to the target object's Object Page (for example, an Artifact hotspot opens its Artifact page). |
+| `civic_story` | Navigate to the target Story Page. |
+| `external_url` | Leave the Atlas intentionally by opening the destination in a new tab. |
 
-No page navigation occurs — the URL may update via history.replaceState to reflect the new panorama, but the page shell does not reload.
-
-Hotspots for the destination panorama are fetched and rendered.
-
-A Back affordance appears, allowing the user to return to the originating panorama.
+For panorama-to-panorama traversal, fetch and render the destination panorama's hotspots. A Back
+affordance may return to the originating panorama within the viewer. Cross-fading is an intended
+target, not a claim that the transition is implemented.
 
 9.3 Reciprocal hotspot prompt
 After saving a navigation hotspot, the system checks whether the destination panorama has an active target_type = 'panorama' hotspot pointing back to the source panorama. If none is found, the admin UI shows an advisory prompt:
@@ -362,11 +375,9 @@ Navigation — navigation_item_created, navigation_item_updated, navigation_item
 11.1 Editing any field
 All fields — label, icon, position (pan_x/pan_y), target, metadata, behavior — may be edited after creation. The Configuration Panel is available whenever the hotspot row is selected in the Hotspot List Panel.
 
-Editing target_type, target_id, or target_url re-triggers rpc_validate_hotspot_target before saving.
-
-If an active hotspot's target fails re-validation on edit (e.g., the target was unpublished in the interim), the edit is permitted but the hotspot is automatically deactivated and the City Admin is shown a warning:
-
-"Target is no longer published. Hotspot has been deactivated."
+Changing an active hotspot's target type or target ID rechecks eligibility. An ineligible
+target is rejected; it is not automatically deactivated. Unrelated edits do not continuously
+recheck the existing target.
 
 11.2 Deletion — within 24 hours
 City Admins may hard-delete a hotspot within 24 hours of created_at.
@@ -387,11 +398,12 @@ The Hotspot List Panel surfaces a Stale badge on any active hotspot whose target
 
 12. UI Component Requirements — Hotspot Editor
 Component	Requirement
-360° viewer	Renders equirectangular panorama; shows hotspot markers at pan_x/pan_y positions; supports click-to-place in placement mode
-Placement mode	Activated on page load; crosshair cursor; click drops anchor
-Anchor marker	Renders at (pan_x × viewerWidth, pan_y × viewerHeight) pixels from top-left
-Drag to reposition	Drag anchor marker within viewer; updates position on drag-end; does not commit until Save is clicked
-Coordinate inputs	Two numeric fields (pan_x, pan_y); 4 decimal places; range 0–1; input changes preview marker position in real time
+360° viewer	Renders equirectangular panorama; projects source-panorama UV hotspots into viewer space based on camera orientation; supports placement
+Viewer behavior	Intended behavior: 3°/second auto-rotation; +14°/-14° pitch lock; drag interaction; compass awareness; camera-aware hotspot positioning and viewport clipping; auto-rotation yields to interaction. The authoritative vision classifies the panorama canvas and UV hotspots as Current Implementation.
+Placement mode	Activated on page load; crosshair cursor; click maps a camera ray to source-panorama UV coordinates
+Anchor marker	Rendered at the camera-projected position of source-panorama pan_x/pan_y; never calculated as (pan_x × viewerWidth, pan_y × viewerHeight)
+Drag to reposition	Drag the projected marker; convert camera interaction back to source-panorama UV on drag-end; do not commit until Save is clicked
+Coordinate inputs	Two source-panorama UV fields (pan_x, pan_y); 4 decimal places; range 0–1; input changes preview the camera-projected marker in real time
 Hotspot List Panel	Table rows: label, target_type icon, target label, is_active badge, display_order; drag handles for reorder
 Bulk select	Checkbox column; Activate all / Deactivate all toolbar actions
 Configuration Panel	Slide-in from right; no full-page navigation; fields for label, icon, target_type, target, metadata.short_description, metadata.caption, metadata.attribution
@@ -406,11 +418,18 @@ Inactive style	Greyed-out marker and opacity-reduced label for inactive hotspots
 Delete button	Visible only when NOW() - created_at < 24h; always requires confirmation dialog
 
 
-13. Unity / VR Admin Considerations
-13.1 behavior.world_position
-When the admin UI is operating in VR Preview mode, placing or dragging a hotspot also computes and saves behavior.world_position ({x, y, z} in Unity world units) via the browser's 3D projection layer. In standard admin mode, world_position is populated asynchronously by the fn_project_hotspot_world_position background job after save.
+13. Future Possibilities — Unity / VR Admin Concepts
+The items in this section are not approved implementation scope. They are retained as concepts
+only; the presence of these notes or behavior keys is not an implementation requirement. WebXR /
+headset mode for visitors is Intended Behavior in the authoritative vision, but an admin VR
+Preview workflow and Unity integration are not established as current or approved capabilities.
 
-City Admins may view but not manually edit behavior.world_position in v1. An Advanced (VR) section of the Configuration Panel (collapsed by default; visible in VR Preview mode) exposes the following behavior keys:
+13.1 behavior.world_position
+Concept only: a future VR Preview could compute a behavior.world_position ({x, y, z} in Unity
+world units). This document does not establish such a preview, projection layer, or background
+job.
+
+The following is a possible future Advanced (VR) section, not a current admin requirement:
 
 Key	Label	Input type
 linger_ms	Gaze dwell duration	Number (ms), default 1500
@@ -419,7 +438,7 @@ animation	Entrance animation	Select: pulse / beacon / static / orbit
 
 
 13.2 VR Preview mode
-City Admin can toggle VR Preview from the Hotspot Editor toolbar. This loads the panorama in a WebXR immersive-vr session (if the browser supports navigator.xr):
+A possible future City Admin VR Preview could load the panorama in a WebXR immersive-vr session:
 
 Active hotspots render as 3D floating markers using behavior.world_position (or pan_x/pan_y projection fallback).
 
@@ -429,4 +448,3 @@ Inactive hotspots are visible in preview but visually distinct (ghost style).
 
 13.3 interaction_radius
 behavior.interaction_radius (metres) controls the sphere within which gaze or controller proximity triggers the hotspot in VR. Default: 0.35. Editable in the Advanced (VR) panel section.
-

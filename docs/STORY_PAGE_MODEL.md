@@ -69,6 +69,15 @@ Any other state → 404. No information about review_status, safety_hold, or is_
 ## 3. civic_stories Fields Consumed by the Story Page
 The full civic_stories row is fetched server-side. Fields are grouped below by their render target.
 
+Media authority: ordinary story hero and thumbnail media come from primary
+`civic_media_attachments` rows with roles `hero` and `thumbnail`, resolved
+through `media_assets.url`. The canonical story hero panorama comes from a
+published `panoramas` row with `civic_object_type = 'civic_story'`; the primary row is the one with
+the lowest `display_order`. `hero_360_url` is generated from that row.
+`hero_image_url` and `inline_360_urls` are legacy compatibility fields slated
+for future deprecation; existing values may be read only during migration, and
+must not be treated as authoritative or receive new uploads.
+
 ### 3.1 Gate fields (server-side only; not rendered publicly)
 Column	Type	Gate condition
 review_status	text	Must be 'published'
@@ -83,7 +92,7 @@ title	<h1>, <title>, OG title
 slug	URL, canonical link
 summary	Subtitle / teaser below the title; OG description
 body	Article body (rich text / MDX)
-hero_image_url	Hero image above the title
+Primary hero attachment	Hero image above the title; legacy hero_image_url is a migration fallback only
 published_at	Publication date in the byline
 author_name	Author attribution in the byline (text; not a FK)
 category	Category badge in the byline
@@ -96,9 +105,10 @@ city_id	City breadcrumb
 
 ### 3.3 Immersive media fields
 Column	Type	Used for
-hero_360_url	text	Primary 360° viewer in the Hero section (§4.2)
-thumbnail_360_url	text	Flat thumbnail for the 360° viewer before load
-inline_360_urls	ARRAY	Inline 360° viewer embeds within the story body (§4.5)
+Primary published panoramas row	Primary 360° viewer in the Hero section (§4.2)
+panoramas.thumbnail_url	Flat thumbnail for the panorama viewer before load
+hero_360_url	Generated compatibility URL from the primary published panorama; not uploaded or authored
+inline_360_urls	ARRAY	Legacy inline 360° embeds for existing rows only; slated for future deprecation
 neighborhood_360_url	text	Secondary 360° embed; shown in a dedicated neighbourhood context section when present
 sponsor_360_url	text	Sponsor-provided 360° asset; shown in Sponsor Attribution (§4.8)
 sponsor_flat_url	text	Sponsor flat image; fallback if sponsor_360_url is absent
@@ -149,7 +159,7 @@ content_tier drives the Tier Badge in the byline (standard | feature | investiga
 ├────────────────────────────────────────────────────────────────┤
 │ 4.4  Story Body (rich text)                                    │
 ├────────────────────────────────────────────────────────────────┤
-│ 4.5  Inline 360° Embeds       (from inline_360_urls)           │
+│ 4.5  Inline 360° Embeds       (legacy compatibility only)      │
 ├────────────────────────────────────────────────────────────────┤
 │ 4.6  Neighbourhood 360°       (from neighborhood_360_url)      │
 ├────────────────────────────────────────────────────────────────┤
@@ -171,23 +181,30 @@ Applies city_design_system.published_theme canonical tokens (THEME_SCHEMA.md: co
 ### 4.2 Hero — Image and/or 360° Viewer
 Priority order for the hero media slot:
 
-hero_360_url IS NOT NULL → render the full-width 360° viewer using hero_360_url as the equirectangular source. thumbnail_360_url is shown as the poster/placeholder until the 360° asset loads.
-
-hero_360_url IS NULL, hero_image_url IS NOT NULL → render a standard full-width flat hero image.
-
-Both NULL → no hero section; page begins at §4.3.
+1. If a primary published `panoramas` row exists for this story, render the
+   full-width viewer from its `equirectangular_url` and use its `thumbnail_url`
+   as the poster.
+2. Otherwise, render the primary hero attachment from
+   `civic_media_attachments` / `media_assets`.
+3. During migration only, existing `hero_360_url` or `hero_image_url` values
+   may be read as compatibility fallbacks. They are not upload targets or
+   canonical sources.
+4. If none are available, omit the hero media section.
 
 360° viewer behaviour on Story Pages:
 
-Opens at the image centre (pan_x = 0.5, pan_y = 0.5) — no pan_x_initial/pan_y_initial stored because hero_360_url is a raw URL, not a panoramas row.
+Viewer heading and metadata come from the panorama row.
 
-No hotspot support — hero_360_url is a raw CDN URL, not linked to the panoramas table. Hotspots require a panoramas row (see §8.1 for the boundary explanation).
+Hotspots and panorama interactions follow PANORAMA_MODEL.md and
+HOTSPOT_MODEL.md for the story's panorama row.
 
 Viewer controls: drag-to-look, pinch-to-zoom, fullscreen.
 
 Keyboard: arrow keys to look.
 
-Fallback: if WebGL unavailable → thumbnail_360_url ?? hero_image_url as a static image.
+Fallback: if WebGL is unavailable, show the panorama thumbnail; if no panorama
+exists, show the primary hero attachment. Legacy thumbnail_360_url and
+hero_image_url values are migration fallbacks only.
 
 ### 4.3 Title, Byline & Metadata Bar
 Title block
@@ -220,7 +237,8 @@ Share — native Web Share API; falls back to copy-link
 
 Bookmark — authenticated users only; client-side, no server persistence in v1
 
-Open in VR — shown when story_page_settings.enable_vr_button = true AND navigator.xr is available AND hero_360_url IS NOT NULL (see §6.2)
+Open in VR — shown when story_page_settings.enable_vr_button = true, a
+primary published story panorama exists, and navigator.xr is available (see §6.2)
 
 Reading time — estimated reading time computed from body word count ÷ 200 wpm
 
@@ -240,17 +258,24 @@ Images embedded in body: lazy-loaded; CDN sizing params applied.
 A thin reading progress bar is shown at the top of the viewport on desktop, advancing as the user scrolls through the body.
 
 ### 4.5 Inline 360° Embeds
-Source: civic_stories.inline_360_urls (ARRAY of CDN URLs).
+Existing inline embeds may temporarily read `civic_stories.inline_360_urls`
+for compatibility. This field is slated for future deprecation and is not an
+upload target or authoritative panorama source. New story panoramas must be
+stored as `panoramas` rows with `civic_object_type = 'civic_story'`.
 
-Each URL is rendered as a constrained-width inline 360° viewer (not full-width) within the story body flow.
+Each existing compatibility URL is rendered as a constrained-width inline 360°
+viewer (not full-width) within the story body flow.
 
-Viewer behaviour: same as §4.2 (opens at centre, no hotspot support, WebGL fallback).
+Legacy inline viewers open at the image centre and do not support hotspots.
+This describes compatibility behavior only; canonical story panoramas follow
+PANORAMA_MODEL.md and HOTSPOT_MODEL.md.
 
 Fullscreen toggle expands each embed to full-width.
 
 Each embed may carry an optional caption sourced from story_page_settings.inline_360_captions (see §5).
 
-Conditional: section and each embed rendered only when inline_360_urls is non-empty AND story_page_settings.enable_inline_360 = true.
+Conditional: during migration, render existing inline embeds only when
+inline_360_urls is non-empty and story_page_settings.enable_inline_360 = true.
 
 ### 4.6 Neighbourhood 360°
 Source: civic_stories.neighborhood_360_url (text, CDN URL).
@@ -259,27 +284,43 @@ Rendered as a full-width 360° viewer in a dedicated section between the body an
 
 Section label: "[Neighbourhood name] in 360°" — uses civic_stories.neighborhood for the label.
 
-Same viewer behaviour as §4.2 (no hotspot support, WebGL fallback).
+Existing neighborhood_360_url viewers open at the image centre and do not
+support hotspots. Canonical story panoramas follow PANORAMA_MODEL.md and
+HOTSPOT_MODEL.md.
 
 Conditional: hidden when neighborhood_360_url IS NULL.
 
 ### 4.7 Linked Civic Objects
 Stories carry related_place_ids, related_entity_ids, related_moment_ids, and related_event_ids arrays (DATA_MODEL.md §3). The Story Page fetches and renders a card strip of the linked civic objects.
 
--- Fetch up to 2 linked places
-SELECT id, name, slug, place_type, thumbnail_url
-FROM civic_places
-WHERE id = ANY(:related_place_ids)
-  AND city_id      = :city_id
-  AND is_published = true
+-- Fetch up to 2 linked places with their primary thumbnail attachments
+SELECT p.id, p.name, p.slug, p.place_type, thumb_asset.url AS thumbnail_url
+FROM civic_places p
+LEFT JOIN civic_media_attachments thumb_attachment
+  ON thumb_attachment.city_id = p.city_id
+ AND thumb_attachment.civic_object_id = p.id
+ AND thumb_attachment.civic_object_type = 'civic_place'
+ AND thumb_attachment.role = 'thumbnail'
+ AND thumb_attachment.is_primary = true
+LEFT JOIN media_assets thumb_asset ON thumb_asset.id = thumb_attachment.media_asset_id
+WHERE p.id = ANY(:related_place_ids)
+  AND p.city_id      = :city_id
+  AND p.is_published = true
 LIMIT 2;
 
--- Fetch up to 2 linked entities
-SELECT id, name, slug, entity_type, thumbnail_url
-FROM civic_entities
-WHERE id = ANY(:related_entity_ids)
-  AND city_id      = :city_id
-  AND is_published = true
+-- Fetch up to 2 linked entities with their primary thumbnail attachments
+SELECT e.id, e.name, e.slug, e.entity_type, thumb_asset.url AS thumbnail_url
+FROM civic_entities e
+LEFT JOIN civic_media_attachments thumb_attachment
+  ON thumb_attachment.city_id = e.city_id
+ AND thumb_attachment.civic_object_id = e.id
+ AND thumb_attachment.civic_object_type = 'civic_entity'
+ AND thumb_attachment.role = 'thumbnail'
+ AND thumb_attachment.is_primary = true
+LEFT JOIN media_assets thumb_asset ON thumb_asset.id = thumb_attachment.media_asset_id
+WHERE e.id = ANY(:related_entity_ids)
+  AND e.city_id      = :city_id
+  AND e.is_published = true
 LIMIT 2;
 
 -- Fetch up to 2 linked events
@@ -322,27 +363,36 @@ Conditional: only when an active sponsor_allocations row exists for city_id.
 
 ### 4.9 Related Stories
 
-SELECT id, title, slug, published_at, hero_image_url, summary, category
-FROM civic_stories
-WHERE city_id        = :city_id
-  AND review_status  = 'published'
-  AND safety_hold    = false
-  AND is_published   = true
-  AND id             <> :current_story_id
+SELECT s.id, s.title, s.slug, s.published_at, s.summary, s.category,
+       hero_asset.url AS hero_url
+FROM civic_stories s
+LEFT JOIN civic_media_attachments hero_attachment
+  ON hero_attachment.city_id = s.city_id
+ AND hero_attachment.civic_object_id = s.id
+ AND hero_attachment.civic_object_type = 'civic_story'
+ AND hero_attachment.role = 'hero'
+ AND hero_attachment.is_primary = true
+LEFT JOIN media_assets hero_asset ON hero_asset.id = hero_attachment.media_asset_id
+WHERE s.city_id        = :city_id
+  AND s.review_status  = 'published'
+  AND s.safety_hold    = false
+  AND s.is_published   = true
+  AND s.id             <> :current_story_id
   AND (
-    tags && :current_tags::text[]          -- overlapping tags
-    OR neighborhood = :current_neighborhood
+    s.tags && :current_tags::text[]          -- overlapping tags
+    OR s.neighborhood = :current_neighborhood
     OR EXISTS (                            -- shared linked place
       SELECT 1
-      FROM   unnest(related_place_ids) rp
+      FROM   unnest(s.related_place_ids) rp
       WHERE  rp = ANY(:current_related_place_ids)
     )
   )
-ORDER BY published_at DESC
+ORDER BY s.published_at DESC
 LIMIT 4;
 Rendered as a horizontal card strip (desktop) or stacked list (mobile).
 
-Card: hero_image_url, title, category, published_at, summary (truncated to 120 chars).
+Card: primary hero attachment URL, title, category, published_at, summary
+(truncated to 120 chars). The legacy hero_image_url is a migration fallback only.
 
 Each card links to /stories/[slug].
 
@@ -364,7 +414,7 @@ CREATE TABLE story_page_settings (
   show_production_attribution BOOLEAN NOT NULL DEFAULT false,
 
   -- ── Inline 360° ───────────────────────────────────────────────────────────
-  -- Master toggle for all inline_360_urls embeds.
+  -- Compatibility toggle for existing inline_360_urls embeds during migration.
   enable_inline_360         BOOLEAN NOT NULL DEFAULT true,
   -- Optional per-embed captions. Key = array index (0-based), value = caption text.
   inline_360_captions       JSONB   NOT NULL DEFAULT '{}',
@@ -375,11 +425,11 @@ CREATE TABLE story_page_settings (
   canonical_url             TEXT,
 
   -- ── Social share ──────────────────────────────────────────────────────────
-  -- Overrides the default OG image (hero_image_url).
+  -- Overrides the default OG image (primary hero attachment URL).
   og_image_url              TEXT,
 
   -- ── Feature flags ─────────────────────────────────────────────────────────
-  -- VR button shown only when hero_360_url IS NOT NULL on the story.
+  -- VR button shown when a primary published panoramas row exists for the story.
   enable_vr_button          BOOLEAN NOT NULL DEFAULT true,
   -- AR is gated behind a global launch flag in addition to this flag.
   enable_ar_button          BOOLEAN NOT NULL DEFAULT false,
@@ -511,8 +561,8 @@ Responsive	Single-column mobile; two-column (body + sidebar) on desktop ≥ 1024
 Reading progress bar	Thin bar at top of viewport (desktop); advances as user scrolls <article>.
 Reading time	Estimated reading time in byline (body word count ÷ 200, rounded up to nearest minute).
 Theme	Applies published city_design_system canonical theme (THEME_SCHEMA.md).
-OG tags	og:type = article; og:title = story title; og:image = og_image_url ?? hero_image_url; og:article:published_time = published_at.
-JSON-LD	NewsArticle with author (contributor name), datePublished (published_at), publisher (city name), image (hero_image_url).
+OG tags	og:type = article; og:title = story title; og:image = og_image_url ?? primary hero attachment URL; og:article:published_time = published_at.
+JSON-LD	NewsArticle with author (contributor name), datePublished (published_at), publisher (city name), image (primary hero attachment URL).
 Analytics	Page view event with city_id, civic_story_id, content_tier. Not emitted in admin preview mode.
 Print	Print stylesheet hides nav, sidebars, sponsor bar, related stories, action bar. Retains title, byline, body, linked objects.
 
@@ -533,17 +583,20 @@ No analytics events emitted.
 A floating admin toolbar appears with shortcuts to Publication Queue and Story Page Settings.
 
 ### 7.2 Open in VR
-When story_page_settings.enable_vr_button = true AND civic_stories.hero_360_url IS NOT NULL AND navigator.xr reports an available immersive-vr session:
+When story_page_settings.enable_vr_button = true, a primary published
+`panoramas` row exists for `civic_story`, and navigator.xr reports an
+available immersive-vr session:
 
 Enters a WebXR immersive-vr session.
 
-Loads hero_360_url onto a WebXR sphere. Opens at centre (pan_x = 0.5, pan_y = 0.5).
+Loads the primary panorama's equirectangular_url and initial heading.
 
 Renders the story body text and byline as a floating 2D panel within the VR environment.
 
-If inline_360_urls is non-empty, the first inline URL is used as the VR environment background instead of hero_360_url (configurable; defaults to hero_360_url).
+Legacy inline_360_urls values do not override the primary panorama.
 
-No hotspot support — story 360° URLs are raw CDN URLs, not panoramas rows (see §8.1).
+Hotspots and panorama interactions follow PANORAMA_MODEL.md and
+HOTSPOT_MODEL.md.
 
 ### 7.3 Open in AR (future)
 When story_page_settings.enable_ar_button = true and the global AR launch flag is active:
@@ -552,28 +605,23 @@ If the story has linked civic_places with a civic_place that has a published pan
 
 The AR entry point is otherwise hidden when no spatial anchor is resolvable from the story's linked objects.
 
-## 8. Design Boundary — Stories vs. Panoramas
-### 8.1 Why story 360° fields are not panoramas rows
-panoramas (PANORAMA_MODEL.md) is scoped to civic objects only. The civic_object_type CHECK constraint intentionally excludes 'civic_story'. This is a deliberate boundary:
+## 8. Story Panoramas
+### 8.1 Canonical representation
+`civic_story` is a valid `panoramas.civic_object_type`. The canonical story
+hero panorama is represented by a `panoramas` row, with the primary published row
+rendered in the Story Page hero. `hero_360_url` is generated from that primary
+row and is not an independent media source.
 
-Stories are editorial content — their 360° media is part of the editorial package produced with the story. It is not a spatially navigable civic object.
+Panorama interaction and hotspot behavior for story-owned panoramas follow
+PANORAMA_MODEL.md and HOTSPOT_MODEL.md. The legacy `hero_360_url` and
+`inline_360_urls` fields are compatibility data only and do not define a
+separate panorama model.
 
-Civic objects are permanent civic memory — their panoramas persist independently of any story and can be visited, hotspot-navigated, and linked from multiple contexts.
-
-Hotspots are therefore not supported on Story Page 360° viewers in v1. The story viewer is a simple immersive reader experience, not an interactive spatial graph node.
-
-### 8.2 Pathway to hotspot support on story 360° (future)
-If a future story 360° viewer needs hotspot support, the correct path is:
-
-Create a panoramas row for the civic object depicted in the story.
-
-Link the story to that object via related_place_ids (or appropriate array).
-
-Place hotspots on the panorama row.
-
-On the Story Page, render the panorama viewer (via OBJECT_PAGE_MODEL.md §4.2 pattern) instead of the raw hero_360_url viewer.
-
-This path does not require a schema change to panoramas.
+### 8.2 Relationship to place panoramas
+When a story discusses a place with its own civic panorama, link the story to
+that place through the existing related-object relationship. The place panorama
+remains owned by the civic place; a story-owned panorama is a separate
+`panoramas` row with `civic_object_type = 'civic_story'`.
 
 ## 9. Relationship to Production Units
 When a story is published (CITY_ADMIN_WORKFLOW.md §11.4), a production_units row is created automatically. The Story Page consumes the production_unit for:
@@ -612,7 +660,7 @@ Override SEO title (max 70 chars) and meta description (max 160 chars)
 
 Upload a custom OG image
 
-Enable / disable VR button (only has effect when hero_360_url IS NOT NULL)
+Enable / disable VR button (only has effect when a primary published story panorama exists)
 
 Enable AR button (gated behind global AR launch flag)
 
@@ -641,11 +689,12 @@ story_page_settings_edited	editorial	story_page_settings	Any page settings field
 ### 12.1 Unity Story Reader
 The Electrum Unity client renders Story Pages as a StoryReaderPanel — a scrollable Unity UI canvas:
 
-StoryHeroViewer.cs — loads hero_360_url as a sphere texture; opens at centre.
+StoryHeroViewer.cs — loads the primary published story panorama and its initial heading.
 
 StoryBodyRenderer.cs — parses rich text and renders styled text blocks.
 
-InlineViewer360.cs — renders each inline_360_urls entry as a tap-to-expand embedded sphere within the reader.
+InlineViewer360.cs — temporary compatibility reader for existing inline_360_urls
+values; new 360° uploads use panoramas rows.
 
 LinkedObjectCardList.cs — renders linked civic object cards; tapping navigates to the Unity Object Page scene for that object.
 

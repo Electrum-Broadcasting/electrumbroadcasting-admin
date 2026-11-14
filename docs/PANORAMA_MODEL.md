@@ -65,7 +65,8 @@ CREATE TABLE panoramas (
                                      'civic_place',
                                      'civic_moment',
                                      'civic_artifact',
-                                     'civic_neighborhood'
+                                     'civic_neighborhood',
+                                     'civic_story'
                                    )),
 
   -- ── Media ─────────────────────────────────────────────────────────────────
@@ -361,7 +362,9 @@ civic_* tables carry a hero_360_url field used by the civic object approval gate
 
 hero_360_url on a civic object should reference the equirectangular_url of the primary published panorama.
 
-When a panorama is published with display_order = 0, the trg_panorama_sync_hero_360 trigger (implementation TBD) auto-populates hero_360_url on the parent civic object.
+When the primary published panorama changes, the trg_panorama_sync_hero_360 trigger
+(implementation TBD) auto-populates hero_360_url on the parent civic object from that
+panorama's equirectangular_url.
 
 Do not maintain hero_360_url manually for civic objects that have associated panoramas rows.
 
@@ -386,6 +389,11 @@ panorama_archived	status → 'archived'	civic_object_id, hotspots_deactivated_co
 panorama_reordered	display_order changed	old_order, new_order
 panorama_metadata_edited	Any other field updated	changed_fields: {field: {old, new}}
 
+Migration 7's service-role `rpc_update_panorama_metadata` accepts a partial JSON object
+containing `pan_x_initial`, `pan_y_initial`, `capture_date`, `capture_attribution`,
+and/or `metadata`. Omitted fields are unchanged; capture fields may be set to null,
+and `metadata` replaces the existing JSON object. The RPC checks actor identity and
+city scope and logs the changed fields transactionally.
 
 These extend the navigation domain row in CITY_ADMIN_WORKFLOW.md §14.5:
 

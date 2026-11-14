@@ -1,0 +1,9 @@
+[
+  {
+    "policyname": "service_role_full_access",
+    "cmd": "ALL",
+    "roles": "{service_role}",
+    "qual": "true",
+    "with_check": "true"
+  }
+]

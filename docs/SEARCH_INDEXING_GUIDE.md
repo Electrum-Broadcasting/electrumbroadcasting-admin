@@ -130,13 +130,18 @@ Workspace uses the following extraction rules to populate search_index rows. The
 are the authoritative mapping between source fields and index fields. All field mappings
 are implemented in rpc_reindex_entity (SEARCH_MODEL.md §9.2).
 
+For civic content, `thumbnail_url` is resolved from the primary `thumbnail`
+attachment in `civic_media_attachments`, joined to `media_assets.url`. If no
+thumbnail attachment exists, use the primary `hero` attachment. Do not source
+search thumbnails from legacy civic URL fields.
+
 #### 3.1.1 story (civic_stories)
 Index field	Source field	Notes
 title	civic_stories.title	Direct copy
 subtitle	civic_stories.category	e.g. 'Investigation', 'Feature'
 summary	civic_stories.summary	Truncated to 280 chars
 keywords	civic_stories.tags	Array copy
-thumbnail_url	civic_stories.hero_image_url	
+thumbnail_url	civic_media_attachments → media_assets.url	Primary thumbnail attachment; fall back to primary hero attachment
 route	/stories/[slug]	Constructed at index time
 entity_weight	1.00	Highest civic signal
 is_published	review_status = 'published' AND safety_hold = false AND is_published = true	All three must be true
@@ -149,7 +154,7 @@ title	civic_entities.name
 subtitle	civic_entities.entity_type	
 summary	civic_entities.description	Truncated to 280 chars
 keywords	civic_entities.tags	
-thumbnail_url	civic_entities.thumbnail_url	
+thumbnail_url	civic_media_attachments → media_assets.url	Primary thumbnail attachment; fall back to primary hero attachment
 route	/entities/[slug]	
 entity_weight	0.90	
 
@@ -160,7 +165,7 @@ title	civic_events.name
 subtitle	civic_events.event_type	
 summary	civic_events.description	Truncated to 280 chars
 keywords	civic_events.tags	
-thumbnail_url	civic_events.thumbnail_url	
+thumbnail_url	civic_media_attachments → media_assets.url	Primary thumbnail attachment; fall back to primary hero attachment
 route	/events/[slug]	
 entity_weight	0.90	
 
@@ -171,7 +176,7 @@ title	civic_places.name
 subtitle	civic_places.place_type	
 summary	civic_places.description	Truncated to 280 chars
 keywords	civic_places.tags	
-thumbnail_url	civic_places.thumbnail_url	
+thumbnail_url	civic_media_attachments → media_assets.url	Primary thumbnail attachment; fall back to primary hero attachment
 route	/places/[slug]	
 entity_weight	0.90	
 
@@ -182,7 +187,7 @@ title	civic_moments.title
 subtitle	civic_moments.moment_type	
 summary	civic_moments.description	Truncated to 280 chars
 keywords	civic_moments.tags	
-thumbnail_url	NULL	Moments have no thumbnail in v1
+thumbnail_url	civic_media_attachments → media_assets.url	Primary thumbnail attachment; fall back to primary hero attachment; NULL if neither exists
 route	/moments/[slug]	
 entity_weight	0.90	
 
@@ -193,7 +198,7 @@ title	civic_artifacts.title
 subtitle	civic_artifacts.artifact_type	
 summary	civic_artifacts.description	Truncated to 280 chars
 keywords	civic_artifacts.tags	
-thumbnail_url	civic_artifacts.media_url	
+thumbnail_url	civic_media_attachments → media_assets.url	Primary thumbnail attachment; fall back to primary hero attachment
 route	/artifacts/[slug]	
 entity_weight	0.90	
 
@@ -204,7 +209,7 @@ title	civic_neighborhoods.name
 subtitle	'Neighborhood'	Static label
 summary	civic_neighborhoods.description	Truncated to 280 chars
 keywords	civic_neighborhoods.tags	
-thumbnail_url	NULL	
+thumbnail_url	civic_media_attachments → media_assets.url	Primary thumbnail attachment; fall back to primary hero attachment; NULL if neither exists
 route	/neighborhoods/[slug]	
 entity_weight	0.90	
 

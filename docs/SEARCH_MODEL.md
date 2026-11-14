@@ -192,13 +192,13 @@ When a source record transitions out of eligibility (e.g., `safety_hold → true
 
 | entity_type | title | subtitle | summary | keywords | thumbnail_url | route |
 |---|---|---|---|---|---|---|
-| story | `civic_stories.title` | `civic_stories.category` | `civic_stories.summary` (first 280 chars) | `civic_stories.tags` | `civic_stories.hero_image_url` | /stories/[slug]` |
-| object (entity) | `civic_entities.name` | `civic_entities.entity_type` | `civic_entities.description` (first 280 chars) | `civic_entities.tags` | `civic_entities.thumbnail_url` | '/entities/[slug]` |
-| object (event) | `civic_events.name` | `civic_events.event_type` | `civic_events.description` (first 280 chars) | `civic_events.tags` | `civic_events.thumbnail_url` | `/events/[slug]` |
-| object (place) | `civic_places.name` | `civic_places.place_type` | `civic_places.description` (first 280 chars) | `civic_places.tags` | `civic_places.thumbnail_url` | `/places/[slug]` |
-| object (moment) | `civic_moments.title` | `civic_moments.moment_type` | `civic_moments.description` (first 280 chars) | `civic_moments.tags` | NULL | `/moments/[slug]` |
-| object (artifact) | `civic_artifacts.title` | `civic_artifacts.artifact_type` | `civic_artifacts.description` (first 280 chars) | `civic_artifacts.tags` | `civic_artifacts.media_url` | `/artifacts/[slug]` |
-| object (neighborhood) | `civic_neighborhoods.name` | 'Neighborhood' | `civic_neighborhoods.description` (first 280 chars) | `civic_neighborhoods.tags` | NULL | `/neighborhoods/[slug]` |
+| story | `civic_stories.title` | `civic_stories.category` | `civic_stories.summary` (first 280 chars) | `civic_stories.tags` | primary thumbnail attachment URL, falling back to primary hero attachment URL | /stories/[slug]` |
+| object (entity) | `civic_entities.name` | `civic_entities.entity_type` | `civic_entities.description` (first 280 chars) | `civic_entities.tags` | primary thumbnail attachment URL, falling back to primary hero attachment URL | '/entities/[slug]` |
+| object (event) | `civic_events.name` | `civic_events.event_type` | `civic_events.description` (first 280 chars) | `civic_events.tags` | primary thumbnail attachment URL, falling back to primary hero attachment URL | `/events/[slug]` |
+| object (place) | `civic_places.name` | `civic_places.place_type` | `civic_places.description` (first 280 chars) | `civic_places.tags` | primary thumbnail attachment URL, falling back to primary hero attachment URL | `/places/[slug]` |
+| object (moment) | `civic_moments.title` | `civic_moments.moment_type` | `civic_moments.description` (first 280 chars) | `civic_moments.tags` | primary thumbnail attachment URL, falling back to primary hero attachment URL, else NULL | `/moments/[slug]` |
+| object (artifact) | `civic_artifacts.title` | `civic_artifacts.artifact_type` | `civic_artifacts.description` (first 280 chars) | `civic_artifacts.tags` | primary thumbnail attachment URL, falling back to primary hero attachment URL | `/artifacts/[slug]` |
+| object (neighborhood) | `civic_neighborhoods.name` | 'Neighborhood' | `civic_neighborhoods.description` (first 280 chars) | `civic_neighborhoods.tags` | primary thumbnail attachment URL, falling back to primary hero attachment URL, else NULL | `/neighborhoods/[slug]` |
 | object (era) | `civic_eras.name` | 'Era' | `civic_eras.description` (first 280 chars) | `civic_eras.tags` | NULL | `/eras/[slug]` |
 | timeline | `cities.name + ' Timeline'` | 'Timeline' | NULL | [] | NULL | `/timeline` |
 | game | `games.title` | 'Game' | `games.description` (first 280 chars) | [] | NULL | `/games/[slug]` |
@@ -812,13 +812,26 @@ BEGIN
   IF p_entity_type = 'story' THEN
     SELECT
       cs.city_id, cs.title, cs.category, cs.summary, cs.tags,
-      cs.hero_image_url, cs.slug,
+      media_thumb.url, cs.slug,
       (cs.review_status = 'published' AND cs.safety_hold = false AND cs.is_published = true),
       cs.updated_at,
       c.slug
     INTO v_city_id, v_title, v_subtitle, v_summary_raw, v_keywords,
          v_thumb, v_route, v_is_pub, v_source_ts, v_city_slug
-    FROM civic_stories cs JOIN cities c ON c.id = cs.city_id
+    FROM civic_stories cs
+    JOIN cities c ON c.id = cs.city_id
+    LEFT JOIN LATERAL (
+      SELECT ma.url
+      FROM civic_media_attachments cma
+      JOIN media_assets ma ON ma.id = cma.media_asset_id
+      WHERE cma.city_id = cs.city_id
+        AND cma.civic_object_id = cs.id
+        AND cma.civic_object_type = 'civic_story'
+        AND cma.is_primary = true
+        AND cma.role IN ('thumbnail', 'hero')
+      ORDER BY CASE cma.role WHEN 'thumbnail' THEN 0 ELSE 1 END
+      LIMIT 1
+    ) media_thumb ON true
     WHERE cs.id = p_entity_id;
 
     v_route  := '/' || v_city_slug || '/stories/' || v_route;
@@ -826,7 +839,9 @@ BEGIN
 
   ELSIF p_entity_type = 'object' THEN
     -- Resolved per sub-type; abbreviated here for readability.
-    -- Each civic_* table branch sets v_subtitle, v_route segment, and v_weight.
+    -- Each civic_* table branch resolves v_thumb from the primary thumbnail
+    -- attachment, falling back to the primary hero attachment via media_assets.url.
+    -- It also sets v_subtitle, v_route segment, and v_weight.
     v_weight := 0.90;
 
   ELSIF p_entity_type = 'game' THEN

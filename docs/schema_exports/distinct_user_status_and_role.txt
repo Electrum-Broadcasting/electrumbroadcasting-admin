@@ -1,0 +1,17 @@
+[
+  {
+    "status": "active",
+    "role": "CEO",
+    "no_user_id": false
+  },
+  {
+    "status": "active",
+    "role": "CITY_ADMIN",
+    "no_user_id": false
+  },
+  {
+    "status": "active",
+    "role": "PLATFORM_ADMIN",
+    "no_user_id": false
+  }
+]

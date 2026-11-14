@@ -148,16 +148,20 @@ rpc_apply_suggestion(suggestion_id)
 
 ## 7. Stage 5 — Media Binding (360°)
 ### 7.1 universal-media Bucket
-All 360° media is stored under:
+All 360° media is stored under the canonical city panorama path:
 
-universal-media/cities/{city_slug}/objects/{object_slug}/hero360-{timestamp}.jpg
+universal-media/cities/{cityId}/panoramas/
 
 ### 7.2 City Admin Workflow
-City Admins upload:
-•	hero_360_url
-•	thumbnail_360_url
-•	inline_360_urls
-via Object Manager.
+City Admins upload the 360° source file to universal-media and create a
+`panoramas` row for the civic parent. The row's `civic_object_type` identifies
+the parent, including `civic_story` where applicable. The platform registers
+the stored asset in `media_assets`.
+
+`hero_360_url` is generated from the primary published panorama and is not an
+upload field. Panorama preview imagery uses `panoramas.thumbnail_url`.
+`inline_360_urls` is a legacy compatibility field slated for future
+deprecation; do not write new uploads to it.
 
 ### 7.3 Missing Media Queue
 Objects without 360° media remain:
@@ -204,7 +208,8 @@ Objects become public when:
 
 status = 'approved'
 is_published = true
-hero_360_url IS NOT NULL
+and, where immersive media is required, a primary published panoramas row exists.
+hero_360_url is generated from that row and is not the eligibility source.
 
 For `civic_places`, approval is restricted to the guarded transition
 `pending / false` → `approved / true`; the Place approval operation does not impose

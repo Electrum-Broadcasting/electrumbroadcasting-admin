@@ -1,0 +1,18 @@
+[
+  {
+    "policyname": "panoramas_anon_select",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(status = 'published'::text)",
+    "with_check": null
+  },
+  {
+    "policyname": "panoramas_city_admin_all",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.uid() IN ( SELECT admin_users.user_id\n   FROM admin_users\n  WHERE (panoramas.city_id = panoramas.city_id)))",
+    "with_check": null
+  }
+]

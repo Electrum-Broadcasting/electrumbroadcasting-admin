@@ -122,6 +122,9 @@ Gaming Tables
 Search Tables
 •	search_index
 
+Platform Asset Registry
+•	media_assets — existing platform-wide asset registry; it is not owned or defined by Civic Media Foundation.
+
 ## 3. Core Table Schema Blocks
 
 ### 3.1 Table: cities
@@ -511,7 +514,7 @@ updated_at	timestamp with time zone
 
 Column notes
 
-civic_object_type — discriminator for the polymorphic FK to a civic table. Allowed values: civic_entity, civic_event, civic_place, civic_moment, civic_artifact, civic_neighborhood.
+civic_object_type — discriminator for the polymorphic FK to a civic table. Allowed values: civic_entity, civic_event, civic_place, civic_moment, civic_artifact, civic_neighborhood, civic_story.
 
 equirectangular_url — CDN URL in universal-media. Must be a 2:1 aspect-ratio equirectangular image or video.
 
@@ -1429,7 +1432,7 @@ returned to the public application.
 | id | uuid primary key |
 | city_id | uuid not null references cities(id) |
 | civic_object_id | uuid not null |
-| civic_object_type | text not null; civic_entity, civic_event, civic_place, civic_moment, civic_artifact, civic_neighborhood |
+| civic_object_type | text not null; civic_entity, civic_event, civic_place, civic_moment, civic_artifact, civic_neighborhood, civic_story |
 | show_nearby_map | boolean not null default true |
 | show_related_stories | boolean not null default true |
 | show_media_gallery | boolean not null default true |
@@ -1472,6 +1475,43 @@ presentation and SEO columns; updated_by and updated_at are never returned publi
 | updated_at | timestamptz not null default now() |
 
 UNIQUE (civic_story_id).
+
+### 3.36 Table: civic_media_attachments
+
+Authoritative relationship between a civic object and an asset in the existing
+platform-wide media_assets registry. Civic Media Foundation owns this attachment
+layer, not the media_assets registry.
+
+| column_name | data_type | constraints |
+|---|---|---|
+| id | uuid | primary key default gen_random_uuid() |
+| city_id | uuid | not null references cities(id) |
+| civic_object_id | uuid | not null; polymorphic civic object ID |
+| civic_object_type | text | not null; civic_entity, civic_event, civic_place, civic_moment, civic_artifact, civic_neighborhood, civic_story |
+| media_asset_id | uuid | not null references media_assets(id) |
+| role | text | not null; hero, thumbnail, gallery, evidence |
+| is_primary | boolean | not null default false |
+| display_order | integer | not null default 0 |
+| alt_text | text | nullable |
+| caption | text | nullable |
+| created_by | uuid | references admin_users(id) |
+| created_at | timestamptz | not null default now() |
+
+Hero and thumbnail attachments are primary and limited to one each per civic
+object. Gallery and evidence attachments are non-primary and may have zero or
+more rows. Enforce the role/primary pairing with:
+
+```sql
+CHECK (
+  (role IN ('hero', 'thumbnail') AND is_primary)
+  OR (role IN ('gallery', 'evidence') AND NOT is_primary)
+)
+```
+
+Enforce the hero/thumbnail limits with a unique partial index on
+(city_id, civic_object_id, civic_object_type, role) WHERE role IN ('hero',
+'thumbnail'). civic_object_id is polymorphic and has no direct FK; validate the
+target table and city through the civic_object_type discriminator.
 
 ---
 
@@ -2463,6 +2503,9 @@ universal-media/
 Legacy buckets (story-360, story-images, ad-banners, etc.) remain but are deprecated.
 
 All new uploads must use universal-media.
+universal-media is the sole approved upload bucket for all future civic-content
+uploads. Existing legacy buckets are read-only compatibility sources and must
+not receive new civic-content uploads.
 
 ## 10. Security Logging Model
 
@@ -2935,6 +2978,7 @@ section.
 |            | story_page_settings_edited                                                                 |
 | civic      | object_approved, object_hidden, object_frozen, object_unfrozen, object_merged,            |								
 |            | object_escalated, object_overridden, metadata_edited, media_uploaded,                     |								
+|            | media_attached, media_detached, media_reordered, media_primary_changed,                    |
 |            | metadata_requested, media_360_requested, suggestion_accepted, suggestion_rejected,        |								
 |            | escalation_resolved, page_settings_edited                                                 |
 | places     | PLACE_CREATE_PENDING, PLACE_EDIT_METADATA, PLACE_HIDE, PLACE_APPROVE, PLACE_RESTORE         |
@@ -2952,8 +2996,8 @@ section.
 | games        | game_published, game_unpublished, game_question_created, game_question_updated, game_question_deleted, game_user_created |
  		
 | ingestion  | naming_dispute_resolved, ingestion_source_blocked, sensitive_content_resolved             |								
-| global     | global_feature_toggle_updated, global_safety_setting_updated,                             |								
-|            | platform_setting_updated, role_assigned, role_revoked                                     |
+| global     | global_feature_toggle_updated, city_feature_toggle_updated,                               |
+|            | global_safety_setting_updated, platform_setting_updated, role_assigned, role_revoked      |
 | search      | search_index_entity_reindexed, search_index_entity_deleted, search_index_route_recomputed, search_index_error |
               | 
                | Notes:

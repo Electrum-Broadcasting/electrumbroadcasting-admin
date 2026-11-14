@@ -1,0 +1,22 @@
+[
+  {
+    "tablename": "admin_users",
+    "rowsecurity": true
+  },
+  {
+    "tablename": "city_feature_toggles",
+    "rowsecurity": true
+  },
+  {
+    "tablename": "hotspots",
+    "rowsecurity": true
+  },
+  {
+    "tablename": "media_assets",
+    "rowsecurity": true
+  },
+  {
+    "tablename": "panoramas",
+    "rowsecurity": true
+  }
+]

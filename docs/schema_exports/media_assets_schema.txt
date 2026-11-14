@@ -1,0 +1,10 @@
+create table public.media_assets (
+  id uuid not null,
+  url text not null,
+  alt_text text null,
+  type text not null,
+  metadata jsonb not null,
+  created_at timestamp with time zone null default now(),
+  updated_at timestamp with time zone null default now(),
+  constraint media_assets_pkey primary key (id)
+) TABLESPACE pg_default;
