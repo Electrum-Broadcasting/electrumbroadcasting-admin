@@ -1,3 +1,4 @@
+// @ts-ignore -- supplied by the Next.js runtime; its marker package may lack workspace typings.
 import "server-only";
 
 import { createClient } from "@supabase/supabase-js";
@@ -123,7 +124,7 @@ async function mutatePlace(
     p_actor_auth_uid: admin.auth_uid,
     p_expected_city_id: cityId,
     p_operation: operation,
-    p_place_id: placeId,
+    p_place_id: placeId ?? "",
     p_place_data: data as Json,
   });
 
