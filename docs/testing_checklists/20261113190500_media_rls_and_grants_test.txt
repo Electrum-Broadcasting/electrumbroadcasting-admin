@@ -1,0 +1,15 @@
+After M6:
+
+[ ] anon can read published panorama
+
+[ ] anon cannot read admin_users
+
+[ ] CITY_ADMIN can read own city panoramas
+
+[ ] CITY_ADMIN cannot read another city
+
+[ ] CEO can read all cities
+
+[ ] PLATFORM_ADMIN can read all cities
+
+[ ] direct insert denied
