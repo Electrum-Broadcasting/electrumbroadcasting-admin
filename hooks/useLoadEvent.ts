@@ -2,10 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { createBrowserClient } from "@/lib/supabase/client";
-import { loadUnifiedRelationships } from "@/lib/joinTables";
 
 export function useLoadEvent(citySlug: string, eventSlug: string) {
-  const supabase = createBrowserClient();
+  const [supabase] = useState(createBrowserClient);
 
   const [loading, setLoading] = useState(true);
   const [cityId, setCityId] = useState<string | null>(null);
@@ -33,6 +32,8 @@ export function useLoadEvent(citySlug: string, eventSlug: string) {
 
   // Unified relationships
   const [existingRelationships, setExistingRelationships] = useState<any[]>([]);
+  const [relationshipsLoaded, setRelationshipsLoaded] = useState(false);
+  const [relationshipsError, setRelationshipsError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -84,7 +85,10 @@ export function useLoadEvent(citySlug: string, eventSlug: string) {
         .order("start_year", { ascending: true });
 
       setEras(eraList || []);
-      setSelectedEraIds(eventData.era_ids || []);
+      const { data: eventEras, error: eventErasError } = await supabase
+        .from("event_eras").select("era_id").eq("event_id", eventData.id);
+      const invalidEraLinks = eventEras?.some((row) => typeof row.era_id !== "string" || !row.era_id);
+      if (!eventErasError && !invalidEraLinks) setSelectedEraIds((eventEras || []).map((row) => row.era_id));
 
       // Load entities
       const { data: entityList } = await supabase
@@ -114,19 +118,21 @@ export function useLoadEvent(citySlug: string, eventSlug: string) {
       setStories(storyList || []);
 
       // Unified relationships (READ)
-      const unifiedRelationships = await loadUnifiedRelationships(
-        supabase,
-        "event",
-        eventData.id
-      );
-
-      setExistingRelationships(unifiedRelationships || []);
+      const { data: unifiedRelationships, error: relationshipError } = await supabase
+        .from("civic_relationships").select("*").eq("from_type", "event").eq("from_id", eventData.id);
+      if (eventErasError || relationshipError || invalidEraLinks) {
+        console.error("Failed to load Event relationships:", eventErasError || relationshipError || "Invalid Event era link");
+        setRelationshipsError("Unable to load relationships. Relationship changes are disabled.");
+      } else {
+        setExistingRelationships(unifiedRelationships || []);
+        setRelationshipsLoaded(true);
+      }
 
       setLoading(false);
     }
 
     load();
-  }, [citySlug, eventSlug]);
+  }, [citySlug, eventSlug, supabase]);
 
   return {
     loading,
@@ -166,5 +172,7 @@ export function useLoadEvent(citySlug: string, eventSlug: string) {
     // Unified relationships
     existingRelationships,
     setExistingRelationships,
+    relationshipsLoaded,
+    relationshipsError,
   };
 }

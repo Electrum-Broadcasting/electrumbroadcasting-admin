@@ -1,22 +1,22 @@
 "use client";
 
 interface Place {
-  id: string | number;
+  id: string;
   name: string;
 }
 
 interface Neighborhood {
-  id: string | number;
+  id: string;
   name: string;
 }
 
 interface MomentSpatialFormProps {
   places: Place[];
-  selectedPlaces: (string | number)[];
-  setSelectedPlaces: (places: (string | number)[]) => void;
+  selectedPlaces: string[];
+  setSelectedPlaces: (places: string[]) => void;
   neighborhoods: Neighborhood[];
-  selectedNeighborhoods: (string | number)[];
-  setSelectedNeighborhoods: (neighborhoods: (string | number)[]) => void;
+  selectedNeighborhoods: string[];
+  setSelectedNeighborhoods: (neighborhoods: string[]) => void;
 }
 
 export default function MomentSpatialForm({
@@ -28,7 +28,7 @@ export default function MomentSpatialForm({
   selectedNeighborhoods,
   setSelectedNeighborhoods,
 }: MomentSpatialFormProps) {
-  function togglePlace(placeId: string | number) {
+  function togglePlace(placeId: string) {
     if (selectedPlaces.includes(placeId)) {
       setSelectedPlaces(selectedPlaces.filter((id) => id !== placeId));
     } else {
@@ -36,7 +36,7 @@ export default function MomentSpatialForm({
     }
   }
 
-  function toggleNeighborhood(neighborhoodId: string | number) {
+  function toggleNeighborhood(neighborhoodId: string) {
     if (selectedNeighborhoods.includes(neighborhoodId)) {
       setSelectedNeighborhoods(
         selectedNeighborhoods.filter((id) => id !== neighborhoodId)

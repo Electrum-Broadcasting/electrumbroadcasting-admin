@@ -5,8 +5,6 @@ export default function EventMetadataForm({
   setTags,
   thumbnail360Url,
   setThumbnail360Url,
-  isPublished,
-  setIsPublished,
 }: any) {
   return (
     <div className="space-y-6">
@@ -30,14 +28,6 @@ export default function EventMetadataForm({
         />
       </div>
 
-      <label className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          checked={isPublished}
-          onChange={(e) => setIsPublished(e.target.checked)}
-        />
-        Published
-      </label>
     </div>
   );
 }

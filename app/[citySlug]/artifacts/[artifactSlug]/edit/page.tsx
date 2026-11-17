@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase/client";
 
 import RelationshipSelector from "@/components/relationships/RelationshipSelector";
-import { replaceUnifiedRelationships, loadUnifiedRelationships } from "@/lib/joinTables";
+import { saveCivicRelationships, type CivicRelationship } from "@/lib/admin/civicObjectClient";
+import { useCivicEdit } from "@/hooks/useCivicObjectMutation";
+import CivicLifecycleControls from "@/components/admin/CivicLifecycleControls";
 
 export default function EditArtifactPage({
   params,
@@ -15,7 +17,7 @@ export default function EditArtifactPage({
   const { citySlug, artifactSlug } = params;
   const router = useRouter();
 
-const supabase = createBrowserClient();
+  const [supabase] = useState(createBrowserClient);
 
   const [loading, setLoading] = useState(true);
   const [cityId, setCityId] = useState<string | null>(null);
@@ -36,14 +38,15 @@ const supabase = createBrowserClient();
   const [year, setYear] = useState<number | null>(null);
   const [tags, setTags] = useState("");
 
-  // Publish
-  const [isPublished, setIsPublished] = useState(false);
+  const [relationshipsLoaded, setRelationshipsLoaded] = useState(false);
+  const [relationshipsError, setRelationshipsError] = useState<string | null>(null);
 
   // Relationships
   const [events, setEvents] = useState<any[]>([]);
   const [entities, setEntities] = useState<any[]>([]);
   const [stories, setStories] = useState<any[]>([]);
-  const [selectedRelationships, setSelectedRelationships] = useState<any[]>([]);
+  const [selectedRelationships, setSelectedRelationships] = useState<CivicRelationship[]>([]);
+  const mutation = useCivicEdit("artifact", artifactId, citySlug, "artifacts");
 
   useEffect(() => {
     async function load() {
@@ -86,10 +89,8 @@ const supabase = createBrowserClient();
       setHero360Url(artifact.hero_360_url || "");
       setMediaUrls(artifact.media_urls || []);
 
-      setYear(artifact.year || null);
+      setYear(artifact.year ?? null);
       setTags((artifact.tags || []).join(", "));
-
-      setIsPublished(artifact.is_published || false);
 
       // Load relationship targets
       const { data: eventList } = await supabase
@@ -117,76 +118,41 @@ const supabase = createBrowserClient();
       setStories(storyList || []);
 
       // Load unified relationships
-      const unified = await loadUnifiedRelationships(supabase, "artifact", artifact.id);
-      setSelectedRelationships(unified);
+      const { data: unified, error: relationshipError } = await supabase
+        .from("civic_relationships").select("*").eq("from_type", "artifact").eq("from_id", artifact.id);
+      if (relationshipError) {
+        console.error("Failed to load Artifact relationships:", relationshipError);
+        setRelationshipsError("Unable to load relationships. Relationship changes are disabled.");
+      } else {
+        setSelectedRelationships(unified || []);
+        setRelationshipsLoaded(true);
+      }
 
       setLoading(false);
     }
 
     load();
-  }, [citySlug, artifactSlug]);
+  }, [citySlug, artifactSlug, supabase]);
 
   if (loading) return <div className="p-6">Loading…</div>;
   if (!artifactId) return <div className="p-6">Artifact not found</div>;
 
   async function handleSave() {
-    const { error } = await supabase
-      .from("civic_artifacts")
-      .update({
-        title,
-        slug,
-        description,
-        artifact_type: artifactType,
-
-        hero_image_url: heroImageUrl,
-        hero_360_url: hero360Url,
-        media_urls: mediaUrls,
-
-        year,
-        tags: tags ? tags.split(",").map((t) => t.trim()) : [],
-
-        is_published: isPublished,
-      })
-      .eq("id", artifactId);
-
-    if (error) {
-      console.error(error);
-      alert("Failed to save artifact");
-      return;
-    }
-
-    await replaceUnifiedRelationships(
-      supabase,
-      "artifact",
-      artifactId,
-      selectedRelationships
-    );
-
-    router.push(`/${citySlug}/artifacts/${slug}`);
-  }
-
-  async function handleDelete() {
-    if (!confirm("Are you sure you want to delete this artifact? This cannot be undone.")) {
-      return;
-    }
-
-    const { error } = await supabase
-      .from("civic_artifacts")
-      .delete()
-      .eq("id", artifactId);
-
-    if (error) {
-      console.error(error);
-      alert("Error deleting artifact.");
-      return;
-    }
-
-    router.push(`/${citySlug}/artifacts`);
+    await mutation.save({
+      title, slug, description, artifact_type: artifactType, hero_image_url: heroImageUrl,
+      hero_360_url: hero360Url, media_urls: mediaUrls, year,
+      tags: tags ? tags.split(",").map((t) => t.trim()) : [],
+    }, `/${citySlug}/artifacts/${encodeURIComponent(slug)}`);
   }
 
   return (
     <div className="p-6 space-y-6 max-w-3xl">
       <h1 className="text-3xl font-bold">Edit Artifact</h1>
+      {mutation.error && <p role="alert">{mutation.error}</p>}
+      {relationshipsError && <p role="alert">{relationshipsError}</p>}
+      {mutation.message && <p role="status">{mutation.message}</p>}
+      <p>Metadata and relationships are saved separately.</p>
+      <CivicLifecycleControls {...mutation} />
 
       <div className="space-y-8">
 
@@ -265,8 +231,9 @@ const supabase = createBrowserClient();
         {/* Metadata */}
         <input
           className="border p-2 w-full"
-          value={year || ""}
-          onChange={(e) => setYear(Number(e.target.value))}
+          type="number"
+          value={year ?? ""}
+          onChange={(e) => setYear(e.target.value === "" ? null : Number(e.target.value))}
         />
 
         <input
@@ -276,7 +243,7 @@ const supabase = createBrowserClient();
         />
 
         {/* Relationships */}
-        <RelationshipSelector
+        {relationshipsLoaded && <fieldset disabled={mutation.busy || mutation.unconfirmed || !mutation.actions?.canEdit}><RelationshipSelector
           fromType="artifact"
           fromId={artifactId}
           availableTargets={[
@@ -286,32 +253,22 @@ const supabase = createBrowserClient();
           ]}
           initialRelationships={selectedRelationships}
           onChange={setSelectedRelationships}
-        />
-
-        {/* Publish */}
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={isPublished}
-            onChange={(e) => setIsPublished(e.target.checked)}
-          />
-          Published
-        </label>
+        /></fieldset>}
 
         {/* Actions */}
-        <button
+        {mutation.actions?.canEdit && <button
           onClick={handleSave}
+          disabled={mutation.busy || mutation.unconfirmed}
           className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
         >
-          Save Changes
-        </button>
+          Save Metadata
+        </button>}
 
-        <button
-          onClick={handleDelete}
-          className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-        >
-          Delete Artifact
-        </button>
+        {mutation.actions?.canEdit && relationshipsLoaded && <button
+          onClick={() => mutation.saveLinks(() => saveCivicRelationships(supabase, "artifact", artifactId, selectedRelationships))}
+          disabled={mutation.busy || mutation.unconfirmed}
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+        >Save Relationships</button>}
 
         <button
           onClick={() => router.push(`/${citySlug}/artifacts`)}

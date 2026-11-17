@@ -3,12 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createBrowserClient } from "@/lib/supabase/client";
+import { useCivicCreate } from "@/hooks/useCivicObjectMutation";
 
 export default function CreateNeighborhoodPage({ params }: { params: { citySlug: string } }) {
   const { citySlug } = params;
   const router = useRouter();
 
-  const supabase = createBrowserClient();
+  const [supabase] = useState(createBrowserClient);
+  const mutation = useCivicCreate("neighborhood", citySlug, "neighborhoods");
 
   const [loading, setLoading] = useState(true);
   const [cityId, setCityId] = useState<string | null>(null);
@@ -16,7 +18,6 @@ export default function CreateNeighborhoodPage({ params }: { params: { citySlug:
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
-  const [isPublished, setIsPublished] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -36,30 +37,12 @@ export default function CreateNeighborhoodPage({ params }: { params: { citySlug:
     }
 
     load();
-  }, [citySlug]);
+  }, [citySlug, supabase]);
 
   async function handleCreate() {
     if (!cityId) return;
 
-    const { data: newNeighborhood, error } = await supabase
-      .from("civic_neighborhoods")
-      .insert({
-        city_id: cityId,
-        name,
-        slug,
-        description,
-        is_published: isPublished,
-      })
-      .select("*")
-      .single();
-
-    if (error || !newNeighborhood) {
-      console.error(error);
-      alert("Error creating neighborhood.");
-      return;
-    }
-
-    router.push(`/${citySlug}/neighborhoods`);
+    await mutation.create({ name, ...(slug.trim() ? { slug } : {}), description });
   }
 
   if (loading) return <div className="p-6">Loading…</div>;
@@ -67,6 +50,8 @@ export default function CreateNeighborhoodPage({ params }: { params: { citySlug:
   return (
     <div className="p-6 space-y-6 max-w-3xl">
       <h1 className="text-3xl font-bold">Create Neighborhood</h1>
+      {mutation.error && <p role="alert">{mutation.error}</p>}
+      <p>Neighborhoods are created pending and unpublished.</p>
 
       <div className="space-y-8">
         <input
@@ -90,17 +75,9 @@ export default function CreateNeighborhoodPage({ params }: { params: { citySlug:
           onChange={(e) => setDescription(e.target.value)}
         />
 
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={isPublished}
-            onChange={(e) => setIsPublished(e.target.checked)}
-          />
-          Published
-        </label>
-
         <button
           onClick={handleCreate}
+          disabled={mutation.busy || mutation.unconfirmed || !cityId}
           className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
         >
           Create Neighborhood

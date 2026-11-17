@@ -214,6 +214,30 @@ merge, and escalation actions write to `admin_action_logs` with the exact Postgr
 table name in `entity_type` and the affected row ID in `entity_id`. The direct CRUD
 paths are not yet fully migrated to this contract; see DATA_MODEL.md §14.3.
 
+#### Entity lifecycle service
+
+The server-side Entity endpoints use `admin_mutate_civic_entity` for pending
+creation, metadata edits, approval, hiding, and restoration. Successful mutation
+responses include `auditId`; creation requires `name` and `entity_type` and
+always starts pending. Metadata cannot change city or lifecycle state.
+The Entity forms use these endpoints for metadata and lifecycle actions.
+Relationships remain separate from lifecycle governance. Relationship governance,
+auditability, and transactional mutation are a planned follow-on workstream.
+The unused legacy `lib/entities/saveEntity.ts` helper still contains a direct
+Entity update; direct-write privileges have not yet been retired.
+
+The Event, Artifact, Neighborhood, Era, and Moment server-side endpoints are
+available under `/api/admin/civic-objects/{event|artifact|neighborhood|era|moment}`.
+They follow the same pending creation, metadata, approval, hide, restore, and
+audit confirmation contract. Their create and edit forms use these endpoints;
+metadata and relationship saves are separate. Event era links and Moment spatial
+and era links are also relationship writes, outside the lifecycle audit
+transaction. Saving Event relationships also applies automatic era assignments
+using the dates currently in the form. Permanent Delete buttons have been removed from the Event,
+Artifact, Neighborhood, and Era edit forms. Legacy direct-write helpers and
+direct-write privileges have not yet been retired. Live end-to-end acceptance
+is still required before treating the five migrations as validated.
+
 ### 10.5.1 Place lifecycle
 
 The guarded Place operation supports these states and transitions:

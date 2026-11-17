@@ -3,12 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createBrowserClient } from "@/lib/supabase/client";
+import { useCivicCreate } from "@/hooks/useCivicObjectMutation";
 
 export default function CreateEraPage({ params }: { params: { citySlug: string } }) {
   const { citySlug } = params;
   const router = useRouter();
 
-  const supabase = createBrowserClient();
+  const [supabase] = useState(createBrowserClient);
+  const mutation = useCivicCreate("era", citySlug, "eras");
 
   const [loading, setLoading] = useState(true);
   const [cityId, setCityId] = useState<string | null>(null);
@@ -18,7 +20,6 @@ export default function CreateEraPage({ params }: { params: { citySlug: string }
   const [startYear, setStartYear] = useState<number | null>(null);
   const [endYear, setEndYear] = useState<number | null>(null);
   const [description, setDescription] = useState("");
-  const [isPublished, setIsPublished] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -38,32 +39,12 @@ export default function CreateEraPage({ params }: { params: { citySlug: string }
     }
 
     load();
-  }, [citySlug]);
+  }, [citySlug, supabase]);
 
   async function handleCreate() {
     if (!cityId) return;
 
-    const { data: newEra, error } = await supabase
-      .from("civic_eras")
-      .insert({
-        city_id: cityId,
-        name,
-        slug,
-        start_year: startYear,
-        end_year: endYear,
-        description,
-        is_published: isPublished,
-      })
-      .select("*")
-      .single();
-
-    if (error || !newEra) {
-      console.error(error);
-      alert("Error creating era.");
-      return;
-    }
-
-    router.push(`/${citySlug}/eras`);
+    await mutation.create({ name, ...(slug.trim() ? { slug } : {}), start_year: startYear, end_year: endYear, description });
   }
 
   if (loading) return <div className="p-6">Loading…</div>;
@@ -71,6 +52,8 @@ export default function CreateEraPage({ params }: { params: { citySlug: string }
   return (
     <div className="p-6 space-y-6 max-w-3xl">
       <h1 className="text-3xl font-bold">Create Era</h1>
+      {mutation.error && <p role="alert">{mutation.error}</p>}
+      <p>Eras are created pending and unpublished.</p>
 
       <div className="space-y-8">
         <input
@@ -92,7 +75,7 @@ export default function CreateEraPage({ params }: { params: { citySlug: string }
           placeholder="Start Year"
           type="number"
           value={startYear ?? ""}
-          onChange={(e) => setStartYear(Number(e.target.value))}
+          onChange={(e) => setStartYear(e.target.value === "" ? null : Number(e.target.value))}
         />
 
         <input
@@ -100,7 +83,7 @@ export default function CreateEraPage({ params }: { params: { citySlug: string }
           placeholder="End Year"
           type="number"
           value={endYear ?? ""}
-          onChange={(e) => setEndYear(Number(e.target.value))}
+          onChange={(e) => setEndYear(e.target.value === "" ? null : Number(e.target.value))}
         />
 
         <textarea
@@ -110,17 +93,9 @@ export default function CreateEraPage({ params }: { params: { citySlug: string }
           onChange={(e) => setDescription(e.target.value)}
         />
 
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={isPublished}
-            onChange={(e) => setIsPublished(e.target.checked)}
-          />
-          Published
-        </label>
-
         <button
           onClick={handleCreate}
+          disabled={mutation.busy || mutation.unconfirmed || !cityId}
           className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
         >
           Create Era

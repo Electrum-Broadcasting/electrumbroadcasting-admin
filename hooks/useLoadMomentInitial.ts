@@ -2,10 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { createBrowserClient } from "@/lib/supabase/client";
-import { loadUnifiedRelationships } from "@/lib/joinTables";
 
 export function useLoadMomentInitial(citySlug: string, momentSlug: string) {
-  const supabase = createBrowserClient();
+  const [supabase] = useState(createBrowserClient);
 
   const [loading, setLoading] = useState(true);
   const [initialData, setInitialData] = useState<any>(null);
@@ -55,17 +54,17 @@ export function useLoadMomentInitial(citySlug: string, momentSlug: string) {
       //
       // 3. Load join tables
       //
-      const { data: momentPlaces } = await supabase
+      const { data: momentPlaces, error: placesError } = await supabase
         .from("moment_places")
         .select("place_id")
         .eq("moment_id", moment.id);
 
-      const { data: momentNeighborhoods } = await supabase
+      const { data: momentNeighborhoods, error: neighborhoodsError } = await supabase
         .from("moment_neighborhoods")
         .select("neighborhood_id")
         .eq("moment_id", moment.id);
 
-      const { data: momentEras } = await supabase
+      const { data: momentEras, error: erasError } = await supabase
         .from("moment_eras")
         .select("era_id")
         .eq("moment_id", moment.id);
@@ -115,11 +114,16 @@ export function useLoadMomentInitial(citySlug: string, momentSlug: string) {
       //
       // 6. Unified relationships
       //
-      const relationships = await loadUnifiedRelationships(
-        supabase,
-        "moment",
-        moment.id
-      );
+      const { data: relationships, error: relationshipsError } = await supabase
+        .from("civic_relationships").select("*").eq("from_type", "moment").eq("from_id", moment.id);
+      const invalidLinks = [
+        ...(momentPlaces || []).map((row) => row.place_id),
+        ...(momentNeighborhoods || []).map((row) => row.neighborhood_id),
+        ...(momentEras || []).map((row) => row.era_id),
+      ].some((id) => typeof id !== "string" || !id);
+      const linksError = placesError || neighborhoodsError || erasError || relationshipsError
+        || (invalidLinks ? "Invalid Moment link" : null);
+      if (linksError) console.error("Failed to load Moment relationships:", linksError);
 
       //
       // 7. Return everything
@@ -146,13 +150,14 @@ export function useLoadMomentInitial(citySlug: string, momentSlug: string) {
 
         // unified relationships
         relationships,
+        relationshipsLoaded: !linksError,
       });
 
       setLoading(false);
     }
 
     load();
-  }, [citySlug, momentSlug]);
+  }, [citySlug, momentSlug, supabase]);
 
   return { loading, initialData };
 }

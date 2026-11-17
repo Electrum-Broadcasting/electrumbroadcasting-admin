@@ -4771,6 +4771,37 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_mutate_civic_entity: {
+        Args: {
+          p_actor_admin_id: string
+          p_actor_auth_uid: string
+          p_expected_city_id: string
+          p_operation: string
+          p_object_id: string | null
+          p_object_data: Json
+        }
+        Returns: Json
+      }
+      admin_mutate_civic_event: {
+        Args: { p_actor_admin_id: string; p_actor_auth_uid: string; p_expected_city_id: string; p_operation: string; p_object_id: string | null; p_object_data: Json }
+        Returns: Json
+      }
+      admin_mutate_civic_artifact: {
+        Args: { p_actor_admin_id: string; p_actor_auth_uid: string; p_expected_city_id: string; p_operation: string; p_object_id: string | null; p_object_data: Json }
+        Returns: Json
+      }
+      admin_mutate_civic_neighborhood: {
+        Args: { p_actor_admin_id: string; p_actor_auth_uid: string; p_expected_city_id: string; p_operation: string; p_object_id: string | null; p_object_data: Json }
+        Returns: Json
+      }
+      admin_mutate_civic_era: {
+        Args: { p_actor_admin_id: string; p_actor_auth_uid: string; p_expected_city_id: string; p_operation: string; p_object_id: string | null; p_object_data: Json }
+        Returns: Json
+      }
+      admin_mutate_civic_moment: {
+        Args: { p_actor_admin_id: string; p_actor_auth_uid: string; p_expected_city_id: string; p_operation: string; p_object_id: string | null; p_object_data: Json }
+        Returns: Json
+      }
       admin_mutate_civic_place: {
         Args: {
           p_actor_admin_id: string

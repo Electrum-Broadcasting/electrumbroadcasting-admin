@@ -20,12 +20,14 @@ export default function MomentTimelineForm({
   eras,
   selectedEras,
   setSelectedEras,
+  relationshipsDisabled = false,
 }: {
   momentTime: string | null;
   setMomentTime: (value: string) => void;
   eras?: { id: string; name: string }[];
   selectedEras: string[];
   setSelectedEras: (value: string[]) => void;
+  relationshipsDisabled?: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -41,7 +43,7 @@ export default function MomentTimelineForm({
         />
       </div>
 
-      <div>
+      <fieldset disabled={relationshipsDisabled}>
         <h3 className="font-medium mb-2">Eras</h3>
         <div className="space-y-2">
           {(eras ?? []).map((era: { id: string; name: string }) => (
@@ -63,7 +65,7 @@ export default function MomentTimelineForm({
             </label>
           ))}
         </div>
-      </div>
+      </fieldset>
     </div>
   );
 }

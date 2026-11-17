@@ -10,13 +10,15 @@ import EventErasForm from "@/components/events/EventErasForm";
 import EventMetadataForm from "@/components/events/EventMetadataForm";
 import RelationshipSelector from "@/components/relationships/RelationshipSelector";
 
-import { replaceUnifiedRelationships } from "@/lib/joinTables";
+import { saveCivicLinks, saveCivicRelationships, type CivicRelationship } from "@/lib/admin/civicObjectClient";
+import { useCivicCreate } from "@/hooks/useCivicObjectMutation";
 
 export default function CreateEventPage({ params }: { params: { citySlug: string } }) {
   const { citySlug } = params;
   const router = useRouter();
 
-  const supabase = createBrowserClient();
+  const [supabase] = useState(createBrowserClient);
+  const mutation = useCivicCreate("event", citySlug, "events");
 
   const [loading, setLoading] = useState(true);
   const [cityId, setCityId] = useState<string | null>(null);
@@ -30,7 +32,6 @@ export default function CreateEventPage({ params }: { params: { citySlug: string
   const [endDate, setEndDate] = useState<string>("");
   const [tags, setTags] = useState("");
   const [thumbnail360Url, setThumbnail360Url] = useState("");
-  const [isPublished, setIsPublished] = useState(false);
 
   // Eras
   const [eras, setEras] = useState<any[]>([]);
@@ -40,7 +41,7 @@ export default function CreateEventPage({ params }: { params: { citySlug: string
   const [entities, setEntities] = useState<any[]>([]);
   const [artifacts, setArtifacts] = useState<any[]>([]);
   const [stories, setStories] = useState<any[]>([]);
-  const [selectedRelationships, setSelectedRelationships] = useState<any[]>([]);
+  const [selectedRelationships, setSelectedRelationships] = useState<CivicRelationship[]>([]);
 
   useEffect(() => {
     async function load() {
@@ -93,43 +94,24 @@ export default function CreateEventPage({ params }: { params: { citySlug: string
     }
 
     load();
-  }, [citySlug]);
+  }, [citySlug, supabase]);
 
   async function handleCreate() {
     if (!cityId) return;
 
-    const { data: newEvent, error } = await supabase
-      .from("civic_events")
-      .insert({
-        city_id: cityId,
-        name,
-        slug,
-        event_type: eventType,
-        description,
-        start_date: startDate || null,
-        end_date: endDate || null,
-        tags: tags ? tags.split(",").map((t) => t.trim()) : [],
-        thumbnail_360_url: thumbnail360Url || null,
-        is_published: isPublished,
-      })
-      .select("*")
-      .single();
-
-    if (error || !newEvent) {
-      console.error(error);
-      alert("Error creating event.");
-      return;
-    }
-
-    // Unified relationships
-    await replaceUnifiedRelationships(
-      supabase,
-      "event",
-      newEvent.id,
-      selectedRelationships
-    );
-
-    router.push(`/${citySlug}/events/${slug}/edit`);
+    await mutation.create({
+      name, ...(slug.trim() ? { slug } : {}), event_type: eventType, description,
+      start_date: startDate || null, end_date: endDate || null,
+      tags: tags ? tags.split(",").map((t) => t.trim()) : [],
+      thumbnail_360_url: thumbnail360Url || null,
+    }, async (id) => {
+      if (mutation.createdId || selectedEraIds.length) {
+        await saveCivicLinks(supabase, "event_eras", "event_id", "era_id", id, selectedEraIds);
+      }
+      if (mutation.createdId || selectedRelationships.length) {
+        await saveCivicRelationships(supabase, "event", id, selectedRelationships);
+      }
+    }, slug.trim() ? `/${citySlug}/events/${encodeURIComponent(slug)}/edit` : undefined);
   }
 
   if (loading) return <div className="p-6">Loading…</div>;
@@ -137,8 +119,12 @@ export default function CreateEventPage({ params }: { params: { citySlug: string
   return (
     <div className="p-6 space-y-6 max-w-3xl">
       <h1 className="text-3xl font-bold">Create Event</h1>
+      {mutation.error && <p role="alert">{mutation.error}</p>}
+      <p>Events are created pending and unpublished.</p>
+      {mutation.createdId && <p>Metadata was saved. Only relationships will be retried.</p>}
 
       <div className="space-y-8">
+        <fieldset disabled={!!mutation.createdId || mutation.busy || mutation.unconfirmed} className="space-y-8">
         <EventBasicsForm
           name={name}
           setName={setName}
@@ -177,11 +163,10 @@ export default function CreateEventPage({ params }: { params: { citySlug: string
           setTags={setTags}
           thumbnail360Url={thumbnail360Url}
           setThumbnail360Url={setThumbnail360Url}
-          isPublished={isPublished}
-          setIsPublished={setIsPublished}
         />
+        </fieldset>
 
-        <RelationshipSelector
+        <fieldset disabled={mutation.busy || mutation.unconfirmed}><RelationshipSelector
           fromType="event"
           fromId={null}
           availableTargets={[
@@ -191,9 +176,9 @@ export default function CreateEventPage({ params }: { params: { citySlug: string
           ]}
           initialRelationships={[]}
           onChange={setSelectedRelationships}
-        />
+        /></fieldset>
 
-        <div className="space-y-2">
+        <fieldset disabled={!!mutation.createdId || mutation.busy || mutation.unconfirmed} className="space-y-2">
   <label className="font-medium">Thumbnail 360° Image</label>
   <input
     type="file"
@@ -230,13 +215,14 @@ export default function CreateEventPage({ params }: { params: { citySlug: string
       className="w-48 h-auto rounded border"
     />
   )}
-</div>
+</fieldset>
 
         <button
           onClick={handleCreate}
+          disabled={mutation.busy || mutation.unconfirmed || !cityId}
           className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
         >
-          Create Event
+          {mutation.busy ? "Saving…" : mutation.createdId ? "Retry Relationships" : "Create Event"}
         </button>
 
         <button

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase/client";
 
 import RelationshipSelector from "@/components/relationships/RelationshipSelector";
-import { replaceUnifiedRelationships } from "@/lib/joinTables";
+import { entityRequest, EntityRequestError, readEntityActions, readEntityMutation, saveEntityRelationships, type EntityActions, type EntityRelationship } from "@/lib/entities/entityClient";
 
 import EntityThumbnailUpload from "@/components/entities/EntityThumbnailUpload";
 import EntityHeroImageUpload from "@/components/entities/EntityHeroImageUpload";
@@ -20,7 +20,7 @@ export default function EditEntityPage({
   const { citySlug, entitySlug } = params;
   const router = useRouter();
 
-const supabase = createBrowserClient();
+  const [supabase] = useState(createBrowserClient);
 
   const [loading, setLoading] = useState(true);
   const [cityId, setCityId] = useState<string | null>(null);
@@ -46,7 +46,11 @@ const supabase = createBrowserClient();
   const [year, setYear] = useState<number | null>(null);
   const [tags, setTags] = useState("");
   const [eraId, setEraId] = useState<string>("");
-  const [isPublished, setIsPublished] = useState(false);
+  const [actions, setActions] = useState<EntityActions | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [unconfirmed, setUnconfirmed] = useState(false);
+  const [relationshipsLoaded, setRelationshipsLoaded] = useState(false);
 
   // Relationship targets
   const [events, setEvents] = useState<any[]>([]);
@@ -55,7 +59,7 @@ const supabase = createBrowserClient();
   const [eras, setEras] = useState<any[]>([]);
 
   // Unified relationships
-  const [selectedRelationships, setSelectedRelationships] = useState<any[]>([]);
+  const [selectedRelationships, setSelectedRelationships] = useState<EntityRelationship[]>([]);
 
   useEffect(() => {
     async function load() {
@@ -106,7 +110,12 @@ const supabase = createBrowserClient();
       setYear(entity.year);
       setTags((entity.tags || []).join(", "));
       setEraId(entity.era_id || "");
-      setIsPublished(entity.is_published);
+      try {
+        setActions(readEntityActions(await entityRequest(`/api/admin/civic-entities/${entity.id}`)));
+      } catch (error) {
+        console.error("Failed to load Entity permissions:", error);
+        setError(error instanceof Error ? error.message : "Unable to load Entity permissions.");
+      }
 
       // Load relationship targets
       const [eventList, artifactList, storyList, eraList] = await Promise.all([
@@ -122,68 +131,115 @@ const supabase = createBrowserClient();
       setEras(eraList.data || []);
 
       // Load unified relationships
-      const { data: rels } = await supabase
+      const { data: rels, error: relationshipsError } = await supabase
         .from("civic_relationships")
         .select("*")
         .eq("from_type", "entity")
         .eq("from_id", entity.id);
 
-      setSelectedRelationships(rels || []);
+      if (relationshipsError) {
+        console.error("Failed to load Entity relationships:", relationshipsError);
+        setError("Unable to load relationships. Relationship changes are disabled.");
+      } else {
+        setSelectedRelationships(rels || []);
+        setRelationshipsLoaded(true);
+      }
 
       setLoading(false);
     }
 
     load();
-  }, [citySlug, entitySlug]);
+  }, [citySlug, entitySlug, supabase]);
 
   async function handleSave() {
-    if (!cityId || !entityId) return;
-
-    const { error } = await supabase
-      .from("civic_entities")
-      .update({
-        name,
-        slug,
-        entity_type: entityType,
-        roles,
-        summary,
-        description,
-
-        thumbnail_url: thumbnailUrl,
-        hero_image_url: heroImageUrl,
-        hero_360_url: hero360Url,
-        media_urls: mediaUrls,
-
-        birth_year: birthYear,
-        death_year: deathYear,
-        year,
-        tags: tags ? tags.split(",").map((t) => t.trim()) : [],
-        era_id: eraId || null,
-
-        is_published: isPublished,
-      })
-      .eq("id", entityId);
-
-    if (error) {
-      alert("Error saving entity.");
-      return;
+    if (!cityId || !entityId || busy || unconfirmed) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const body = await entityRequest(`/api/admin/civic-entities/${entityId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name, slug, entity_type: entityType, roles, summary, description,
+          thumbnail_url: thumbnailUrl, hero_image_url: heroImageUrl,
+          hero_360_url: hero360Url, media_urls: mediaUrls, birth_year: birthYear,
+          death_year: deathYear, year, tags: tags ? tags.split(",").map((t) => t.trim()) : [],
+          era_id: eraId || null,
+        }),
+      });
+      readEntityMutation(body);
+      router.push(`/${citySlug}/entities/${slug}`);
+    } catch (error) {
+      console.error("Entity metadata save failed:", error);
+      setUnconfirmed(error instanceof EntityRequestError && error.unconfirmed);
+      setError(error instanceof Error ? error.message : "Unable to save Entity metadata.");
+    } finally {
+      setBusy(false);
     }
+  }
 
-    await replaceUnifiedRelationships(
-      supabase,
-      "entity",
-      entityId,
-      selectedRelationships
-    );
+  async function handleRelationships() {
+    if (!entityId || busy || !relationshipsLoaded) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await saveEntityRelationships(supabase, entityId, selectedRelationships);
+      alert("Relationships saved.");
+    } catch (error) {
+      console.error("Entity relationship save failed:", error);
+      setError("Relationships could not be saved and may have changed. Retry or reload to verify.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
-    router.push(`/${citySlug}/entities/${slug}`);
+  async function handleLifecycle(operation: "approve" | "hide" | "restore") {
+    if (!entityId || busy || unconfirmed) return;
+    const prompts = {
+      approve: "Approve and publish this Entity?",
+      hide: "Hide this Entity?",
+      restore: "Restore this Entity to pending and unpublished?",
+    };
+    if (!confirm(prompts[operation])) return;
+    setBusy(true);
+    setError(null);
+    let confirmed = false;
+    try {
+      const body = await entityRequest(`/api/admin/civic-entities/${entityId}/${operation}`, { method: "POST" });
+      readEntityMutation(body);
+      confirmed = true;
+      setActions(readEntityActions(await entityRequest(`/api/admin/civic-entities/${entityId}`)));
+    } catch (error) {
+      console.error("Entity lifecycle operation failed:", error);
+      setActions(null);
+      if (confirmed) {
+        setError("Lifecycle action succeeded, but the latest permissions could not be loaded. Reload to continue.");
+      } else {
+        setUnconfirmed(error instanceof EntityRequestError && error.unconfirmed);
+        setError(error instanceof Error ? error.message : "Unable to update Entity lifecycle.");
+        if (!(error instanceof EntityRequestError && error.unconfirmed)) {
+          try {
+            setActions(readEntityActions(await entityRequest(`/api/admin/civic-entities/${entityId}`)));
+          } catch (refreshError) {
+            console.error("Failed to refresh Entity permissions:", refreshError);
+            setError("The lifecycle action failed and permissions could not be refreshed. Reload to continue.");
+          }
+        }
+      }
+    } finally {
+      setBusy(false);
+    }
   }
 
   if (loading) return <div className="p-6">Loading…</div>;
+  if (!entityId) return <div className="p-6">Entity not found</div>;
 
   return (
     <div className="p-6 space-y-6 max-w-3xl">
       <h1 className="text-3xl font-bold">Edit Entity</h1>
+      {error && <p role="alert">{error}</p>}
+      {actions && <p>Status: {actions.status} · Published: {actions.isPublished ? "Yes" : "No"}</p>}
+      <p>Metadata and relationships are saved separately.</p>
 
       <div className="space-y-8">
 
@@ -272,14 +328,8 @@ const supabase = createBrowserClient();
           setMediaUrls={setMediaUrls}
         />
 
-        {/* Publish */}
-        <label className="flex items-center gap-2">
-          <input type="checkbox" checked={isPublished} onChange={(e) => setIsPublished(e.target.checked)} />
-          Published
-        </label>
-
         {/* Relationships */}
-        <RelationshipSelector
+        {relationshipsLoaded && <RelationshipSelector
           fromType="entity"
           fromId={entityId}
           availableTargets={[
@@ -289,14 +339,25 @@ const supabase = createBrowserClient();
           ]}
           initialRelationships={selectedRelationships}
           onChange={setSelectedRelationships}
-        />
+        />}
 
-        <button
+        {actions?.canEdit && <button
           onClick={handleSave}
+          disabled={busy || unconfirmed}
           className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
         >
-          Save Changes
-        </button>
+          Save Metadata
+        </button>}
+        {actions?.canEdit && relationshipsLoaded && <button
+          onClick={handleRelationships}
+          disabled={busy || unconfirmed}
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+        >
+          Save Relationships
+        </button>}
+        {actions?.canApprove && <button disabled={busy || unconfirmed} onClick={() => handleLifecycle("approve")}>Approve</button>}
+        {actions?.canHide && <button disabled={busy || unconfirmed} onClick={() => handleLifecycle("hide")}>Hide</button>}
+        {actions?.canRestore && <button disabled={busy || unconfirmed} onClick={() => handleLifecycle("restore")}>Restore to Pending</button>}
 
         <button
           onClick={() => router.push(`/${citySlug}/entities/${slug}`)}

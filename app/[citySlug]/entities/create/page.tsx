@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { createBrowserClient } from "@/lib/supabase/client";
 
 import RelationshipSelector from "@/components/relationships/RelationshipSelector";
-import { replaceUnifiedRelationships } from "@/lib/joinTables";
+import { entityRequest, EntityRequestError, readEntityMutation, saveEntityRelationships, type EntityRelationship } from "@/lib/entities/entityClient";
 
 // NEW: Entity-specific uploaders
 import EntityThumbnailUpload from "@/components/entities/EntityThumbnailUpload";
@@ -17,7 +17,7 @@ export default function CreateEntityPage({ params }: { params: { citySlug: strin
   const { citySlug } = params;
   const router = useRouter();
 
-const supabase = createBrowserClient();
+  const [supabase] = useState(createBrowserClient);
 
   const [loading, setLoading] = useState(true);
   const [cityId, setCityId] = useState<string | null>(null);
@@ -42,7 +42,10 @@ const supabase = createBrowserClient();
   const [year, setYear] = useState<number | null>(null);
   const [tags, setTags] = useState("");
   const [eraId, setEraId] = useState<string>("");
-  const [isPublished, setIsPublished] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [createdId, setCreatedId] = useState<string | null>(null);
+  const [unconfirmed, setUnconfirmed] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Relationship targets
   const [events, setEvents] = useState<any[]>([]);
@@ -51,7 +54,7 @@ const supabase = createBrowserClient();
   const [eras, setEras] = useState<any[]>([]);
 
   // Unified relationships
-  const [selectedRelationships, setSelectedRelationships] = useState<any[]>([]);
+  const [selectedRelationships, setSelectedRelationships] = useState<EntityRelationship[]>([]);
 
   useEffect(() => {
     async function load() {
@@ -84,66 +87,45 @@ const supabase = createBrowserClient();
     }
 
     load();
-  }, [citySlug]);
+  }, [citySlug, supabase]);
 
   async function handleCreate() {
-    if (!cityId) return;
-
-    const { error } = await supabase
-      .from("civic_entities")
-      .insert({
-        city_id: cityId,
-
-        // Basics
-        name,
-        slug,
-        entity_type: entityType,
-        roles,
-        summary,
-        description,
-
-        // Media
-        thumbnail_url: thumbnailUrl,
-        hero_image_url: heroImageUrl,
-        hero_360_url: hero360Url,
-        media_urls: mediaUrls,
-
-        // Metadata
-        birth_year: birthYear,
-        death_year: deathYear,
-        year,
-        tags: tags ? tags.split(",").map((t) => t.trim()) : [],
-        era_id: eraId || null,
-
-        // Publish
-        is_published: isPublished,
-      });
-
-    if (error) {
-      alert("Error creating entity.");
-      return;
+    if (!cityId || saving || unconfirmed) return;
+    setSaving(true);
+    setSaveError(null);
+    let id = createdId;
+    try {
+      if (!id) {
+        const body = await entityRequest("/api/admin/civic-entities", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            citySlug, name, ...(slug.trim() ? { slug } : {}), entity_type: entityType,
+            roles, summary, description, thumbnail_url: thumbnailUrl,
+            hero_image_url: heroImageUrl, hero_360_url: hero360Url, media_urls: mediaUrls,
+            birth_year: birthYear, death_year: deathYear, year,
+            tags: tags ? tags.split(",").map((t) => t.trim()) : [], era_id: eraId || null,
+          }),
+        });
+        id = readEntityMutation(body).entityId;
+        setCreatedId(id);
+      }
+      if (createdId || selectedRelationships.length) {
+        await saveEntityRelationships(supabase, id, selectedRelationships);
+      }
+      router.push(`/${citySlug}/entities`);
+    } catch (error) {
+      console.error("Entity creation or relationship save failed:", error);
+      if (id) {
+        setSaveError(`Entity created (ID: ${id}), but relationships could not be saved. Retry relationships or return to the Entity list.`);
+      } else {
+        const uncertain = error instanceof EntityRequestError ? error.unconfirmed : true;
+        setUnconfirmed(uncertain);
+        setSaveError(error instanceof Error ? error.message : "Entity creation outcome is unconfirmed. Verify before retrying.");
+      }
+    } finally {
+      setSaving(false);
     }
-
-    const { data: newEntity } = await supabase
-      .from("civic_entities")
-      .select("*")
-      .eq("slug", slug)
-      .eq("city_id", cityId)
-      .single();
-
-    if (!newEntity) {
-      alert("Error creating entity.");
-      return;
-    }
-
-    await replaceUnifiedRelationships(
-      supabase,
-      "entity",
-      newEntity.id,
-      selectedRelationships
-    );
-
-    router.push(`/${citySlug}/entities`);
   }
 
   if (loading) return <div className="p-6">Loading…</div>;
@@ -154,6 +136,7 @@ const supabase = createBrowserClient();
 
       <div className="space-y-8">
 
+        <fieldset disabled={!!createdId || saving || unconfirmed} className="space-y-8">
         {/* Basics */}
         <label className="block text-sm font-medium">Name</label>
         <input className="border p-2 w-full" value={name} onChange={(e) => setName(e.target.value)} />
@@ -186,18 +169,18 @@ const supabase = createBrowserClient();
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium">Birth Year</label>
-            <input type="number" className="border p-2 w-full" value={birthYear ?? ""} onChange={(e) => setBirthYear(Number(e.target.value))} />
+            <input type="number" className="border p-2 w-full" value={birthYear ?? ""} onChange={(e) => setBirthYear(e.target.value === "" ? null : Number(e.target.value))} />
           </div>
 
           <div>
             <label className="block text-sm font-medium">Death Year</label>
-            <input type="number" className="border p-2 w-full" value={deathYear ?? ""} onChange={(e) => setDeathYear(Number(e.target.value))} />
+            <input type="number" className="border p-2 w-full" value={deathYear ?? ""} onChange={(e) => setDeathYear(e.target.value === "" ? null : Number(e.target.value))} />
           </div>
         </div>
 
         {/* Metadata */}
         <label className="block text-sm font-medium">Year (Timeline)</label>
-        <input className="border p-2 w-full" value={year ?? ""} onChange={(e) => setYear(Number(e.target.value))} />
+        <input type="number" className="border p-2 w-full" value={year ?? ""} onChange={(e) => setYear(e.target.value === "" ? null : Number(e.target.value))} />
 
         <label className="block text-sm font-medium">Tags (comma separated)</label>
         <input className="border p-2 w-full" value={tags} onChange={(e) => setTags(e.target.value)} />
@@ -238,12 +221,10 @@ const supabase = createBrowserClient();
           mediaUrls={mediaUrls}
           setMediaUrls={setMediaUrls}
         />
+        </fieldset>
 
-        {/* Publish */}
-        <label className="flex items-center gap-2">
-          <input type="checkbox" checked={isPublished} onChange={(e) => setIsPublished(e.target.checked)} />
-          Published
-        </label>
+        <p>Entities are created pending and unpublished.</p>
+        {createdId && <p>Entity metadata has been saved. Only relationships will be retried.</p>}
 
         {/* Relationships */}
         <RelationshipSelector
@@ -260,10 +241,12 @@ const supabase = createBrowserClient();
 
         <button
           onClick={handleCreate}
+          disabled={saving || unconfirmed || !cityId}
           className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
         >
-          Create Entity
+          {saving ? "Saving…" : createdId ? "Retry Relationships" : "Create Entity"}
         </button>
+        {saveError && <p role="alert">{saveError}</p>}
 
                 <button
           onClick={() => router.push(`/${citySlug}/entities`)}

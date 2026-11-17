@@ -1,9 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useLoadEvent } from "@/hooks/useLoadEvent";
-import { saveEvent } from "@/lib/events/saveEvent";
-import { replaceUnifiedRelationships } from "@/lib/joinTables";
+import { useCivicEdit } from "@/hooks/useCivicObjectMutation";
+import { saveCivicLinks, saveCivicRelationships } from "@/lib/admin/civicObjectClient";
+import CivicLifecycleControls from "@/components/admin/CivicLifecycleControls";
 
 import EventBasicsForm from "@/components/events/EventBasicsForm";
 import EventDatesForm from "@/components/events/EventDatesForm";
@@ -11,12 +13,7 @@ import EventErasForm from "@/components/events/EventErasForm";
 import EventMetadataForm from "@/components/events/EventMetadataForm";
 import RelationshipSelector from "@/components/relationships/RelationshipSelector";
 
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { createBrowserClient } from "@/lib/supabase/client";
 
 interface EditEventPageParams {
   citySlug: string;
@@ -30,11 +27,11 @@ interface EditEventPageProps {
 export default function EditEventPage({ params }: EditEventPageProps) {
   const { citySlug, eventSlug } = params;
   const router = useRouter();
+  const [supabase] = useState(createBrowserClient);
 
   const {
     loading,
     event,
-    cityId,
 
     // Form fields
     name,
@@ -53,8 +50,6 @@ export default function EditEventPage({ params }: EditEventPageProps) {
     setTags,
     thumbnail360Url,
     setThumbnail360Url,
-    isPublished,
-    setIsPublished,
 
     // Eras
     eras,
@@ -67,48 +62,42 @@ export default function EditEventPage({ params }: EditEventPageProps) {
     stories,
     existingRelationships,
     setExistingRelationships,
+    relationshipsLoaded,
+    relationshipsError,
   } = useLoadEvent(citySlug, eventSlug);
+  const mutation = useCivicEdit("event", event?.id ?? null, citySlug, "events");
 
   if (loading) return <div className="p-6">Loading…</div>;
   if (!event) return <div className="p-6">Event not found</div>;
 
   async function handleSave() {
-    await saveEvent({
-      eventId: event.id,
-      citySlug,
-      router,
-
-      // Form fields
-      name,
-      slug,
-      eventType,
-      description,
-      startDate,
-      endDate,
-      tags,
-      thumbnail360Url,
-      isPublished,
-
-      // Eras
-      eras,
-      selectedEraIds,
-
-      // Relationships
-      existingRelationships,
+    await mutation.save({
+      name, slug, event_type: eventType, description, start_date: startDate || null,
+      end_date: endDate || null, tags: tags ? tags.split(",").map((t) => t.trim()) : [],
+      thumbnail_360_url: thumbnail360Url || null,
     });
-
-    // Save unified relationships
-    await replaceUnifiedRelationships(
-      supabase,
-      "event",
-      event.id,
-      existingRelationships
-    );
   }
 
+  async function handleRelationships() {
+    if (!relationshipsLoaded) return;
+    await mutation.saveLinks(async () => {
+      const startYear = startDate ? new Date(startDate).getFullYear() : null;
+      const endYear = endDate ? new Date(endDate).getFullYear() : startYear;
+      const automatic = startYear && endYear ? eras.filter((era) =>
+        startYear <= (era.end_year ?? 9999) && endYear >= era.start_year
+      ).map((era) => era.id) : [];
+      await saveCivicLinks(supabase, "event_eras", "event_id", "era_id", event.id, Array.from(new Set([...selectedEraIds, ...automatic])));
+      await saveCivicRelationships(supabase, "event", event.id, existingRelationships);
+    });
+  }
   return (
     <div className="p-6 space-y-6 max-w-3xl">
       <h1 className="text-3xl font-bold">Edit Event</h1>
+      {mutation.error && <p role="alert">{mutation.error}</p>}
+      {relationshipsError && <p role="alert">{relationshipsError}</p>}
+      {mutation.message && <p role="status">{mutation.message}</p>}
+      <p>Metadata and relationships are saved separately.</p>
+      <CivicLifecycleControls {...mutation} />
 
       <div className="space-y-8">
         <EventBasicsForm
@@ -138,22 +127,22 @@ export default function EditEventPage({ params }: EditEventPageProps) {
           setEndDate={setEndDate}
         />
 
+        <fieldset disabled={!relationshipsLoaded || mutation.busy || mutation.unconfirmed || !mutation.actions?.canEdit}>
         <EventErasForm
           eras={eras}
           selectedEraIds={selectedEraIds}
           setSelectedEraIds={setSelectedEraIds}
         />
+        </fieldset>
 
         <EventMetadataForm
           tags={tags}
           setTags={setTags}
           thumbnail360Url={thumbnail360Url}
           setThumbnail360Url={setThumbnail360Url}
-          isPublished={isPublished}
-          setIsPublished={setIsPublished}
         />
 
-        <RelationshipSelector
+        {relationshipsLoaded && <fieldset disabled={mutation.busy || mutation.unconfirmed || !mutation.actions?.canEdit}><RelationshipSelector
           fromType="event"
           fromId={event.id}
           availableTargets={[
@@ -163,38 +152,21 @@ export default function EditEventPage({ params }: EditEventPageProps) {
           ]}
           initialRelationships={existingRelationships}
           onChange={setExistingRelationships}
-        />
+        /></fieldset>}
 
-        <button
+        {mutation.actions?.canEdit && <button
           onClick={handleSave}
+          disabled={mutation.busy || mutation.unconfirmed}
           className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
         >
-          Save Changes
-        </button>
+          Save Metadata
+        </button>}
 
-        <button
-          onClick={async () => {
-            if (!confirm("Are you sure you want to delete this Event? This cannot be undone.")) {
-              return;
-            }
-
-            const { error } = await supabase
-              .from("civic_events")
-              .delete()
-              .eq("id", event.id);
-
-            if (error) {
-              console.error(error);
-              alert("Error deleting event.");
-              return;
-            }
-
-            router.push(`/${citySlug}/events`);
-          }}
-          className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-        >
-          Delete Event
-        </button>
+        {mutation.actions?.canEdit && relationshipsLoaded && <button
+          onClick={handleRelationships}
+          disabled={mutation.busy || mutation.unconfirmed}
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+        >Save Relationships</button>}
 
         <button
           onClick={() => router.push(`/${citySlug}/events`)}

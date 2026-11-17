@@ -1,19 +1,20 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { flushSync } from "react-dom";
+import { useState } from "react";
 import { createBrowserClient } from "@/lib/supabase/client";
 
 import { useLoadMomentInitial } from "@/hooks/useLoadMomentInitial";
 import { useMomentState } from "@/hooks/useMomentState";
-import { saveMoment } from "@/lib/moments/saveMoment";
+import { useCivicEdit } from "@/hooks/useCivicObjectMutation";
+import { saveCivicLinks, saveCivicRelationships } from "@/lib/admin/civicObjectClient";
+import CivicLifecycleControls from "@/components/admin/CivicLifecycleControls";
 
 
 import MomentBasicsForm from "@/components/moments/MomentBasicsForm";
 import MomentTimelineForm from "@/components/moments/MomentTimelineForm";
 import MomentSpatialForm from "@/components/moments/MomentSpatialForm";
 import Moment360Form from "@/components/moments/Moment360Form";
-import MomentPublishForm from "@/components/moments/MomentPublishForm";
 import RelationshipSelector from "@/components/relationships/RelationshipSelector";
 
 interface EditMomentPageProps {
@@ -22,8 +23,6 @@ interface EditMomentPageProps {
     momentSlug: string;
   };
 }
-
-  const supabase = createBrowserClient();
 
 export default function EditMomentPage({ params }: EditMomentPageProps) {
   const { citySlug, momentSlug } = params;
@@ -50,6 +49,8 @@ function EditMomentForm({
   initialData: any;
 }) {
   const router = useRouter();
+  const [supabase] = useState(createBrowserClient);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const {
     title,
     setTitle,
@@ -69,37 +70,43 @@ function EditMomentForm({
     setThumbnail360Url,
     inline360Urls,
     setInline360Urls,
-    isPublished,
-    setIsPublished,
     selectedRelationships,
     setSelectedRelationships,
   } = useMomentState(initialData);
 
   const moment = initialData.moment;
+  const mutation = useCivicEdit("moment", moment.id, citySlug, "moments");
 
   async function handleSave() {
-    await saveMoment({
-      momentId: moment.id,
-      citySlug,
-      cityId: initialData.cityId,
-      router,
-      title,
-      slug,
-      body,
-      momentTime,
-      selectedPlaces,
-      selectedNeighborhoods,
-      thumbnail360Url,
-      inline360Urls,
-      isPublished,
-      selectedEras,
-      selectedRelationships,
+    if (!momentTime.trim() || Number.isNaN(new Date(momentTime).getTime())) {
+      setValidationError("Please enter a valid moment time.");
+      return;
+    }
+    setValidationError(null);
+    await mutation.save({
+      title, slug, body, moment_time: new Date(momentTime).toISOString(),
+      thumbnail_360_url: thumbnail360Url, inline_360_urls: inline360Urls,
     });
   }
 
+  async function handleRelationships() {
+    if (!initialData.relationshipsLoaded) return;
+    await mutation.saveLinks(async () => {
+      await saveCivicLinks(supabase, "moment_eras", "moment_id", "era_id", moment.id, selectedEras);
+      await saveCivicLinks(supabase, "moment_places", "moment_id", "place_id", moment.id, selectedPlaces);
+      await saveCivicLinks(supabase, "moment_neighborhoods", "moment_id", "neighborhood_id", moment.id, selectedNeighborhoods);
+      await saveCivicRelationships(supabase, "moment", moment.id, selectedRelationships);
+    });
+  }
   return (
     <div className="p-6 space-y-6 max-w-3xl">
       <h1 className="text-3xl font-bold">Edit Moment</h1>
+      {mutation.error && <p role="alert">{mutation.error}</p>}
+      {validationError && <p role="alert">{validationError}</p>}
+      {!initialData.relationshipsLoaded && <p role="alert">Unable to load relationships. Relationship changes are disabled.</p>}
+      {mutation.message && <p role="status">{mutation.message}</p>}
+      <p>Metadata and relationships are saved separately.</p>
+      <CivicLifecycleControls {...mutation} />
 
       <MomentBasicsForm
         title={title}
@@ -116,20 +123,19 @@ function EditMomentForm({
         eras={initialData.erasTargets ?? []}
         selectedEras={selectedEras}
         setSelectedEras={setSelectedEras}
+        relationshipsDisabled={!initialData.relationshipsLoaded || mutation.busy || mutation.unconfirmed || !mutation.actions?.canEdit}
       />
 
+      <fieldset disabled={!initialData.relationshipsLoaded || mutation.busy || mutation.unconfirmed || !mutation.actions?.canEdit}>
       <MomentSpatialForm
         places={initialData.places ?? []}
         selectedPlaces={selectedPlaces}
-        setSelectedPlaces={
-          setSelectedPlaces as (places: (string | number)[]) => void
-        }
+        setSelectedPlaces={setSelectedPlaces}
         neighborhoods={initialData.neighborhoods ?? []}
         selectedNeighborhoods={selectedNeighborhoods}
-        setSelectedNeighborhoods={
-          setSelectedNeighborhoods as (neighborhoods: (string | number)[]) => void
-        }
+        setSelectedNeighborhoods={setSelectedNeighborhoods}
       />
+      </fieldset>
 
       <Moment360Form
         thumbnail360Url={thumbnail360Url}
@@ -138,12 +144,7 @@ function EditMomentForm({
         setInline360Urls={setInline360Urls}
       />
 
-      <MomentPublishForm
-        isPublished={isPublished}
-        setIsPublished={setIsPublished}
-      />
-
-      <RelationshipSelector
+      {initialData.relationshipsLoaded && <fieldset disabled={mutation.busy || mutation.unconfirmed || !mutation.actions?.canEdit}><RelationshipSelector
         fromType="moment"
         fromId={moment.id}
         availableTargets={[
@@ -154,17 +155,21 @@ function EditMomentForm({
         ]}
         initialRelationships={initialData.relationships}
         onChange={setSelectedRelationships}
-      />
+      /></fieldset>}
 
-      <button
-        onClick={() => {
-          flushSync(() => {});
-          handleSave();
-        }}
+      {mutation.actions?.canEdit && <button
+        onClick={handleSave}
+        disabled={mutation.busy || mutation.unconfirmed}
         className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
       >
-        Save Moment
-      </button>
+        Save Metadata
+      </button>}
+      {mutation.actions?.canEdit && initialData.relationshipsLoaded && <button
+        onClick={handleRelationships}
+        disabled={mutation.busy || mutation.unconfirmed}
+        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+      >Save Relationships</button>}
+      <button onClick={() => router.push(`/${citySlug}/moments`)}>Cancel</button>
     </div>
   );
 }
