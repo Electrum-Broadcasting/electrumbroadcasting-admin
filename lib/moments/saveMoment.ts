@@ -3,14 +3,10 @@
 import { createBrowserClient } from "@/lib/supabase/client";
 import { replaceUnifiedRelationships } from "@/lib/joinTables";
 
-function toTimestampZ(local: string): string | null {
-  if (!local) return null;
-  return new Date(local).toISOString();
-}
-
 export async function saveMoment({
   momentId,
   citySlug,
+  cityId,
   router,
 
   // Basics
@@ -40,6 +36,7 @@ export async function saveMoment({
 }: {
   momentId: string | null;
   citySlug: string;
+  cityId: string | null;
   router: any;
   title: string;
   slug: string;
@@ -53,26 +50,36 @@ export async function saveMoment({
   selectedEras: (string | number)[];
   selectedRelationships: any;
 }) {
+  if (!momentTime.trim() || Number.isNaN(new Date(momentTime).getTime())) {
+    alert("Please enter a valid moment time.");
+    return;
+  }
+  if (!momentId && !cityId) {
+    alert("Cannot create moment: city not found.");
+    return;
+  }
+
+  const timestamp = new Date(momentTime).toISOString();
   const supabase = createBrowserClient();
 
   //
   // 1. If momentId is null → CREATE
   //
-if (!momentId) {
-  const { data: newMoment, error: createError } = await supabase
-    .from("civic_moments")
-    .insert({
-      city_slug: citySlug,   // ⭐ REQUIRED
-      title,
-      slug,
-      body,
-      moment_time: toTimestampZ(momentTime),
-      thumbnail_360_url: thumbnail360Url,
-      inline_360_urls: inline360Urls,
-      is_published: isPublished,
-    })
-    .select("*")
-    .single();
+  if (!momentId) {
+    const { data: newMoment, error: createError } = await supabase
+      .from("civic_moments")
+      .insert({
+        city_id: cityId,
+        title,
+        slug,
+        body,
+        moment_time: timestamp,
+        thumbnail_360_url: thumbnail360Url,
+        inline_360_urls: inline360Urls,
+        is_published: isPublished,
+      })
+      .select("*")
+      .single();
 
     if (createError) {
       console.error("Moment creation error:", createError);
@@ -92,7 +99,7 @@ if (!momentId) {
       title,
       slug,
       body,
-      moment_time: toTimestampZ(momentTime),
+      moment_time: timestamp,
       thumbnail_360_url: thumbnail360Url,
       inline_360_urls: inline360Urls,
       is_published: isPublished,

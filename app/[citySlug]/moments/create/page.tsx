@@ -146,6 +146,7 @@ export default function CreateMomentPage({ params }: CreateMomentPageProps) {
     await saveMoment({
       momentId: null, // creation; implementation in saveMoment can handle this
       citySlug,
+      cityId,
       router,
 
       // Basics

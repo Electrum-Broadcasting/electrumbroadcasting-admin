@@ -296,6 +296,15 @@ Never DELETE and re-INSERT. The upsert pattern preserves row history and avoids
 index fragmentation.
 
 ## 4. Triggers
+The trigger and RPC names in this section describe the search design. The standalone
+`20261116230000_search_index_repair.sql` migration is a draft; verify its deployment
+status before relying on its behavior.
+It replaces the broken civic triggers with `search_index_civic_trigger` and
+`search_index_civic_record`; it does not install the proposed non-civic triggers or
+the proposed `rpc_reindex_entity` and `rpc_reindex_city` functions.
+Attachment changes alone do not refresh search thumbnails; a source-row change or
+service-role reindex is needed.
+
 ### 4.1 Source Table → search_index Sync Triggers
 Each source table has an AFTER INSERT OR UPDATE OR DELETE trigger that calls
 fn_sync_search_index(), which dispatches to rpc_reindex_entity. See SEARCH_MODEL.md §3.7
@@ -331,13 +340,26 @@ re-publication without a full rebuild. Hard deletion of search_index rows is nev
 performed by application code; it is a maintenance operation only.
 
 ### 4.3 Trigger Ordering
-Source table triggers run AFTER the source table write is committed. This means:
+AFTER row triggers run after the row operation, inside the same transaction, before
+commit. An indexing error aborts the source statement and rolls back its changes.
+The source and index changes become visible together when the transaction commits.
 
-The trigger fires after RETURNING values are available
+### 4.4 Standalone Civic Repair Rollout
+Before applying the repair, correct unsafe published slugs and rerun its preflight.
+The preflight also rejects eligible records without a valid city or title, duplicate
+object IDs across civic tables, and stale or ineligible published story index rows.
+The migration does not change existing index rows or perform a backfill.
 
-search_index is always slightly behind the source table (eventual consistency)
-
-In practice the lag is sub-millisecond for trigger-based sync
+After deployment, separately review and run reconciliation using the
+service-role-only `search_index_entity(text, uuid)` for each existing civic source
+record: `story` for stories, `object` for civic objects (including eras), or `codex`
+for eras. Reindexing an era refreshes both its object and codex facets. Reconcile
+orphaned and mismatched existing index rows separately, and verify counts, city
+scope, eligibility and routes before enabling reliance on complete search results.
+Back up the index before reconciliation. The old `search_reindex_all()` is
+deliberately disabled because it deletes the index before referencing nonexistent
+tables; verify external maintenance callers before deployment. This repair does
+not implement a replacement bulk rebuild or non-civic indexing.
 
 ## 5. RPCs
 ### 5.1 rpc_reindex_entity

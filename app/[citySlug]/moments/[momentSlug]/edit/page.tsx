@@ -27,11 +27,29 @@ interface EditMomentPageProps {
 
 export default function EditMomentPage({ params }: EditMomentPageProps) {
   const { citySlug, momentSlug } = params;
-  const router = useRouter();
-
   const { loading, initialData } = useLoadMomentInitial(citySlug, momentSlug);
 
-  // Always call hooks in the same order
+  if (loading) return <div className="p-6">Loading…</div>;
+  if (!initialData || !initialData.moment)
+    return <div className="p-6">Moment not found</div>;
+
+  return (
+    <EditMomentForm
+      key={`${citySlug}/${momentSlug}`}
+      citySlug={citySlug}
+      initialData={initialData}
+    />
+  );
+}
+
+function EditMomentForm({
+  citySlug,
+  initialData,
+}: {
+  citySlug: string;
+  initialData: any;
+}) {
+  const router = useRouter();
   const {
     title,
     setTitle,
@@ -57,16 +75,13 @@ export default function EditMomentPage({ params }: EditMomentPageProps) {
     setSelectedRelationships,
   } = useMomentState(initialData);
 
-  if (loading) return <div className="p-6">Loading…</div>;
-  if (!initialData || !initialData.moment)
-    return <div className="p-6">Moment not found</div>;
-
   const moment = initialData.moment;
 
   async function handleSave() {
     await saveMoment({
       momentId: moment.id,
       citySlug,
+      cityId: initialData.cityId,
       router,
       title,
       slug,
