@@ -879,12 +879,12 @@ export type Database = {
           id: string
           ingestion_metadata: Json | null
           ingestion_source: string | null
-          is_published: boolean | null
+          is_published: boolean
           media_url: string | null
           media_urls: string[] | null
           related_event_ids: string[] | null
           slug: string | null
-          status: string | null
+          status: string
           tags: string[] | null
           title: string
           updated_at: string | null
@@ -902,12 +902,12 @@ export type Database = {
           id?: string
           ingestion_metadata?: Json | null
           ingestion_source?: string | null
-          is_published?: boolean | null
+          is_published?: boolean
           media_url?: string | null
           media_urls?: string[] | null
           related_event_ids?: string[] | null
           slug?: string | null
-          status?: string | null
+          status?: string
           tags?: string[] | null
           title: string
           updated_at?: string | null
@@ -925,12 +925,12 @@ export type Database = {
           id?: string
           ingestion_metadata?: Json | null
           ingestion_source?: string | null
-          is_published?: boolean | null
+          is_published?: boolean
           media_url?: string | null
           media_urls?: string[] | null
           related_event_ids?: string[] | null
           slug?: string | null
-          status?: string | null
+          status?: string
           tags?: string[] | null
           title?: string
           updated_at?: string | null
@@ -968,12 +968,12 @@ export type Database = {
           id: string
           ingestion_metadata: Json | null
           ingestion_source: string | null
-          is_published: boolean | null
+          is_published: boolean
           media_urls: string[] | null
           name: string
           roles: string | null
           slug: string | null
-          status: string | null
+          status: string
           summary: string | null
           tags: string[] | null
           thumbnail_url: string | null
@@ -994,12 +994,12 @@ export type Database = {
           id?: string
           ingestion_metadata?: Json | null
           ingestion_source?: string | null
-          is_published?: boolean | null
+          is_published?: boolean
           media_urls?: string[] | null
           name: string
           roles?: string | null
           slug?: string | null
-          status?: string | null
+          status?: string
           summary?: string | null
           tags?: string[] | null
           thumbnail_url?: string | null
@@ -1020,12 +1020,12 @@ export type Database = {
           id?: string
           ingestion_metadata?: Json | null
           ingestion_source?: string | null
-          is_published?: boolean | null
+          is_published?: boolean
           media_urls?: string[] | null
           name?: string
           roles?: string | null
           slug?: string | null
-          status?: string | null
+          status?: string
           summary?: string | null
           tags?: string[] | null
           thumbnail_url?: string | null
@@ -1059,11 +1059,11 @@ export type Database = {
           id: string
           ingestion_metadata: Json | null
           ingestion_source: string | null
-          is_published: boolean | null
+          is_published: boolean
           name: string
           slug: string | null
           start_year: number | null
-          status: string | null
+          status: string
           updated_at: string | null
           updated_by: string | null
         }
@@ -1075,11 +1075,11 @@ export type Database = {
           id?: string
           ingestion_metadata?: Json | null
           ingestion_source?: string | null
-          is_published?: boolean | null
+          is_published?: boolean
           name: string
           slug?: string | null
           start_year?: number | null
-          status?: string | null
+          status?: string
           updated_at?: string | null
           updated_by?: string | null
         }
@@ -1091,11 +1091,11 @@ export type Database = {
           id?: string
           ingestion_metadata?: Json | null
           ingestion_source?: string | null
-          is_published?: boolean | null
+          is_published?: boolean
           name?: string
           slug?: string | null
           start_year?: number | null
-          status?: string | null
+          status?: string
           updated_at?: string | null
           updated_by?: string | null
         }
@@ -1128,12 +1128,12 @@ export type Database = {
           id: string
           ingestion_metadata: Json | null
           ingestion_source: string | null
-          is_published: boolean | null
+          is_published: boolean
           name: string
           severity: string | null
           slug: string | null
           start_date: string | null
-          status: string | null
+          status: string
           tags: string[] | null
           thumbnail_360_url: string | null
           updated_at: string | null
@@ -1150,12 +1150,12 @@ export type Database = {
           id?: string
           ingestion_metadata?: Json | null
           ingestion_source?: string | null
-          is_published?: boolean | null
+          is_published?: boolean
           name: string
           severity?: string | null
           slug?: string | null
           start_date?: string | null
-          status?: string | null
+          status?: string
           tags?: string[] | null
           thumbnail_360_url?: string | null
           updated_at?: string | null
@@ -1172,12 +1172,12 @@ export type Database = {
           id?: string
           ingestion_metadata?: Json | null
           ingestion_source?: string | null
-          is_published?: boolean | null
+          is_published?: boolean
           name?: string
           severity?: string | null
           slug?: string | null
           start_date?: string | null
-          status?: string | null
+          status?: string
           tags?: string[] | null
           thumbnail_360_url?: string | null
           updated_at?: string | null
@@ -1286,10 +1286,10 @@ export type Database = {
           ingestion_metadata: Json | null
           ingestion_source: string | null
           inline_360_urls: string[] | null
-          is_published: boolean | null
+          is_published: boolean
           moment_time: string
           slug: string | null
-          status: string | null
+          status: string
           thumbnail_360_url: string | null
           title: string
           updated_at: string | null
@@ -1303,10 +1303,10 @@ export type Database = {
           ingestion_metadata?: Json | null
           ingestion_source?: string | null
           inline_360_urls?: string[] | null
-          is_published?: boolean | null
+          is_published?: boolean
           moment_time: string
           slug?: string | null
-          status?: string | null
+          status?: string
           thumbnail_360_url?: string | null
           title: string
           updated_at?: string | null
@@ -1320,10 +1320,10 @@ export type Database = {
           ingestion_metadata?: Json | null
           ingestion_source?: string | null
           inline_360_urls?: string[] | null
-          is_published?: boolean | null
+          is_published?: boolean
           moment_time?: string
           slug?: string | null
-          status?: string | null
+          status?: string
           thumbnail_360_url?: string | null
           title?: string
           updated_at?: string | null
@@ -1354,10 +1354,10 @@ export type Database = {
           id: string
           ingestion_metadata: Json | null
           ingestion_source: string | null
-          is_published: boolean | null
+          is_published: boolean
           name: string
           slug: string
-          status: string | null
+          status: string
           updated_at: string | null
           updated_by: string | null
         }
@@ -1368,10 +1368,10 @@ export type Database = {
           id?: string
           ingestion_metadata?: Json | null
           ingestion_source?: string | null
-          is_published?: boolean | null
+          is_published?: boolean
           name: string
           slug: string
-          status?: string | null
+          status?: string
           updated_at?: string | null
           updated_by?: string | null
         }
@@ -1382,10 +1382,10 @@ export type Database = {
           id?: string
           ingestion_metadata?: Json | null
           ingestion_source?: string | null
-          is_published?: boolean | null
+          is_published?: boolean
           name?: string
           slug?: string
-          status?: string | null
+          status?: string
           updated_at?: string | null
           updated_by?: string | null
         }

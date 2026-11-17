@@ -208,7 +208,16 @@ If payee account is deleted, payout_batch_item becomes failed.
 All values stored in USD cents.
 
 ### 9.5 Audit Trail
-All status transitions logged in admin_action_logs.
+Required audit behavior: City Admin publication and editorial unpublication record
+`story_published` and `story_unpublished` in `admin_action_logs` with
+`domain = editorial`, `entity_type = civic_stories`, and the Story ID. Related
+production and tier events use `production_unit_created` and `tier_selected`.
+Safety holds use the `safety` domain and `safety_hold_placed` /
+`safety_hold_lifted`.
+
+This is the target contract, not a claim that the current UI enforces it. The
+repository still has direct Story saves that can change `is_published` without an
+audit record; see DATA_MODEL.md §14.3.
 
 ## 10. Glossary
 
@@ -267,9 +276,10 @@ error (BUDGET_SHORTFALL, SAFETY_HOLD_ACTIVE, REVIEW_STATUS_MISMATCH).
 Publication is blocked when safety_hold = true.
 
 ### 11.6 Audit
-All queue interactions (publish, unpublish, hold placement) are written to
-admin_action_logs with domain = editorial and entity_type = civic_stories
-(DATA_MODEL.md §10).
+All queue interactions must be written to `admin_action_logs`, using
+`domain = editorial` and `entity_type = civic_stories` for publication actions,
+and `domain = safety` for safety holds. Required Story action names and current
+implementation gaps are documented in DATA_MODEL.md §14.3.
 
 ---
 

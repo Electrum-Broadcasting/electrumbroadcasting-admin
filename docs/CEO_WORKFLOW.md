@@ -203,7 +203,17 @@ remove harmful content
 
 Administrative unpublish does not modify editorial fields (review_status, published_at, published_by) and does not affect production_units or payout workflows.
 
-CEO administrative publish/unpublish affects only visibility fields (is_hidden, is_frozen, is_published) and does not modify editorial fields (review_status, published_at, published_by) or production/payout objects. CEO administrative story actions are logged to admin_action_logs (domain = editorial, entity_type = civic_stories) as story_admin_frozen, story_admin_unfrozen, story_admin_unpublished, and story_admin_republished. story_published and story_unpublished remain City Admin editorial actions.
+The target audit contract records CEO administrative Story visibility actions in
+`admin_action_logs` with `domain = editorial` and `entity_type = civic_stories`, using
+`story_admin_frozen`, `story_admin_unfrozen`, `story_admin_unpublished`, and
+`story_admin_republished`. These operations must not change editorial fields
+(`review_status`, `published_at`, `published_by`) or production/payout records.
+`story_published` and `story_unpublished` remain City Admin editorial actions.
+
+This is a target contract, not a statement that the current Story mutation paths
+already conform. The current moderation RPC emits legacy action names, direct Story
+saves can change publication visibility without an audit entry, and legacy RPCs use
+`admin_override_logs`. See DATA_MODEL.md §14.3; historical records are not rewritten.
 
 All CEO administrative actions are logged in admin_action_logs.
 
@@ -267,8 +277,9 @@ admin_action_logs — CEO Operational Actions:
 
 | Domain          | Actions Logged                                                                         |
 |-----------------|----------------------------------------------------------------------------------------|
-| Civic           | object_approved, object_hidden, object_frozen, object_unfrozen, object_overridden,     |
-|                 | escalation_resolved, metadata_requested, media_360_requested                          |
+| Civic           | object_created, metadata_edited, object_approved, object_hidden, object_restored,       |
+|                 | object_merged, object_escalated, object_overridden, escalation_resolved,               |
+|                 | metadata_requested, media_360_requested                                                 |
 | Editorial       | editorial_dispute_resolved, unpublishable_approved, story_escalation_handled,          |
 |                 | story_admin_frozen, story_admin_unfrozen, story_admin_unpublished,                     |
 |                 | story_admin_republished (administrative visibility only; entity_type = civic_stories)  |

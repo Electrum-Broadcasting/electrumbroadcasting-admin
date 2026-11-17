@@ -209,7 +209,10 @@ A civic object is eligible for public display only when all of the following are
 
 ### 10.5 Audit
 
-All Object Manager actions (approve, hide, merge, escalate, metadata edit) are written to `admin_action_logs` with `entity_type` and `entity_id` populated. See §14.
+Required audit contract: Object Manager create, metadata edit, approve, hide, restore,
+merge, and escalation actions write to `admin_action_logs` with the exact PostgreSQL
+table name in `entity_type` and the affected row ID in `entity_id`. The direct CRUD
+paths are not yet fully migrated to this contract; see DATA_MODEL.md §14.3.
 
 ### 10.5.1 Place lifecycle
 
@@ -403,7 +406,11 @@ Available controls: section visibility toggles, inline 360° embed captions, SEO
 
 ### 11.7 Audit
 
-All publication and unpublish actions are written to `admin_action_logs` with `domain = editorial` and `entity_type = civic_stories`. See §14.
+Required audit contract: City Admin publication and editorial unpublication write
+`story_published` and `story_unpublished` to `admin_action_logs` with
+`domain = editorial` and `entity_type = civic_stories`. This remains a target
+requirement until direct Story publication writes have been retired. See §14 and
+DATA_MODEL.md §14.3.
 
 ---
 
@@ -497,7 +504,10 @@ City Admins may VIEW `city_safety_settings` for their city. Modification require
 
 ### 13.7 Audit
 
-All safety actions (flag, hold, escalate, hide) are written to `admin_action_logs`. Safety-critical actions (hold placement, hold removal) are additionally written to `security_audit_log`. See §14.
+Safety actions (flag, hold, escalate, hide) are operational events and belong in
+`admin_action_logs`. They are not additionally written to `security_audit_log`;
+that table is reserved for authentication, credential, role/permission, and global
+security-setting events. See DATA_MODEL.md §§14.3 and 14.6.
 
 ---
 
@@ -541,15 +551,17 @@ All City Admin actions are written exclusively to `admin_action_logs`. No City A
 
 | Domain | Actions Logged |
 |---|---|
-| Editorial | `story_published`, `story_unpublished`, `production_unit_created`, `tier_selected`, **`story_page_settings_edited`** |
-| Civic | `object_approved`, `object_hidden`, `object_merged`, `object_escalated`, `metadata_edited`, `media_uploaded`, `suggestion_accepted`, `suggestion_rejected`, **`page_settings_edited`** |
+| Editorial | `story_submitted`, `story_review_started`, `story_revision_requested`, `story_revision_resubmitted`, `story_editorially_approved`, `story_rejected`, `story_marked_unpublishable`, `story_published`, `story_unpublished`, `production_unit_created`, `tier_selected`, **`story_page_settings_edited`** |
+| Civic | `object_created`, `metadata_edited`, `object_approved`, `object_hidden`, `object_restored`, `object_merged`, `object_escalated`, `object_overridden`, `media_uploaded`, `media_attached`, `media_detached`, `media_reordered`, `media_primary_changed`, `suggestion_accepted`, `suggestion_rejected`, **`page_settings_edited`** |
 | Budget | `payout_batch_created`, `payout_batch_item_added`, `payout_batch_item_removed` |
 | Sponsor | `sponsor_credit_applied` |
 | Brand | `brand_draft_edited`, `design_draft_edited`, `draft_submitted_for_review` |
-| Safety | `content_flagged`, `safety_hold_placed`, `safety_hold_lifted`, `escalated_to_ceo` |
+| Safety | `content_flagged`, `safety_hold_placed`, `safety_hold_lifted`, `escalated_to_ceo`, `harmful_content_removed`, `safety_enforcement_action` |
 | Navigation | `navigation_item_created`, `navigation_item_updated`, `navigation_item_deleted`, **`panorama_created`**, **`panorama_published`**, **`panorama_unpublished`**, **`panorama_archived`**, **`panorama_reordered`**, **`panorama_metadata_edited`**, **`hotspot_placed`**, **`hotspot_updated`**, **`hotspot_activated`**, **`hotspot_deactivated`**, **`hotspot_deleted`** |
 
-New action strings are in **bold**. All new actions are written to `admin_action_logs` only, never to `security_audit_log`.
+This is the required action contract, not a claim that every current UI path has
+already been migrated. New operational actions are written to `admin_action_logs`
+only, never to `security_audit_log`; historical legacy action values remain intact.
 
 ---
 

@@ -678,11 +678,25 @@ story_page_settings_edited under domain = 'editorial' is defined in CITY_ADMIN_W
 and DATA_MODEL.md §14.3.
 
 action	domain	entity_type	Trigger
-story_published	editorial	civic_stories	Story published (existing)
-story_unpublished	editorial	civic_stories	Story unpublished (existing)
-safety_hold_placed	safety	civic_stories	safety_hold → true (existing)
-safety_hold_lifted	safety	civic_stories	safety_hold → false (existing)
+story_submitted	editorial	civic_stories	Story enters submitted review state
+story_review_started	editorial	civic_stories	Editor claims story for review
+story_revision_requested	editorial	civic_stories	Editor requests revisions
+story_revision_resubmitted	editorial	civic_stories	Story is resubmitted after requested revisions
+story_editorially_approved	editorial	civic_stories	Editor approves story for publication queue
+story_rejected	editorial	civic_stories	Editor rejects story
+story_marked_unpublishable	editorial	civic_stories	Editor marks story unpublishable
+story_published	editorial	civic_stories	City Admin publishes an approved, safety-clear story
+story_unpublished	editorial	civic_stories	City Admin unpublishes a live story to approved
+story_admin_frozen	editorial	civic_stories	CEO freezes story visibility without changing editorial state
+story_admin_unfrozen	editorial	civic_stories	CEO restores administrative visibility without publishing
+story_admin_unpublished	editorial	civic_stories	CEO administratively unpublishes without changing editorial state
+story_admin_republished	editorial	civic_stories	CEO restores visibility without changing editorial publication state
+safety_hold_placed	safety	civic_stories	safety_hold → true
+safety_hold_lifted	safety	civic_stories	safety_hold → false; does not publish automatically
 story_page_settings_edited	editorial	story_page_settings	Any page settings field changed
+
+This table defines the target audit contract. Current direct Story saves and legacy
+moderation paths do not yet emit this complete action set; see DATA_MODEL.md §14.3.
 
 
 ## 12. Future-Proofing Notes

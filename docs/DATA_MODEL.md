@@ -292,7 +292,9 @@ thumbnail_url	text
 ingestion_source	text
 ingestion_metadata	jsonb
 status	text
-Ingestion columns (ingestion_source, ingestion_metadata, status) inherit the RLS policies of their respective civic_ tables. No additional RLS rules are required.*
+`ingestion_source` and `ingestion_metadata` are ingestion metadata. `status` is the
+lifecycle state (`pending`, `approved`, or `hidden`) and is synchronized with
+`is_published`: only `approved` is published.
 
 #### Place lifecycle operations
 
@@ -331,7 +333,9 @@ thumbnail_360_url	Text
 ingestion_source	text
 ingestion_metadata	jsonb
 status	text
-Ingestion columns (ingestion_source, ingestion_metadata, status) inherit the RLS policies of their respective civic_ tables. No additional RLS rules are required.*
+`ingestion_source` and `ingestion_metadata` are ingestion metadata. `status` is the
+lifecycle state (`pending`, `approved`, or `hidden`) and is synchronized with
+`is_published`: only `approved` is published.
 
 ### 3.7 Table: civic_places
 
@@ -354,7 +358,9 @@ slug	Text
 ingestion_source	text
 ingestion_metadata	jsonb
 status	text
-Ingestion columns (ingestion_source, ingestion_metadata, status) inherit the RLS policies of their respective civic_ tables. No additional RLS rules are required.*
+`ingestion_source` and `ingestion_metadata` are ingestion metadata; `status` is
+the lifecycle field. The guarded Place RPC preserves its existing behavior,
+including acceptance of legacy `pending / true` rows when hiding.
 
 ### 3.8 Table: civic_moments
 
@@ -374,7 +380,9 @@ body	Text
 ingestion_source	text
 ingestion_metadata	jsonb
 status	text
-Ingestion columns (ingestion_source, ingestion_metadata, status) inherit the RLS policies of their respective civic_ tables. No additional RLS rules are required.*
+`ingestion_source` and `ingestion_metadata` are ingestion metadata. `status` is the
+lifecycle state (`pending`, `approved`, or `hidden`) and is synchronized with
+`is_published`: only `approved` is published.
 
 ### 3.9 Table: civic_stories
 
@@ -463,7 +471,9 @@ is_published	Boolean
 ingestion_source	text
 ingestion_metadata	jsonb
 status	text
-Ingestion columns (ingestion_source, ingestion_metadata, status) inherit the RLS policies of their respective civic_ tables. No additional RLS rules are required.*
+`ingestion_source` and `ingestion_metadata` are ingestion metadata. `status` is the
+lifecycle state (`pending`, `approved`, or `hidden`) and is synchronized with
+`is_published`: only `approved` is published.
 
 ### 3.11 Table: civic_artifacts
 
@@ -488,7 +498,19 @@ related_event_ids	ARRAY
 ingestion_source	text
 ingestion_metadata	jsonb
 status	text
-Ingestion columns (ingestion_source, ingestion_metadata, status) inherit the RLS policies of their respective civic_ tables. No additional RLS rules are required.*
+`ingestion_source` and `ingestion_metadata` are ingestion metadata. `status` is the
+lifecycle state (`pending`, `approved`, or `hidden`) and is synchronized with
+`is_published`: only `approved` is published.
+
+#### Non-Story civic lifecycle schema alignment
+
+The lifecycle schema applies to `civic_entities`, `civic_events`,
+`civic_artifacts`, `civic_neighborhoods`, `civic_eras`, and `civic_moments`.
+For each table, `status` is `NOT NULL DEFAULT 'pending'` and constrained to
+`pending`, `approved`, or `hidden`. `is_published` is `NOT NULL DEFAULT false`
+and must be true exactly when `status = 'approved'`. Existing rows are backfilled
+from publication state: published becomes approved; unpublished becomes pending.
+Historical hidden state is not inferred.
 
 ### 3.12 Table: panoramas
 
@@ -2523,13 +2545,17 @@ These tables record who performed an action, what was changed, which table was a
 
 Security logging is not implemented by scattering timestamps or metadata across every admin restricted table. Instead, all logs are written to security_audit_log using a consistent schema.
 
-### 10.1 Canonical Audit Tables: 
+### 10.1 Canonical Audit Tables:
 
 Table: admin_action_logs 
 
-Purpose: All City Admin operational actions (publish, approve, budget, brand).
+Purpose: Canonical immutable record of operational mutations across civic, editorial,
+media, budget, brand, safety, navigation, and other administrative domains. This is
+the authoritative audit table for Story review, publication, and moderation actions.
 
-Every admin restricted mutation (INSERT, UPDATE, DELETE) must generate a log entry in this table.
+Every operational mutation must generate a log entry in this table. Authentication
+and other security-critical events are recorded in `security_audit_log` as described
+in §14.6; specified events may be written to both tables.
 
 Schema Columns
   id uuid not null default gen_random_uuid (),
@@ -2566,11 +2592,14 @@ Metadata Examples
 •	IP address (optional)
 •	Admin UI route used
 
-Use for:
-•	Admin login / logout events
-•	Role changes (global or city scoped)
-•	Password resets / security policy changes
-•	RLS policy updates (if exposed via admin tooling)
+Use for operational events including:
+•	Civic object create, edit, approve, hide, restore, and moderation actions
+•	Story editorial review, publication, unpublication, and safety actions
+•	Media, navigation, budget, brand, sponsorship, ingestion, and administrative changes
+
+Do not use `admin_action_logs` as a substitute for `security_audit_log` on
+authentication or credential events. Role and global-setting changes follow the
+dual-write rule in §14.6.
 
 Table: audit_logs
 
@@ -2586,21 +2615,17 @@ entity_id	Uuid
 metadata	jsonb
 created_at	timestamp with time zone
 
-Use for:
-•	Admin mutations on:
-o	admin tables (admin_users, roles, user_roles, contributors, platform_settings, profiles)
-o	city configuration (cities, city_brand_settings, city_design_system, city_feature_toggles, city_navigation, city_prompts, city_safety_settings, city_freeze_events)
-o	fraud tables (fraud_rules, fraud_signals, fraud_contributor_state)
-o	global settings (global_*)
-o	sponsor tables (sponsors, ad_slots, ad_creatives, ad_impressions, ad_clicks)
-o	gaming admin tables (games, game_question_options, game_answers, game_attempts, game_scores when mutated by admin)
-o	editorial workflows (civic_stories, civic_events, etc. when edited via admin/editor UI)
+`audit_logs` is a secondary/legacy table with a different schema. It is not the
+canonical operational audit destination for new mutations; use
+`admin_action_logs` under the action contract in §14.3.
 
 ### 10.2 What Gets Logged
 
 Keep updated_at on admin tables for normal data lifecycle and UI convenience.
 
-Centralize security logging in security_audit_log and audit_logs, not scattered across every table.
+Operational actions are centralized in `admin_action_logs`; security-critical events
+are centralized in `security_audit_log`. `audit_logs` is secondary/legacy and must
+not be used for new canonical civic or editorial audit writes.
 
 All admin restricted mutations (INSERT/UPDATE/DELETE) must generate a log entry.
 
@@ -2708,32 +2733,37 @@ Must not include:
 ### 10.5 How Logs Are Generated
 Admin UI
 All admin UI mutations must:
-1.	Perform the database mutation using the service role
-2.	Write a corresponding entry into security_audit_log
-3.	Include a structured diff in metadata
+1.	Use a server-side guarded mutation boundary.
+2.	Write the corresponding operational event to `admin_action_logs` in the same transaction.
+3.	Write to `security_audit_log` only when required by §14.6.
+4.	Include structured actor, entity, city, and changed-field context in metadata.
 Supabase Functions / Triggers (optional)
 For high risk tables (global settings, fraud rules), triggers may also write logs automatically.
 Workspace Enforcement
 Workspace must:
-•	ensure all admin routes write audit entries
+•	ensure all admin routes write operational events to `admin_action_logs`
 •	ensure no admin mutation bypasses logging
 •	ensure metadata is structured and consistent
 •	ensure logs are immutable (no UPDATE/DELETE allowed)
 
 ### 10.6 RLS for logging tables
-•	anon: CANNOT SELECT security_audit_log or audit_logs.
-•	authenticated admin / service role: CAN SELECT and INSERT into both tables.
-•	contributors: CANNOT SELECT logs; mutations they trigger (e.g., story submissions) still generate audit_logs entries with actor_user_id set.
+•	anon: CANNOT SELECT `admin_action_logs`, `security_audit_log`, or `audit_logs`.
+•	authorized admin/service paths write immutable entries to the appropriate canonical table.
+•	contributors: CANNOT SELECT logs; submitted Story transitions are audited with the
+  contributor's `actor_user_id` and the canonical Story action in `admin_action_logs`.
 
 ### 10.7 Summary
-Electrum’s security logging model is:
+Electrum’s audit model is:
 •	centralized
 •	immutable
 •	complete
 •	consistent
 •	Workspace enforced
 •	launch critical
-Every admin action is logged. Every log is structured. Every log is immutable. Every log is stored in security_audit_log.
+Every operational mutation is logged in `admin_action_logs`; every security-critical
+event is logged in `security_audit_log` according to §14.6. Entries are structured
+and immutable. Existing direct civic/Story writes that lack these records are
+implementation gaps, not exceptions to the contract.
 
 ## 11. Draft/Publish Model
 Each city may have one draft row and one published row in both
@@ -2971,43 +3001,82 @@ The action column in admin_action_logs must use the following canonical strings.
 Workspace must not introduce new action strings without a corresponding update to this
 section.
 
-| Domain     | Canonical action Values                                                                   |								
-|------------|-------------------------------------------------------------------------------------------|								
-| editorial  | story_published, story_unpublished, production_unit_created, tier_selected,               |								
-|            | editorial_dispute_resolved, unpublishable_approved, story_escalation_handled,             |
-|            | story_page_settings_edited                                                                 |
-| civic      | object_approved, object_hidden, object_frozen, object_unfrozen, object_merged,            |								
-|            | object_escalated, object_overridden, metadata_edited, media_uploaded,                     |								
-|            | media_attached, media_detached, media_reordered, media_primary_changed,                    |
-|            | metadata_requested, media_360_requested, suggestion_accepted, suggestion_rejected,        |								
-|            | escalation_resolved, page_settings_edited                                                 |
-| places     | PLACE_CREATE_PENDING, PLACE_EDIT_METADATA, PLACE_HIDE, PLACE_APPROVE, PLACE_RESTORE         |
-| budget     | payout_batch_created, payout_batch_item_added, payout_batch_item_removed,                 |								
-|            | payout_batch_authorized, payout_batch_rejected, payout_dispute_resolved,                  |								
-|            | sponsor_credit_applied                                                                    |								
-| brand      | brand_draft_edited, design_draft_edited, draft_submitted_for_review,                      |								
-|            | brand_published, theme_published, draft_returned_with_notes, global_brand_updated         |								
-| safety     | content_flagged, safety_hold_placed, safety_hold_lifted, escalated_to_ceo,                |								
-|            | harmful_content_removed, safety_enforcement_action                                        |								
-| navigation   | navigation_item_created, navigation_item_updated, navigation_item_deleted, panorama_created, panorama_published, panorama_unpublished, panorama_archived, panorama_reordered, panorama_metadata_edited, hotspot_placed, hotspot_updated, hotspot_activated, hotspot_deactivated, hotspot_deleted |
+| Domain | Canonical action values |
+|---|---|
+| editorial | `story_submitted`, `story_review_started`, `story_revision_requested`, `story_revision_resubmitted`, `story_editorially_approved`, `story_rejected`, `story_marked_unpublishable`, `story_published`, `story_unpublished`, `story_admin_frozen`, `story_admin_unfrozen`, `story_admin_unpublished`, `story_admin_republished`, `production_unit_created`, `tier_selected`, `editorial_dispute_resolved`, `unpublishable_approved`, `story_escalation_handled`, `story_page_settings_edited` |
+| civic | `object_created`, `metadata_edited`, `object_approved`, `object_hidden`, `object_restored`, `object_merged`, `object_escalated`, `object_overridden`, `metadata_requested`, `media_360_requested`, `suggestion_accepted`, `suggestion_rejected`, `escalation_resolved`, `page_settings_edited`, `media_uploaded`, `media_attached`, `media_detached`, `media_reordered`, `media_primary_changed` |
+| budget | `payout_batch_created`, `payout_batch_item_added`, `payout_batch_item_removed`, `payout_batch_authorized`, `payout_batch_rejected`, `payout_dispute_resolved`, `sponsor_credit_applied` |
+| brand | `brand_draft_edited`, `design_draft_edited`, `draft_submitted_for_review`, `brand_published`, `theme_published`, `draft_returned_with_notes`, `global_brand_updated` |
+| safety | `content_flagged`, `safety_hold_placed`, `safety_hold_lifted`, `escalated_to_ceo`, `harmful_content_removed`, `safety_enforcement_action` |
+| navigation | `navigation_item_created`, `navigation_item_updated`, `navigation_item_deleted`, `panorama_created`, `panorama_published`, `panorama_unpublished`, `panorama_archived`, `panorama_reordered`, `panorama_metadata_edited`, `hotspot_placed`, `hotspot_updated`, `hotspot_activated`, `hotspot_deactivated`, `hotspot_deleted` |
+| sponsorship | `campaign_created`, `campaign_activated`, `campaign_expired`, `campaign_terminated`, `placement_created`, `placement_activated`, `placement_deactivated`, `placement_deleted`, `creative_asset_uploaded`, `creative_asset_deleted`, `sponsor_validated`, `sponsor_profile_created`, `sponsor_profile_updated`, `brand_safety_approved`, `brand_safety_rejected`, `brand_safety_suspended`, `good_standing_revoked`, `good_standing_restored` |
+| games | `game_published`, `game_unpublished`, `game_question_created`, `game_question_updated`, `game_question_deleted`, `game_user_created` |
+| ingestion | `naming_dispute_resolved`, `ingestion_source_blocked`, `sensitive_content_resolved` |
+| global | `global_feature_toggle_updated`, `city_feature_toggle_updated`, `global_safety_setting_updated`, `platform_setting_updated`, `role_assigned`, `role_revoked` |
+| search | `search_index_entity_reindexed`, `search_index_entity_deleted`, `search_index_route_recomputed`, `search_index_error` |
 
-| sponsorship  | campaign_created, campaign_activated, campaign_expired, campaign_terminated, placement_created, placement_activated, placement_deactivated, placement_deleted, creative_asset_uploaded, creative_asset_deleted, sponsor_validated, sponsor_profile_created, sponsor_profile_updated, brand_safety_approved, brand_safety_rejected, brand_safety_suspended, good_standing_revoked, good_standing_restored |
+`object_deleted` is reserved for a separately approved delete policy. Civic object
+deletion is not authorized by the current lifecycle model and must not emit this action.
 
-| games        | game_published, game_unpublished, game_question_created, game_question_updated, game_question_deleted, game_user_created |
- 		
-| ingestion  | naming_dispute_resolved, ingestion_source_blocked, sensitive_content_resolved             |								
-| global     | global_feature_toggle_updated, city_feature_toggle_updated,                               |
-|            | global_safety_setting_updated, platform_setting_updated, role_assigned, role_revoked      |
-| search      | search_index_entity_reindexed, search_index_entity_deleted, search_index_route_recomputed, search_index_error |
-              | 
-               | Notes:
-               | • search_index_entity_reindexed — fired when rpc_reindex_entity updates or inserts a row
-               | • search_index_entity_deleted — fired when a source record is deleted and the trigger marks is_published = false
-               | • search_index_route_recomputed — fired when a slug changes and route is rebuilt
-               | • search_index_error — fired when rpc_reindex_entity raises an exception (invalid slug, invalid entity_type, missing city_id, etc.)								
+#### Civic object lifecycle contract
 
-The domain column must match one of the domains above. entity_type must be the exact
-PostgreSQL table name of the affected record.
+The generic civic lifecycle actions apply to Places and to civic Entities, Events,
+Neighborhoods, Eras, Moments, and Artifacts. Story metadata creation and editing use
+`object_created` and `metadata_edited` in the `civic` domain. Story-specific editorial
+and publication transitions use the `editorial` actions above; safety holds use the
+`safety` actions. Hiding or restoring a civic record uses `object_hidden` or
+`object_restored` in `civic`, not a new table-specific action.
+
+The former `places` domain and uppercase `PLACE_*` actions are legacy values. New
+Place lifecycle audit entries use the shared `civic` actions; aligning those future
+emissions does not change Place state transitions or authorization.
+
+#### Story review and publication contract
+
+| Story transition | Canonical action | Domain |
+|---|---|---|
+| Story submission | `story_submitted` | `editorial` |
+| Editor claims for review | `story_review_started` | `editorial` |
+| Editor requests revisions | `story_revision_requested` | `editorial` |
+| Story resubmission | `story_revision_resubmitted` | `editorial` |
+| Editor approves | `story_editorially_approved` | `editorial` |
+| Editor rejects | `story_rejected` | `editorial` |
+| Editor marks unpublishable | `story_marked_unpublishable` | `editorial` |
+| City Admin publishes an approved, safety-clear story | `story_published` | `editorial` |
+| City Admin unpublishes a live story back to approved | `story_unpublished` | `editorial` |
+| CEO administrative freeze/unfreeze | `story_admin_frozen` / `story_admin_unfrozen` | `editorial` |
+| CEO administrative unpublish/republish | `story_admin_unpublished` / `story_admin_republished` | `editorial` |
+| Place/lift a Story safety hold | `safety_hold_placed` / `safety_hold_lifted` | `safety` |
+| Escalate a Story to CEO | `escalated_to_ceo` | `safety` |
+
+An administrative Story unpublish changes public visibility only. It must not change
+`review_status`, `published_at`, `published_by`, production units, or payout state.
+Editorial unpublish remains a City Admin operation and returns the Story to
+`review_status = approved`. A safety hold blocks public visibility; lifting the hold
+does not publish the Story automatically. Publication remains blocked unless the
+Story is editorially approved and all publication preconditions are met.
+
+#### Current implementation compatibility
+
+This section defines the target contract; it does not assert that every current
+writer implements it. Existing direct Story saves can change `is_published` without
+an audit entry. The current `admin_moderate_story` RPC emits `story_hidden` and
+`story_emergency_unpublished`, records `entity_type = 'story'`, and records
+`escalation_resolved` in the `safety` domain rather than the canonical `civic`
+domain. Legacy Story RPCs write to `admin_override_logs`. These are known legacy
+paths, not additional canonical actions. Future guarded writers must use the
+actions and domains above and `entity_type = 'civic_stories'`. Historical audit
+rows are preserved, not rewritten.
+
+For Search actions, `search_index_entity_reindexed` is emitted when
+`rpc_reindex_entity` updates or inserts a row; `search_index_entity_deleted` is
+emitted when a source deletion marks the index row unpublished;
+`search_index_route_recomputed` records route recomputation; and
+`search_index_error` records a failed reindex operation.
+
+The domain column must match the canonical assignment above. `entity_type` must be
+the exact PostgreSQL table name of the affected record (for example,
+`civic_stories`, `civic_places`, or `story_page_settings`).
 
 ### 14.4 RLS for Audit Tables
 

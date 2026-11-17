@@ -49,6 +49,27 @@ can execute the final publish action after an Editor has set `review_status = ap
 - Modify `city_budget` or `sponsor_allocations`
 - Reassign a story to another city
 
+#### Story review audit contract
+
+Every Story review transition is required to produce an immutable
+`admin_action_logs` entry in the same transaction as the transition. Use
+`entity_type = civic_stories` and `entity_id = civic_stories.id`.
+
+| Transition | Action | Domain |
+|---|---|---|
+| Submission | `story_submitted` | `editorial` |
+| Claim for review | `story_review_started` | `editorial` |
+| Revision request | `story_revision_requested` | `editorial` |
+| Resubmission | `story_revision_resubmitted` | `editorial` |
+| Editorial approval | `story_editorially_approved` | `editorial` |
+| Rejection | `story_rejected` | `editorial` |
+| Unpublishable decision | `story_marked_unpublishable` | `editorial` |
+
+These are required future audit events. Existing direct review writes are not
+considered compliant merely because the workflow specifies the actions. City Admin
+publication and CEO administrative visibility actions use the separate contract in
+PUBLICATION_AND_PAYOUT.md and CEO_WORKFLOW.md; safety holds use the `safety` domain.
+
 ### 2.2 City Admin
 
 Administrative Unpublish (CEO)
