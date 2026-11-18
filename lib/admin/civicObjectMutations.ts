@@ -143,7 +143,7 @@ async function mutate(type: ObjectType, admin: ResolvedAdminContext, operation: 
   try {
     response = await client.rpc(spec.rpc, {
       p_actor_admin_id: admin.id, p_actor_auth_uid: admin.auth_uid, p_expected_city_id: cityId,
-      p_operation: operation, p_object_id: objectId, p_object_data: data,
+      p_operation: operation, p_object_id: objectId as string, p_object_data: data,
     });
   } catch (error) {
     console.error(`${spec.label} RPC transport failed:`, { operation, error });

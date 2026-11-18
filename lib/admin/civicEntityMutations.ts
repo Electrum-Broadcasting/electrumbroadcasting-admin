@@ -155,7 +155,7 @@ async function mutateEntity(
       p_actor_auth_uid: admin.auth_uid,
       p_expected_city_id: cityId,
       p_operation: operation,
-      p_object_id: entityId,
+      p_object_id: entityId as string,
       p_object_data: data,
     });
   } catch (error) {
