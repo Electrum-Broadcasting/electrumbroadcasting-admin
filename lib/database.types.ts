@@ -4771,35 +4771,70 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_mutate_civic_artifact: {
+        Args: {
+          p_actor_admin_id: string
+          p_actor_auth_uid: string
+          p_expected_city_id: string
+          p_object_data: Json
+          p_object_id: string
+          p_operation: string
+        }
+        Returns: Json
+      }
       admin_mutate_civic_entity: {
         Args: {
           p_actor_admin_id: string
           p_actor_auth_uid: string
           p_expected_city_id: string
-          p_operation: string
-          p_object_id: string | null
           p_object_data: Json
+          p_object_id: string
+          p_operation: string
+        }
+        Returns: Json
+      }
+      admin_mutate_civic_era: {
+        Args: {
+          p_actor_admin_id: string
+          p_actor_auth_uid: string
+          p_expected_city_id: string
+          p_object_data: Json
+          p_object_id: string
+          p_operation: string
         }
         Returns: Json
       }
       admin_mutate_civic_event: {
-        Args: { p_actor_admin_id: string; p_actor_auth_uid: string; p_expected_city_id: string; p_operation: string; p_object_id: string | null; p_object_data: Json }
-        Returns: Json
-      }
-      admin_mutate_civic_artifact: {
-        Args: { p_actor_admin_id: string; p_actor_auth_uid: string; p_expected_city_id: string; p_operation: string; p_object_id: string | null; p_object_data: Json }
-        Returns: Json
-      }
-      admin_mutate_civic_neighborhood: {
-        Args: { p_actor_admin_id: string; p_actor_auth_uid: string; p_expected_city_id: string; p_operation: string; p_object_id: string | null; p_object_data: Json }
-        Returns: Json
-      }
-      admin_mutate_civic_era: {
-        Args: { p_actor_admin_id: string; p_actor_auth_uid: string; p_expected_city_id: string; p_operation: string; p_object_id: string | null; p_object_data: Json }
+        Args: {
+          p_actor_admin_id: string
+          p_actor_auth_uid: string
+          p_expected_city_id: string
+          p_object_data: Json
+          p_object_id: string
+          p_operation: string
+        }
         Returns: Json
       }
       admin_mutate_civic_moment: {
-        Args: { p_actor_admin_id: string; p_actor_auth_uid: string; p_expected_city_id: string; p_operation: string; p_object_id: string | null; p_object_data: Json }
+        Args: {
+          p_actor_admin_id: string
+          p_actor_auth_uid: string
+          p_expected_city_id: string
+          p_object_data: Json
+          p_object_id: string
+          p_operation: string
+        }
+        Returns: Json
+      }
+      admin_mutate_civic_neighborhood: {
+        Args: {
+          p_actor_admin_id: string
+          p_actor_auth_uid: string
+          p_expected_city_id: string
+          p_object_data: Json
+          p_object_id: string
+          p_operation: string
+        }
         Returns: Json
       }
       admin_mutate_civic_place: {
@@ -5001,9 +5036,25 @@ export type Database = {
         Args: { p_city_id: string }
         Returns: boolean
       }
+      civic_authorize_lifecycle_mutation: {
+        Args: {
+          p_actor_admin_id: string
+          p_actor_auth_uid: string
+          p_city_id: string
+          p_operation: string
+        }
+        Returns: string
+      }
       civic_item_exists: {
         Args: { item_id: string; item_type: string }
         Returns: boolean
+      }
+      civic_lifecycle_transition: {
+        Args: { p_is_published: boolean; p_operation: string; p_status: string }
+        Returns: {
+          next_is_published: boolean
+          next_status: string
+        }[]
       }
       civic_object_city_id: {
         Args: { p_id: string; p_type: string }
@@ -5012,6 +5063,28 @@ export type Database = {
       civic_object_is_published: {
         Args: { p_id: string; p_type: string }
         Returns: boolean
+      }
+      civic_validate_lifecycle_payload: {
+        Args: {
+          p_data: Json
+          p_field_types: Json
+          p_operation: string
+          p_required_fields: string[]
+        }
+        Returns: undefined
+      }
+      civic_write_lifecycle_audit: {
+        Args: {
+          p_actor_admin_id: string
+          p_actor_auth_uid: string
+          p_actor_role: string
+          p_city_id: string
+          p_metadata: Json
+          p_object_id: string
+          p_operation: string
+          p_table_name: string
+        }
+        Returns: string
       }
       claim_quiz_ownership: { Args: { quiz_id: number }; Returns: boolean }
       claim_section_ownership: {
@@ -5936,6 +6009,10 @@ export type Database = {
           data_type: string
           table_name: string
         }[]
+      }
+      search_index_civic_record: {
+        Args: { p_id: string; p_source_table: string }
+        Returns: undefined
       }
       search_index_entity: {
         Args: { p_entity_id: string; p_entity_type: string }

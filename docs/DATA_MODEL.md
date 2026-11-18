@@ -1,5 +1,5 @@
 DATA-MODEL.md 
-Electrum’s data model is a city centric relational schema built on Supabase/PostgreSQL with strict Row Level Security (RLS). This document describes all core tables, relationships, foreign keys, and usage patterns.
+Electrum’s data model is a city centric relational schema built on Supabase/PostgreSQL with Row Level Security (RLS). Policy coverage varies by table; verify the active policies before relying on RLS for authorization. This document describes all core tables, relationships, foreign keys, and usage patterns.
 It is designed for both human contributors and AI agents (Copilot, Workspace) to understand the database structure and enforce consistent, RLS safe access patterns.
 
 ## 1. Core Concepts
@@ -15,7 +15,7 @@ Electrum’s civic model is built on a consistent pattern shared across all civi
 
 This pattern applies to all core civic tables, including civic_events, civic_eras, civic_stories, civic_places, civic_entities, civic_artifacts, civic_neighborhoods, and civic_moments.
 
-Electrum’s relationship model is unified under civic_relationships and a small set of specialized join tables (e.g., event_eras, moment_entity_links). These tables define how civic content connects across time, place, people, and narrative.
+Electrum’s relationship model uses civic_relationships and specialized join tables (e.g., event_eras, moment_entities). These tables define how civic content connects across time, place, people, and narrative.
 
 Electrum’s public API, loaders, and admin UI all rely on this shared structure. Workspace uses this model to enforce consistency across modules, normalize Supabase access, and maintain architectural integrity during refactors.
 
@@ -60,8 +60,8 @@ Relationship Tables
 •	moment_entities
 •	moment_eras 
 •	moment_places 
-•	moment_stories — optional / future
-•	moment_neighborhoods — optional / future
+•	moment_stories
+•	moment_neighborhoods
 
 Immersive Media Tables
 •  	panoramas
@@ -1542,11 +1542,11 @@ target table and city through the civic_object_type discriminator.
 Electrum uses a combination of generalized and specialized join tables to connect civic content across time, place, narrative, and identity. These tables do not represent standalone civic objects; instead, they define relationships between core tables.
 Join tables fall into two categories:
 •	Generalized relationship graph — flexible, multi type relationships
-•	Specialized join tables — optimized for high frequency civic relationships
+•	Specialized join tables — explicit, typed relationships
 Generalized Relationship Graph
 
 Table: civic_relationships
-Unified relationship graph connecting all civic content.
+Polymorphic relationship graph connecting civic objects. The database does not constrain endpoint type values or verify that endpoint IDs exist.
 column_name	data_type
 id	uuid
 from_type	text
@@ -1555,9 +1555,13 @@ to_type	text
 to_id	uuid
 created_at	timestamp with time zone
 
-Purpose Allows arbitrary relationships between any civic objects (entity → place, event → story, moment → entity, etc.). Used for flexible graph queries, Atlas, and future AI generation.
+The `from_type`/`from_id` pair identifies the source; `to_type`/`to_id` identifies the target. There is no `city_id`, relationship-type column, or foreign key on either endpoint. Callers must validate the type allowlist, endpoint existence, accessibility, and same-city rule. Authorization and audit context must be derived from the source and both endpoints; neither is provided by this table or its RLS policies.
+
+The table has a generated UUID primary key. Endpoint columns are required; `created_at` defaults to `now()` and is nullable. There is no unique constraint on an endpoint pair, so duplicate edges are possible without guarded set validation.
+
+Purpose: connect civic objects for graph queries and traversal. Prefer specialized tables for relationships already represented by a typed family; do not store the same semantic relationship in both representations.
 Specialized Join Tables
-These tables exist because certain civic relationships are extremely common and benefit from optimized queries, indexes, and predictable structure.
+These tables represent relationships with fixed endpoint types and predictable structure.
 event_eras
 Join table linking events ↔ eras.
 column_name	data_type
@@ -1566,12 +1570,16 @@ event_id	uuid
 era_id	uuid
 created_at	timestamp with time zone
 
+`id` defaults to a generated UUID and is required. `event_id` and `era_id` are nullable; `created_at` defaults to `now()` and is nullable. Both endpoint foreign keys cascade on delete. There is no unique constraint on the endpoint pair.
+
 moment_eras
 Join table linking moments ↔ eras.
 column_name	data_type
 id	uuid
 moment_id	uuid
 era_id	uuid
+
+`id` is required but has no default. `moment_id` and `era_id` are nullable. Both endpoint foreign keys use the default `NO ACTION` delete behavior. There is no unique constraint on the endpoint pair.
 
 moment_entities
 Join table linking moments ↔ entities.
@@ -1583,6 +1591,8 @@ role	text
 created_at	timestamp with time zone
 updated_at	timestamp with time zone
 
+`id` defaults to a generated UUID and is required; `moment_id` and `entity_id` are required. `role` and `updated_at` are nullable; `created_at` defaults to `now()` and is nullable. Both endpoint foreign keys cascade on delete. There is no unique constraint on the endpoint pair.
+
 moment_places
 Join table linking moments ↔ places.
 column_name	data_type
@@ -1590,8 +1600,10 @@ id	uuid
 moment_id	uuid
 place_id	uuid
 
+`id` is required but has no default. `moment_id` and `place_id` are nullable. Both endpoint foreign keys use the default `NO ACTION` delete behavior. There is no unique constraint on the endpoint pair.
+
 moment_stories
-Join table linking moments ↔ stories. Optional / future use.
+Join table linking moments ↔ stories.
 column_name	data_type
 id	uuid
 moment_id	uuid
@@ -1599,12 +1611,18 @@ story_id	uuid
 created_at	timestamp with time zone
 updated_at	timestamp with time zone
 
+`id` defaults to a generated UUID and is required; `moment_id` and `story_id` are required. Both timestamps default to `now()` and are nullable. Both endpoint foreign keys cascade on delete. Story authorization remains governed by the Story workflow.
+
 moment_neighborhoods
-Join table linking moments ↔ neighborhoods. Optional / future use.
+Join table linking moments ↔ neighborhoods.
 column_name	data_type
 id	uuid
 moment_id	uuid
 neighborhood_id	uuid
+
+`id` is required but has no default. `moment_id` and `neighborhood_id` are nullable. Both endpoint foreign keys use the default `NO ACTION` delete behavior. There is no unique constraint on the endpoint pair.
+
+The seven relationship tables have primary-key indexes only: no secondary indexes, check constraints, or triggers were present in the reconciled live schema. RLS is enabled on all seven. `civic_relationships` permits authenticated SELECT, INSERT, UPDATE, and DELETE through unconditional policies; `event_eras` permits authenticated SELECT, INSERT, and DELETE; `moment_eras`, `moment_places`, and `moment_neighborhoods` permit authenticated INSERT and DELETE. `moment_entities` and `moment_stories` have no policies. These policies do not enforce role or city scope. Relationship mutations therefore require guarded authorization, validation, and auditing; direct authenticated DML is not a governance boundary.
 
 ## 5. Naming Conventions
 
@@ -1713,11 +1731,10 @@ Narrative Columns
 •	description
 
 Relationship Columns
-•	source_type
-•	source_id
-•	target_type
-•	target_id
-•	relationship_type
+•	civic_relationships.from_type
+•	civic_relationships.from_id
+•	civic_relationships.to_type
+•	civic_relationships.to_id
 
 Join Table Naming
 Join tables follow a strict pattern:
@@ -1783,22 +1800,20 @@ This is the backbone of Electrum’s civic memory model.
 
 ### 6.3 Relationship Table Foreign Keys
 Generalized Relationship Graph
-•	civic_relationships.city_id → cities.id
-•	civic_relationships.source_id → any civic table
-•	civic_relationships.target_id → any civic table
+•	civic_relationships has no foreign keys; both endpoints are polymorphic and must be validated by guarded mutation paths.
 Specialized Join Tables
-•	event_eras.event_id → civic_events.id
-•	event_eras.era_id → civic_eras.id
-•	moment_entities.moment_id → civic_moments.id
-•	moment_entities.entity_id → civic_entities.id
-•	moment_eras.moment_id → civic_moments.id
-•	moment_eras.era_id → civic_eras.id
-•	moment_places.moment_id → civic_moments.id
-•	moment_places.place_id → civic_places.id
-•	moment_stories.moment_id → civic_moments.id
-•	moment_stories.story_id → civic_stories.id
-•	moment_neighborhoods.moment_id → civic_moments.id
-•	moment_neighborhoods.neighborhood_id → civic_neighborhoods.id
+•	event_eras.event_id → civic_events.id (CASCADE DELETE)
+•	event_eras.era_id → civic_eras.id (CASCADE DELETE)
+•	moment_entities.moment_id → civic_moments.id (CASCADE DELETE)
+•	moment_entities.entity_id → civic_entities.id (CASCADE DELETE)
+•	moment_eras.moment_id → civic_moments.id (NO ACTION DELETE)
+•	moment_eras.era_id → civic_eras.id (NO ACTION DELETE)
+•	moment_places.moment_id → civic_moments.id (NO ACTION DELETE)
+•	moment_places.place_id → civic_places.id (NO ACTION DELETE)
+•	moment_stories.moment_id → civic_moments.id (CASCADE DELETE)
+•	moment_stories.story_id → civic_stories.id (CASCADE DELETE)
+•	moment_neighborhoods.moment_id → civic_moments.id (NO ACTION DELETE)
+•	moment_neighborhoods.neighborhood_id → civic_neighborhoods.id (NO ACTION DELETE)
 
 ### 6.4 Sponsor Domain Foreign Keys
 
