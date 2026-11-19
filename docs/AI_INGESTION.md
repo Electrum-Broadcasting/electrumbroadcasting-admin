@@ -2,6 +2,77 @@
 Electrum v1 — Automated Civic Object Ingestion Architecture 
 Last updated: 2026 09 08
 
+## Implemented OSM Place MVP
+
+The remainder of this document describes the broader ingestion specification;
+it is not evidence that the other sources or object types are implemented.
+The governed MVP supports **OpenStreetMap Places only**.
+
+An authenticated, active City Admin assigned to the city, CEO, or Platform
+Admin registers a sourced and versioned GeoJSON Polygon or MultiPolygon through
+`POST /api/admin/ingestion/osm/boundaries`. The JSON body contains `city_id`,
+`source_url`, `source_version`, and `geometry`. The administrator is responsible
+for selecting an authoritative source. Registration validates geometry in the
+trusted server, records the actor and an audit entry, and returns `boundary_id`.
+Boundary versions are immutable. Registration currently accepts at most 5,000
+coordinates and rejects antimeridian-crossing rings; use a suitable verified
+boundary rather than bypassing validation. If the registration response is lost,
+an operator must reconcile it against the boundary-registration audit before
+retrying.
+
+Start a run with `POST /api/admin/ingestion/osm/runs` and a JSON body containing
+`city_id`, `boundary_id`, `source: "openstreetmap"`, and `query_box` with numeric
+`south`, `west`, `north`, and `east`. The box must lie within the registered
+boundary's extent. It is a source-query region, **not** the containment rule:
+the worker checks each representative point against the registered polygon.
+Points outside the polygon, on its boundary, in a hole, or missing coordinates
+are quarantined. OSM way/relation centers are representative points, not proof
+that a whole feature lies within the city.
+
+Each run is limited to 50 source results. A larger response fails without
+processing a subset; split the query region and retry. Overpass's
+`timestamp_osm_base` is recorded as the source version. An incomplete Overpass
+response, a missing source version, or a request failure fails the batch.
+`GET /api/admin/ingestion/osm/runs?batch_id=<uuid>` returns city-scoped batch
+and item dispositions without exposing raw payloads. To reconcile a stranded
+running batch, an authorized administrator can `PATCH` the same endpoint with
+`batch_id`, `operation: "abort"`, and a nonblank `reason`; staged items become
+audited failures. A start or finish with an unconfirmed outcome returns the
+preassigned batch ID for lookup. Retry with a new batch after checking the
+prior results. A lost HTTP response may require an operator to locate the
+batch in the ingestion audit. The worker runs synchronously and a request
+timeout or process interruption can leave a batch running; abort it before
+retrying.
+
+Raw items, their hashes, batch, boundary, source version, actor, and
+dispositions are persisted. Creation uses the existing guarded Place RPC and
+writes provenance and ingestion audit in the same transaction. Source identity
+is `(openstreetmap, external_id)`, including the OSM node/way/relation type.
+Existing identities are recorded as duplicates; ambiguous existing Places are
+quarantined. Imported Places are `pending` and unpublished; no relationships or
+panoramas are imported.
+
+The legacy `ingest_osm_places` and `normalize_osm_places` Edge Function
+endpoints are retired. Deploy both retired endpoints together with the new
+server and migrations before enabling runs; otherwise an old deployment can
+still use the previous direct-write path. Existing legacy raw rows are not
+automatically processed. The worker trusts the registered boundary and must be
+the only ingestion caller of the service-only creation RPCs.
+
+For Seattle validation, first register a verified Seattle boundary and record
+its source, version and rights. Have an assigned City Admin use small
+non-overlapping query regions to target 25–50 pending Places. Check batch/item
+and Place audit IDs, inspect duplicates and quarantines, and verify city-scoped
+review and the existing approve/hide/restore workflow before scaling. Where
+the city requires a published panorama, attach and publish it **before**
+approving the Place; otherwise it may be attached afterward. Verify the approved
+Place as a same-city hotspot target. No live ingestion is required to deploy
+or run the isolated tests.
+
+OpenStreetMap data is available under the ODbL. Before publication, confirm
+source and boundary licensing and ensure the consuming application provides
+the required [OpenStreetMap attribution](https://www.openstreetmap.org/copyright).
+
 ## 1. Purpose & Scope
 Electrum’s AI Ingestion Pipeline is responsible for automatically discovering, importing, normalizing, enriching, and preparing civic objects for City Admin curation and CEO governance. It is the backbone of Electrum’s scalable civic memory system.
 This document defines:
@@ -34,7 +105,7 @@ Each stage is explicit, observable, and auditable through admin_action_logs.
 
 ## 3. Stage 1 — Source Ingestion
 ### 3.1 Supported Sources
-Electrum v1 supports ingestion from:
+The broader specification envisages ingestion from:
 •	OpenStreetMap (OSM) — places, amenities, parks, transit
 •	Wikidata — people, organizations, landmarks
 •	City Open Data Portals — neighborhoods, facilities, events
@@ -43,7 +114,7 @@ Electrum v1 supports ingestion from:
 •	Electrum Internal Sources — curated datasets, manual imports
 
 ### 3.2 raw_ingestion Table
-All raw payloads are stored in:
+The legacy raw staging table is:
 
 raw_ingestion (
   id uuid PK,
@@ -55,7 +126,7 @@ raw_ingestion (
 )
 
 ### 3.3 Ingestion Jobs
-Ingestion jobs:
+The broader design envisages ingestion jobs that:
 •	run on a schedule (Supabase cron or external worker)
 •	fetch external data
 •	write raw payloads via rpc_ingest_raw
@@ -92,10 +163,11 @@ Normalization must detect duplicates using:
 •	name similarity
 •	coordinate proximity
 •	external IDs
-Duplicates are inserted as status = 'pending' and flagged for City Admin review.
+The implemented OSM path records exact/existing identities as duplicates and
+quarantines potential duplicates rather than inserting another Place.
 
 ### 4.4 RPC
-Normalization workers call:
+The broader design envisages normalization workers calling:
 
 rpc_normalize_object(raw_id)
 to mark ingestion complete.
@@ -164,10 +236,9 @@ upload field. Panorama preview imagery uses `panoramas.thumbnail_url`.
 deprecation; do not write new uploads to it.
 
 ### 7.3 Missing Media Queue
-Objects without 360° media remain:
-
-status = 'pending'
-until City Admins upload required assets.
+When a city's published-panorama requirement is enabled, a Place cannot be
+approved until a published panorama is attached. Otherwise, a pending Place
+may be approved without one.
 
 ### 7.4 Future Automation
 Electrum v3 may support:
@@ -212,10 +283,9 @@ and, where immersive media is required, a primary published panoramas row exists
 hero_360_url is generated from that row and is not the eligibility source.
 
 For `civic_places`, approval is restricted to the guarded transition
-`pending / false` → `approved / true`; the Place approval operation does not impose
-a hero-media eligibility check. This exception does not change other civic object
-types. Legacy `pending / true` Places are preserved and are not automatically
-reprocessed.
+`pending / false` → `approved / true`, subject to any enabled city panorama
+requirement. Legacy `pending / true` Places are preserved and are not
+automatically reprocessed.
 
 ## 9. Governance & Safety
 ### 9.1 Versioning
