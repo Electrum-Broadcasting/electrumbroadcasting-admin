@@ -89,13 +89,13 @@ city_id of the panorama must be in the admin's admin_users.city_ids array
 
 4.4 Link target eligibility
 target_type	Eligibility requirement
-civic_entity	is_published = true
-civic_event	is_published = true
-civic_place	is_published = true
-civic_moment	is_published = true
-civic_artifact	is_published = true
-civic_neighborhood	is_published = true
-civic_story	is_published = true and safety_hold = false
+civic_entity	is_published = true; status is null or approved
+civic_event	is_published = true; status is null or approved
+civic_place	is_published = true; status is null or approved
+civic_moment	is_published = true; status is null or approved
+civic_artifact	is_published = true; status is null or approved
+civic_neighborhood	is_published = true; status is null or approved
+civic_story	is_published = true, review_status = published, and safety_hold = false
 panorama	Not supported by M9B; activation is deferred for the MVP
 external_url	Valid absolute https:// URL; no further record-level validation
 
@@ -110,16 +110,24 @@ deferred to future
 multi-city governance work.
 
 5. Server-side target validation
-The authenticated hotspot service checks the target type, existence, same-city
-scope, publication, and anonymous-read accessibility on save and activation.
-Stories must also be free of safety holds. An external URL must be a valid HTTPS
-URL without embedded credentials; destination reachability is not checked.
+The canonical public-page eligibility contract is the Object Page and Story Page
+eligibility gates, together with the same-city hotspot restriction above.
+Authorized server-side search, validation, save, and activation use the shared
+`isPubliclyEligibleHotspotTarget` predicate. Missing or unknown eligibility fields
+fail closed. External URLs must be valid HTTPS URLs without embedded credentials;
+destination reachability is not checked.
+
+This contract describes eligibility, not proof that the separate public-city
+application is deployed or can serve the page. It does not grant anonymous access
+to civic tables. Future public traversal must apply these same gates to current
+target data and verify the actual public delivery path before enabling navigation.
 The database trigger independently checks existence and city when targets change,
 and publication when a hotspot is activated. There is no deployed
 `rpc_validate_hotspot_target` RPC.
-Service checks and mutation RPCs are separate requests, so target visibility can
-change between them. The trigger checks publication at activation, but neither
-it nor the service continuously deactivates already-active stale targets.
+Service checks and mutation RPCs are separate requests, so eligibility can change
+between them. The existing trigger checks publication and Story safety hold at
+activation, but does not check the full page eligibility contract atomically.
+Neither it nor the service continuously deactivates already-active stale targets.
 
 
 6. Placing a Hotspot

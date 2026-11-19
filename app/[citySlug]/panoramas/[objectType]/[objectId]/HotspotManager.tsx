@@ -88,7 +88,7 @@ export default function HotspotManager({ endpoint, imageUrl, panoramaStatus }: {
       if (!response.ok || body.result?.valid !== true) throw new Error(body.error || "Target validation failed.");
       setMessage(selection.target_type === "external_url"
         ? "HTTPS URL format is valid. Destination availability is not checked."
-        : "Target is published, in this city, and publicly accessible.");
+        : "Target meets the public page eligibility rules for this city. Public delivery is not verified.");
     } catch (reason) {
       console.error("Hotspot target validation failed:", reason);
       setError(reason instanceof Error ? reason.message : "Target validation failed.");

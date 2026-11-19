@@ -1,12 +1,10 @@
 // @ts-ignore -- supplied by the Next.js runtime.
 import "server-only";
 
-import { createClient } from "@supabase/supabase-js";
 import { authorizePanoramaParent } from "@/lib/admin/panoramas";
 import { CivicObjectMutationError } from "@/lib/admin/civicObjectMutations";
 import { isValidCityId } from "@/lib/admin/guards";
-import { SUPABASE_ANON_KEY, SUPABASE_URL } from "@/lib/supabase/env";
-import type { Database } from "@/lib/database.types";
+import { isPubliclyEligibleHotspotTarget } from "@/lib/hotspots/publicEligibility";
 
 const targets = {
   civic_entity: { table: "civic_entities", label: "name" },
@@ -48,12 +46,6 @@ async function authorize(type: string, objectId: string, panoramaId: string) {
   return { ...context, panorama: data };
 }
 
-function anonymousClient() {
-  return createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-}
-
 type Context = Awaited<ReturnType<typeof authorize>>;
 
 async function validateTarget(context: Context, input: Record<string, unknown>) {
@@ -81,15 +73,9 @@ async function validateTarget(context: Context, input: Record<string, unknown>) 
   }
   if (!data) fail("Target object not found.");
   if (data.city_id !== context.cityId) fail("Target object belongs to a different city.");
-  if (!data.is_published || (type === "civic_story" && "safety_hold" in data && data.safety_hold !== false)) {
-    fail("Target object must be published and accessible.");
+  if (!isPubliclyEligibleHotspotTarget(type, context.cityId, data)) {
+    fail("Target object is not eligible for public display.");
   }
-  const visible = await anonymousClient().from(table).select("id").eq("id", id).maybeSingle();
-  if (visible.error) {
-    console.error("Hotspot public target lookup failed:", visible.error);
-    fail("Unable to verify public access to the target.", 500, "lookup_failed");
-  }
-  if (!visible.data) fail("Target object is not publicly accessible.");
   return { target_type: type, target_id: id, target_url: null };
 }
 
@@ -149,22 +135,19 @@ export async function searchHotspotTargets(type: string, objectId: string, panor
   const query = search.trim();
   if (query.length < 2 || query.length > 100 || /[%_\\]/.test(query)) fail("Enter 2–100 search characters without wildcard characters.");
   const config = targets[target];
-  const { data, error } = await context.service.from(config.table).select("*")
-    .eq("city_id", context.cityId).eq("is_published", true).ilike(config.label, `%${query}%`)
-    .order(config.label).limit(30);
+  const searchRequest = target === "civic_story"
+    ? context.service.from("civic_stories").select("*").eq("city_id", context.cityId)
+      .eq("is_published", true).eq("review_status", "published").eq("safety_hold", false)
+      .ilike("title", `%${query}%`).order("title").limit(30)
+    : context.service.from(config.table).select("*").eq("city_id", context.cityId)
+      .eq("is_published", true).or("status.is.null,status.eq.approved")
+      .ilike(config.label, `%${query}%`).order(config.label).limit(30);
+  const { data, error } = await searchRequest;
   if (error || !data) {
     console.error("Hotspot target search failed:", error);
     fail("Unable to search target objects.", 500, "lookup_failed");
   }
-  const eligible = data.filter((item) => target !== "civic_story" || ("safety_hold" in item && item.safety_hold === false));
-  if (!eligible.length) return [];
-  const visible = await anonymousClient().from(config.table).select("id").in("id", eligible.map((item) => item.id));
-  if (visible.error || !visible.data) {
-    console.error("Hotspot public target search failed:", visible.error);
-    fail("Unable to verify public access to targets.", 500, "lookup_failed");
-  }
-  const visibleIds = new Set(visible.data.map((item) => item.id));
-  return eligible.filter((item) => visibleIds.has(item.id))
+  return data.filter((item) => isPubliclyEligibleHotspotTarget(target, context.cityId, item))
     .map((item) => ({ id: item.id, label: ("name" in item ? item.name : item.title) || item.id }));
 }
 

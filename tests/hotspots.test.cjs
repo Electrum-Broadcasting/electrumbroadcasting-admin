@@ -14,12 +14,24 @@ const actor = "66666666-6666-4666-8666-666666666666";
 const audit = "77777777-7777-4777-8777-777777777777";
 const uuid = (value) => typeof value === "string" && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(value);
 
+function load(filename, mocks = {}) {
+  const mod = new Module(filename, module);
+  mod.filename = filename;
+  mod.paths = Module._nodeModulePaths(path.dirname(filename));
+  const original = mod.require.bind(mod);
+  mod.require = (id) => Object.hasOwn(mocks, id) ? mocks[id] : original(id);
+  mod._compile(ts.transpileModule(fs.readFileSync(filename, "utf8"), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
+  }).outputText, filename);
+  return mod.exports;
+}
+
 function fixture() {
   const state = {
-    city, published: true, safetyHold: false, visible: true, panoramaStatus: "published",
+    city, published: true, status: "approved", safetyHold: false, reviewStatus: "published", panoramaStatus: "published",
     parentAllowed: true, hotspotPanorama: panorama, rpc: [], response: null,
     hotspot: { id: hotspotId, target_type: "civic_place", target_id: objectId, target_url: null },
-    searchRows: [{ id: objectId, name: "Example", city_id: city, is_published: true }],
+    searchRows: [{ id: objectId, name: "Example", city_id: city, is_published: true, status: "approved" }],
   };
   class CivicObjectMutationError extends Error {
     constructor(message, status, code) { super(message); this.status = status; this.code = code; }
@@ -30,13 +42,16 @@ function fixture() {
       return {
         select() { return this; },
         eq(key, value) { filters[key] = value; return this; },
+        or() { filters.allowedStatus = true; return this; },
         ilike() { return this; },
         order() { return this; },
-        async limit() { return { data: state.searchRows, error: null }; },
+        async limit() { return { data: state.searchRows.filter((row) =>
+          Object.entries(filters).every(([key, value]) => key === "allowedStatus"
+            ? row.status === null || row.status === "approved" : row[key] === value)), error: null }; },
         async maybeSingle() {
           if (table === "panoramas") return { data: filters.id === panorama ? { id: panorama, status: state.panoramaStatus } : null, error: null };
           if (table === "hotspots") return { data: filters.id === hotspotId && filters.panorama_id === state.hotspotPanorama ? state.hotspot : null, error: null };
-          return { data: filters.id === objectId ? { id: objectId, city_id: state.city, is_published: state.published, safety_hold: state.safetyHold } : null, error: null };
+          return { data: filters.id === objectId ? { id: objectId, city_id: state.city, is_published: state.published, status: state.status, safety_hold: state.safetyHold, review_status: state.reviewStatus } : null, error: null };
         },
       };
     },
@@ -46,20 +61,10 @@ function fixture() {
       return { data: { id: hotspotId, audit_id: audit, is_active: name === "admin_set_hotspot_active" ? args.p_active : false }, error: null, status: 200 };
     },
   };
-  const anonymous = {
-    from() {
-      return { select() { return this; }, eq() { return this; },
-        async in() { return { data: state.visible ? [{ id: objectId }] : [], error: null }; },
-        async maybeSingle() { return { data: state.visible ? { id: objectId } : null, error: null }; } };
-    },
-  };
   const filename = path.resolve(__dirname, "../lib/admin/hotspots.ts");
-  const mod = new Module(filename, module);
-  mod.filename = filename;
-  mod.paths = Module._nodeModulePaths(path.dirname(filename));
   const mocks = {
     "server-only": {},
-    "@supabase/supabase-js": { createClient: () => anonymous },
+    "@/lib/hotspots/publicEligibility": load(path.resolve(__dirname, "../lib/hotspots/publicEligibility.ts")),
     "@/lib/admin/panoramas": { authorizePanoramaParent: async () => {
       if (!state.parentAllowed) throw new CivicObjectMutationError("City access denied.", 403, "forbidden");
       return { service: client, cityId: city, objectType: "civic_place", objectId,
@@ -67,14 +72,8 @@ function fixture() {
     } },
     "@/lib/admin/civicObjectMutations": { CivicObjectMutationError },
     "@/lib/admin/guards": { isValidCityId: uuid },
-    "@/lib/supabase/env": { SUPABASE_URL: "https://example.test", SUPABASE_ANON_KEY: "test" },
   };
-  const original = mod.require.bind(mod);
-  mod.require = (id) => Object.hasOwn(mocks, id) ? mocks[id] : original(id);
-  mod._compile(ts.transpileModule(fs.readFileSync(filename, "utf8"), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
-  }).outputText, filename);
-  return { service: mod.exports, state };
+  return { service: load(filename, mocks), state };
 }
 
 const data = { label: "Entrance", pan_x: 0.25, pan_y: 0.75, target_type: "civic_place", target_id: objectId, target_url: null };
@@ -100,17 +99,19 @@ test("places, updates, activates, deactivates and deletes through guarded RPCs",
   assert.equal(state.rpc[3].args.p_active, false);
 });
 
-test("rejects cross-city, unpublished, inaccessible and safety-held targets before mutation", async () => {
+test("rejects cross-city, unpublished, safety-held and non-published-review targets before mutation", async () => {
   const { service, state } = fixture();
   const save = (target = data) => service.mutateHotspot("place", objectId, panorama, { operation: "place", data: target });
   state.city = otherCity;
   await assert.rejects(save(), /different city/);
   state.city = city; state.published = false;
-  await assert.rejects(save(), /published/);
-  state.published = true; state.visible = false;
-  await assert.rejects(save(), /publicly accessible/);
-  state.visible = true; state.safetyHold = true;
-  await assert.rejects(save({ ...data, target_type: "civic_story" }), /published/);
+  await assert.rejects(save(), /not eligible/);
+  state.published = true; state.status = "pending";
+  await assert.rejects(save(), /not eligible/);
+  state.status = "approved"; state.safetyHold = true;
+  await assert.rejects(save({ ...data, target_type: "civic_story" }), /not eligible/);
+  state.safetyHold = false; state.reviewStatus = "approved";
+  await assert.rejects(save({ ...data, target_type: "civic_story" }), /not eligible/);
   await assert.rejects(save({ ...data, target_type: "panorama" }), /Unsupported/);
   assert.equal(state.rpc.length, 0);
 });
@@ -142,23 +143,53 @@ test("validates every supported civic target and external URLs without creating 
   assert.equal(state.rpc.length, 0);
 });
 
-test("search only returns published candidates visible to anonymous users", async () => {
+test("search applies the same eligibility contract without anonymous table access", async () => {
   const { service, state } = fixture();
   const search = () => service.searchHotspotTargets("place", objectId, panorama, "civic_place", "Example");
   assert.deepEqual(await search(), [{ id: objectId, label: "Example" }]);
-  state.visible = false;
+  state.searchRows[0].city_id = otherCity;
   assert.deepEqual(await search(), []);
+  state.searchRows[0].city_id = city;
+  state.searchRows[0].is_published = false;
+  assert.deepEqual(await search(), []);
+  state.searchRows[0].is_published = true;
+  state.searchRows[0].status = "pending";
+  assert.deepEqual(await search(), []);
+  state.searchRows[0].status = null;
+  assert.deepEqual(await search(), [{ id: objectId, label: "Example" }]);
+  state.searchRows = [{ id: objectId, title: "Example", city_id: city, is_published: true, review_status: "approved", safety_hold: false }];
+  const stories = () => service.searchHotspotTargets("place", objectId, panorama, "civic_story", "Example");
+  assert.deepEqual(await stories(), []);
+  state.searchRows[0].review_status = "published";
+  state.searchRows[0].safety_hold = true;
+  assert.deepEqual(await stories(), []);
+  state.searchRows[0].safety_hold = false;
+  assert.deepEqual(await stories(), [{ id: objectId, label: "Example" }]);
   await assert.rejects(service.searchHotspotTargets("place", objectId, panorama, "civic_place", "%"), /search characters/);
 });
 
 test("activation rechecks publication and uncertain or malformed RPC outcomes fail closed", async () => {
   const { service, state } = fixture();
   state.published = false;
-  await assert.rejects(service.mutateHotspot("place", objectId, panorama, { operation: "activate", id: hotspotId }), /published/);
-  assert.equal(state.rpc.length, 0);
+  await assert.rejects(service.mutateHotspot("place", objectId, panorama, { operation: "activate", id: hotspotId }), /not eligible/);
   state.published = true;
+  state.hotspot.target_type = "civic_story";
+  state.reviewStatus = "approved";
+  await assert.rejects(service.mutateHotspot("place", objectId, panorama, { operation: "activate", id: hotspotId }), /not eligible/);
+  state.reviewStatus = "published";
+  state.safetyHold = true;
+  await assert.rejects(service.mutateHotspot("place", objectId, panorama, { operation: "activate", id: hotspotId }), /not eligible/);
+  assert.equal(state.rpc.length, 0);
+  state.safetyHold = false;
   state.response = { data: { id: hotspotId, is_active: false }, error: null, status: 200 };
   await assert.rejects(service.mutateHotspot("place", objectId, panorama, { operation: "activate", id: hotspotId }), { code: "unconfirmed" });
   state.response = { data: null, error: { message: "timeout" }, status: 503 };
   await assert.rejects(service.mutateHotspot("place", objectId, panorama, { operation: "place", data }), { code: "unconfirmed" });
+});
+
+test("incomplete eligibility data fails closed", () => {
+  const { isPubliclyEligibleHotspotTarget: eligible } = load(path.resolve(__dirname, "../lib/hotspots/publicEligibility.ts"));
+  assert.equal(eligible("civic_place", city, { city_id: city, is_published: true }), false);
+  assert.equal(eligible("civic_story", city, { city_id: city, is_published: true, review_status: "published" }), false);
+  assert.equal(eligible("civic_story", city, { city_id: city, is_published: true, safety_hold: false }), false);
 });

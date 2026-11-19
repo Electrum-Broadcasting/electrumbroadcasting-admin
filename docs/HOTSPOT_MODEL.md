@@ -199,8 +199,9 @@ external_url	NULL	Absolute https:// URL
 
 
 Target IDs have no polymorphic FK. The hotspot integrity trigger checks existence
-and city on target changes and publication on activation; the M9B service also
-checks publication and anonymous access before saving or activating.
+and city on target changes and publication on activation; the M9B service uses
+the public-page eligibility contract in HOTSPOT_WORKFLOW.md §5 before saving or
+activating. Eligibility does not establish that the public page can be served.
 
 ## 6. Relationships
 
@@ -216,7 +217,9 @@ panorama_id → panoramas.id — CASCADE DELETE. Deleting a panorama removes all
 
 city_id → cities.id — Denormalised. Auto-populated from the parent panorama by trigger (§7.1). Ensures RLS city-scoping without a join.
 
-target_id (polymorphic) — Civic objects must be is_published = true. Stories must be review_status = 'published'. Navigation panoramas must be status = 'published'. These rules are enforced by the validation RPC, not DB constraints.
+target_id (polymorphic) — Civic objects and Stories must meet the public-page
+eligibility contract in HOTSPOT_WORKFLOW.md §5. Panorama targets are deferred.
+The hotspot service checks this contract; the database trigger enforces a subset.
 
 created_by / updated_by → admin_users.id.
 

@@ -349,13 +349,14 @@ entering precise UV coordinates. A spherical placement viewer is deferred.
 
 | target_type | Requirement |
 |---|---|
-| civic_entity / event / place / moment / artifact / neighborhood | `is_published = true` |
-| civic_story | `is_published = true` and no safety hold |
+| civic_entity / event / place / moment / artifact / neighborhood | `is_published = true` and `status` is null or approved |
+| civic_story | `is_published = true`, `review_status = published`, and no safety hold |
 | panorama | Deferred; not supported for activation |
 | external_url | Valid `https://` URL |
 
-The server validates same-city, publication, and anonymous accessibility on save and
-activation. HTTPS URL syntax is checked without contacting the destination.
+The server validates same-city and the public-page eligibility contract in
+HOTSPOT_WORKFLOW.md §5 on search, save, and activation. This does not verify public
+page delivery. HTTPS URL syntax is checked without contacting the destination.
 
 #### 10.7.6 Navigation hotspots (panorama → panorama)
 
