@@ -122,6 +122,7 @@ function EditMomentForm({
   return (
     <div className="p-6 space-y-6 max-w-3xl">
       <h1 className="text-3xl font-bold">Edit Moment</h1>
+      <a className="text-blue-600 underline" href={`/${citySlug}/panoramas/moment/${moment.id}`}>Manage panoramas</a>
       {mutation.error && <p role="alert">{mutation.error}</p>}
       {validationError && <p role="alert">{validationError}</p>}
       {!initialData.relationshipsLoaded && <p role="alert">{initialData.relationshipsError || "Unable to load relationships."} Relationship changes are disabled.</p>}

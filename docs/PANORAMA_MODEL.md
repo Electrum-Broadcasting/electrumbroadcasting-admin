@@ -118,7 +118,7 @@ city_id	UUID	Yes	—	FK → cities.id; enforced by trigger
 civic_object_id	UUID	Yes	—	Polymorphic FK to the parent civic_* table
 civic_object_type	TEXT	Yes	—	Discriminator; determines which civic_* table to resolve
 equirectangular_url	TEXT	Yes	—	CDN URL; 2:1 aspect ratio required
-thumbnail_url	TEXT	No	NULL	Flat preview; auto-generated on upload
+thumbnail_url	TEXT	No	NULL	Optional flat preview; M9A does not auto-generate it
 label	TEXT	Yes	—	1–120 chars
 description	TEXT	No	NULL	Max 500 chars; shown in the panorama carousel on Object Page
 display_order	INTEGER	Yes	0	Lower = shown first; primary panorama = lowest published order
@@ -413,17 +413,14 @@ City Admin clicks + Add Panorama.
 
 File picker opens. Accepted formats:
 
-Image: JPG or PNG, minimum 4096 × 2048 px, max 50 MB, aspect ratio 2:1 ± 5%
-
-Video: MP4, max 2 GB (video panoramas stored with metadata.media_type = 'video')
+Image uploads follow the authoritative M9A contract in
+[PANORAMA_FOUNDATION.md](./PANORAMA_FOUNDATION.md#4-authoritative-panorama-format).
+Video panorama uploads are deferred.
 
 File uploads to universal-media/cities/<cityId>/panoramas/.
 
-CDN ingestion job runs asynchronously:
-
-equirectangular_url populated on completion.
-
-thumbnail_url auto-generated at 1200 × 600 px.
+The image is validated and stored before a draft row is created. M9A does not
+provide an asynchronous ingestion job or automatic thumbnail generation.
 
 City Admin completes metadata:
 
@@ -450,6 +447,23 @@ City Admin clicks Publish → status → 'published', is_published → true. Hot
 ### 12.3 Primary panorama
 The primary panorama for a civic object is the published panorama with the lowest display_order. City Admin may reorder panoramas via drag-and-drop in the Panoramas tab. The Object Page viewer loads the primary panorama on initial render.
 
+### 12.4 M9A implementation and operational limits
+The admin repository provides a flat equirectangular preview, not the canonical
+public 360° viewer. Public-city viewer reconciliation and verification are
+deferred. Initial UV coordinates can be edited but are not rendered in this preview.
+
+The public `universal-media` bucket makes image bytes accessible to anyone with
+the URL, including draft and archived images; only panorama rows are hidden by
+publication status. This is accepted for M9A. The panorama-path restrictive
+storage policies in the M9A migration must be deployed before relying on them.
+Other broad `universal-media` policies remain a separate hardening item.
+
+Confirmed upload or create failures attempt to remove the uploaded object and
+report cleanup failures. If the create RPC outcome is uncertain, the image is
+retained to avoid deleting an asset referenced by a committed row. Operators
+must reconcile the logged storage path against panorama records before cleanup;
+automatic orphan reconciliation is not yet implemented.
+
 ## 13. GRANT
 sql
 
@@ -463,4 +477,4 @@ When populated, the Unity client loads the referenced scene bundle from the CDN 
 The Electrum AR app uses this to overlay the panorama at the civic object's physical real-world location. Anchor provisioning is external (Azure portal / AR SDK); the ID is entered by the City Admin or populated via an AR provisioning API.
 
 ### 14.3 Video panoramas (metadata.media_type = 'video')
-The viewer renders video panoramas using a <video> element mapped to a WebGL sphere. Hotspots on video panoramas are temporally fixed in v1; per-frame hotspot timing is a future capability tracked via metadata.hotspot_timing.
+Video panoramas are deferred and are not accepted by the M9A upload workflow.

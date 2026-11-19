@@ -284,7 +284,7 @@ The Panoramas tab displays all panoramas for the object in a list ordered by `di
 
 | Action | Permitted | Notes |
 |---|---|---|
-| Upload new panorama | ✅ | JPG/PNG ≤ 50 MB, 2:1 ratio; MP4 ≤ 2 GB for video |
+| Upload new panorama | ✅ | Image contract: [PANORAMA_FOUNDATION.md](./PANORAMA_FOUNDATION.md#4-authoritative-panorama-format); video is deferred |
 | Edit label, description, capture attribution | ✅ | |
 | Set initial camera heading (`pan_x_initial`, `pan_y_initial`) | ✅ | Via "Set Initial View" in the preview viewer |
 | Set display order | ✅ | Drag-and-drop reorder |
@@ -712,7 +712,7 @@ City Admins never enter these values manually during normal use. The 360° viewe
 1. Approve civic object in Object Manager
         │
         ▼
-2. Open Panoramas tab → Upload 360° image or video
+2. Open Panoramas tab → Upload a supported 360° image
         │
         ▼
 3. Set label, initial heading (pan_x_initial / pan_y_initial),

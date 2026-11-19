@@ -4,7 +4,7 @@ Storage Bucket: Unified Supabase storage bucket universal-media
 
 ## 1. Master Dimension Quick Reference
 Asset Category	Attachment Role / Placement Name	Aspect Ratio	Target Dimensions (W × H)	Minimum Resolution	Max File Size	Permitted Formats
-Immersive 360°	panoramas.equirectangular_url	2:1	4096 × 2048 px (4K) / 8192 × 4096 px (8K)	2048 × 1024 px	50 MB (img) / 2 GB (video)	JPG, PNG, WebP, MP4
+Immersive 360°	panoramas.equirectangular_url	2:1	4096 × 2048 px (4K) / 8192 × 4096 px (8K)	2048 × 1024 px	50 MiB	JPEG, WebP
 Immersive 360°	panoramas.thumbnail_url	2:1 or 16:9	800 × 400 px or 640 × 360 px	400 × 200 px	2 MB	JPG, PNG, WebP
 Story Page	Primary hero attachment (role: hero)	3:2 or 16:9	1200 × 800 px or 1600 × 900 px	800 × 533 px	10 MB	JPG, PNG, WebP
 Story Page	Inline Body Imagery	Flexible	Max width 1200 px (e.g. 1200 × 800 px)	600 px width	8 MB	JPG, PNG, WebP
@@ -77,18 +77,10 @@ Desktop (≥ 768 px): Fixed 80 × 80 px (aspect-ratio: 1/1), border-radius: 4px,
 Mobile (< 768 px): Full card width (100%) by 140 px height, border-radius: 4px 4px 0 0.
 
 ## 2.4 Validation Rules for the City Admin Dashboard Pipeline
-Aspect Ratio Guard: Strict 2:1 validation on panoramas with 
-≤
-1
-%
-≤1% tolerance threshold.
-Quality Ceilings & Floors: Warnings triggered on panoramas 
-<
-2048
-×
-1024
- px
-<2048×1024 px, story heroes 
+Aspect Ratio Guard: exact 2:1 for panorama uploads, as specified in
+[PANORAMA_FOUNDATION.md](./PANORAMA_FOUNDATION.md#4-authoritative-panorama-format).
+Quality Ceilings & Floors: Panorama uploads below 2048 × 1024 px are rejected.
+Warnings are triggered on story heroes
 <
 1200
 ×

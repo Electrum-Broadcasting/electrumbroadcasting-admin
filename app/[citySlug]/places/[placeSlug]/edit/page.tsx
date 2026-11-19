@@ -125,6 +125,7 @@ export default function EditPlacePage({
   return (
     <div className="p-6 space-y-6 max-w-3xl">
       <h1 className="text-3xl font-bold">Edit Place</h1>
+      <a className="text-blue-600 underline" href={`/${citySlug}/panoramas/place/${place.id}`}>Manage panoramas</a>
       <p className="text-gray-600">
         Status: {place.status || "—"} · Published: {place.is_published ? "Yes" : "No"}
       </p>

@@ -93,6 +93,7 @@ export default function EditEventPage({ params }: EditEventPageProps) {
   return (
     <div className="p-6 space-y-6 max-w-3xl">
       <h1 className="text-3xl font-bold">Edit Event</h1>
+      <a className="text-blue-600 underline" href={`/${citySlug}/panoramas/event/${event.id}`}>Manage panoramas</a>
       {mutation.error && <p role="alert">{mutation.error}</p>}
       {relationshipsError && <p role="alert">{relationshipsError}</p>}
       {mutation.message && <p role="status">{mutation.message}</p>}

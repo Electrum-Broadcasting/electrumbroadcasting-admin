@@ -39,6 +39,7 @@ export default function EditNeighborhoodPage({ params }: EditNeighborhoodPagePro
   return (
     <div className="p-6 space-y-6 max-w-3xl">
       <h1 className="text-3xl font-bold">Edit Neighborhood</h1>
+      <a className="text-blue-600 underline" href={`/${citySlug}/panoramas/neighborhood/${neighborhood.id}`}>Manage panoramas</a>
       {mutation.error && <p role="alert">{mutation.error}</p>}
       <CivicLifecycleControls {...mutation} />
 

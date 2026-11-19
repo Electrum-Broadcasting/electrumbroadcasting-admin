@@ -237,6 +237,7 @@ export default function EditEntityPage({
   return (
     <div className="p-6 space-y-6 max-w-3xl">
       <h1 className="text-3xl font-bold">Edit Entity</h1>
+      {entityId && <a className="text-blue-600 underline" href={`/${citySlug}/panoramas/entity/${entityId}`}>Manage panoramas</a>}
       {error && <p role="alert">{error}</p>}
       {actions && <p>Status: {actions.status} · Published: {actions.isPublished ? "Yes" : "No"}</p>}
       <p>Metadata and relationships are saved separately.</p>

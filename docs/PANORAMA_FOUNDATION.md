@@ -108,27 +108,16 @@ Electrum's production panorama format is:
 
 360° Equirectangular Image
 
-### Requirements:
+### M9A upload contract
 
-2:1 aspect ratio
+- JPEG (`image/jpeg`) or WebP (`image/webp`), single-frame images only.
+- Exact 2:1 aspect ratio; 2048 × 1024 minimum and 8192 × 4096 maximum.
+- Maximum 50 MiB; image content must decode and match its declared MIME type.
+- No EXIF rotation; captures must be full spherical, horizontally continuous,
+  and suitable for UV-based hotspot positioning.
+- Video, PNG, and WebXR assets are not supported for panorama uploads in M9A.
 
-Full spherical capture
-
-Horizontally continuous
-
-Suitable for UV-based hotspot positioning
-
-Examples:
-
-4096 × 2048
-
-8192 × 4096
-
-Preferred storage format:
-
-JPEG
-
-WebP
+This section is the authoritative upload contract; other specifications refer here.
 
 All panorama assets use universal-media.Separate panorama buckets are prohibited unless explicitly approved through architecture review.
 

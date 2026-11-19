@@ -241,6 +241,7 @@ export default function EditStoryPage({
   return (
     <div className="p-6 space-y-6 max-w-3xl">
       <h1 className="text-3xl font-bold">Edit Story</h1>
+      {storyId && <a className="text-blue-600 underline" href={`/${citySlug}/panoramas/story/${storyId}`}>Manage panoramas</a>}
 
       <StoryBasicsForm
         title={title}
