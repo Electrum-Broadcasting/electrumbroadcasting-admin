@@ -23,16 +23,16 @@ export function useMomentState(initialData: any) {
 
   // Spatial
   const [selectedPlaces, setSelectedPlaces] = useState<string[]>(
-    initialData?.momentPlaces?.map((r: any) => r.place_id) || []
+    initialData?.momentRelationships?.places.map((r: { id: string }) => r.id) || []
   );
 
   const [selectedNeighborhoods, setSelectedNeighborhoods] = useState<string[]>(
-    initialData?.momentNeighborhoods?.map((r: any) => r.neighborhood_id) || []
+    initialData?.momentRelationships?.neighborhoods.map((r: { id: string }) => r.id) || []
   );
 
   // Eras
   const [selectedEras, setSelectedEras] = useState<string[]>(
-    initialData?.momentEras?.map((r: any) => r.era_id) || []
+    initialData?.momentRelationships?.eras.map((r: { id: string }) => r.id) || []
   );
 
   // Media

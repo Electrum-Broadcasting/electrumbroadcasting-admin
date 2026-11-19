@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { createBrowserClient } from "@/lib/supabase/client";
+import { loadMomentRelationships } from "@/lib/moments/relationshipClient";
+import type { MomentRelationshipSnapshot } from "@/lib/moments/relationships";
 
 export function useLoadMomentInitial(citySlug: string, momentSlug: string) {
   const [supabase] = useState(createBrowserClient);
@@ -51,23 +53,14 @@ export function useLoadMomentInitial(citySlug: string, momentSlug: string) {
         return;
       }
 
-      //
-      // 3. Load join tables
-      //
-      const { data: momentPlaces, error: placesError } = await supabase
-        .from("moment_places")
-        .select("place_id")
-        .eq("moment_id", moment.id);
-
-      const { data: momentNeighborhoods, error: neighborhoodsError } = await supabase
-        .from("moment_neighborhoods")
-        .select("neighborhood_id")
-        .eq("moment_id", moment.id);
-
-      const { data: momentEras, error: erasError } = await supabase
-        .from("moment_eras")
-        .select("era_id")
-        .eq("moment_id", moment.id);
+      let momentRelationships: MomentRelationshipSnapshot | null = null;
+      let snapshotError: string | null = null;
+      try {
+        momentRelationships = await loadMomentRelationships(moment.id, city.id);
+      } catch (error) {
+        console.error("Failed to load complete Moment relationships:", error);
+        snapshotError = error instanceof Error && error.message ? error.message : "Unable to load Moment relationships.";
+      }
 
       //
       // 4. Load spatial metadata (THIS WAS MISSING)
@@ -116,13 +109,8 @@ export function useLoadMomentInitial(citySlug: string, momentSlug: string) {
       //
       const { data: relationships, error: relationshipsError } = await supabase
         .from("civic_relationships").select("*").eq("from_type", "moment").eq("from_id", moment.id);
-      const invalidLinks = [
-        ...(momentPlaces || []).map((row) => row.place_id),
-        ...(momentNeighborhoods || []).map((row) => row.neighborhood_id),
-        ...(momentEras || []).map((row) => row.era_id),
-      ].some((id) => typeof id !== "string" || !id);
-      const linksError = placesError || neighborhoodsError || erasError || relationshipsError
-        || (invalidLinks ? "Invalid Moment link" : null);
+      const graphError = relationshipsError || (relationships === null ? "Missing civic graph response" : null);
+      const linksError = snapshotError || graphError;
       if (linksError) console.error("Failed to load Moment relationships:", linksError);
 
       //
@@ -132,10 +120,7 @@ export function useLoadMomentInitial(citySlug: string, momentSlug: string) {
         cityId: city.id,
         moment,
 
-        // join tables
-        momentPlaces,
-        momentNeighborhoods,
-        momentEras,
+        momentRelationships,
 
         // metadata
         places,
@@ -150,7 +135,8 @@ export function useLoadMomentInitial(citySlug: string, momentSlug: string) {
 
         // unified relationships
         relationships,
-        relationshipsLoaded: !linksError,
+        relationshipsLoaded: momentRelationships !== null && !graphError,
+        relationshipsError: snapshotError || (graphError ? "Unable to load civic graph relationships." : null),
       });
 
       setLoading(false);

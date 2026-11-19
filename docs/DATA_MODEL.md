@@ -1624,6 +1624,8 @@ neighborhood_id	uuid
 
 The seven relationship tables have primary-key indexes only: no secondary indexes, check constraints, or triggers were present in the reconciled live schema. RLS is enabled on all seven. `civic_relationships` permits authenticated SELECT, INSERT, UPDATE, and DELETE through unconditional policies; `event_eras` permits authenticated SELECT, INSERT, and DELETE; `moment_eras`, `moment_places`, and `moment_neighborhoods` permit authenticated INSERT and DELETE. `moment_entities` and `moment_stories` have no policies. These policies do not enforce role or city scope. Relationship mutations therefore require guarded authorization, validation, and auditing; direct authenticated DML is not a governance boundary.
 
+The Moment editor reads all five Moment relationship families through an authorized server-side snapshot. Entity roles and Story links are retained even though the editor does not expose controls for them. The editor submits those retained links and the edited Era, Place, and Neighborhood sets to `admin_replace_moment_relationships`; civic graph saves remain separate. Snapshot failures disable relationship saves. The RPC does not compare the submitted snapshot with a version, so concurrent changes after loading can still be overwritten. An unconfirmed save can be retried with the same key while the editor remains open; leaving or reloading loses that in-memory retry state.
+
 ## 5. Naming Conventions
 
 Table Naming

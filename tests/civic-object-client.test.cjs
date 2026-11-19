@@ -124,6 +124,16 @@ test("civic client validates object-specific audit confirmation and action flags
           saveCivicRelationships: async (_supabase, objectType, id, relationships) =>
             linkCalls.push({ table: "civic_relationships", objectType, id, relationships }),
         },
+        "@/lib/moments/relationshipClient": {
+          loadMomentRelationships: async () => ({ entities: [], eras: [], places: [], neighborhoods: [], stories: [] }),
+          createMomentRelationshipSaver: () => ({
+            hasPending: () => false, clearCompleted() {},
+            save: async (id, _city, snapshot) => {
+              linkCalls.push({ table: "moment_rpc", id, snapshot });
+              return { changed: true, auditId: "audit-id" };
+            },
+          }),
+        },
       };
       for (const [name, component] of Object.entries(stubs)) {
         const folder = name === "RelationshipSelector" ? "relationships" : name.startsWith("Event") ? "events" : "moments";
@@ -170,10 +180,10 @@ test("civic client validates object-specific audit confirmation and action flags
       }
       if (type === "event") assert.ok(linkCalls.some((call) => call.table === "event_eras" && call.targets[0] === "era-id"));
       if (type === "moment") {
-        assert.deepEqual(linkCalls.filter((call) => call.table !== "civic_relationships").map((call) => [call.table, call.id, call.targets[0]]), [
-          ["moment_eras", "object-id", "era-id"], ["moment_places", "object-id", "place-id"],
-          ["moment_neighborhoods", "object-id", "neighborhood-id"],
-        ]);
+        assert.deepEqual(linkCalls.find((call) => call.table === "moment_rpc").snapshot, {
+          entities: [], stories: [], eras: [{ id: "era-id" }], places: [{ id: "place-id" }],
+          neighborhoods: [{ id: "neighborhood-id" }],
+        });
       }
     });
   }
@@ -216,6 +226,9 @@ for (const [type, spec] of Object.entries(pageSpecs)) {
         },
       },
       "@/lib/admin/civicObjectClient": client,
+      "@/lib/moments/relationshipClient": {
+        createMomentRelationshipSaver: () => ({ hasPending: () => false, clearCompleted() {}, save: noop }),
+      },
       "@/hooks/useLoadEvent": { useLoadEvent: () => ({ loading: false, event: object, ...fields }) },
       "@/hooks/useLoadEra": { useLoadEra: () => ({ loading: false, era: object, ...fields }) },
       "@/hooks/useLoadNeighborhood": { useLoadNeighborhood: () => ({ loading: false, neighborhood: object, ...fields }) },
@@ -249,6 +262,90 @@ for (const [type, spec] of Object.entries(pageSpecs)) {
     for (const key of ["city_id", "status", "is_published"]) assert.equal(key in saved[0], false);
   });
 }
+
+test("Moment edit preserves hidden entity roles and Story links, and retries graph separately", async () => {
+  const react = fakeReact();
+  const submitted = [];
+  let graphCalls = 0;
+  const momentSnapshot = {
+    entities: [{ id: "entity-id", role: null }, { id: "other-entity", role: "witness" }],
+    eras: [{ id: "old-era" }], places: [{ id: "old-place" }],
+    neighborhoods: [{ id: "old-neighborhood" }], stories: [{ id: "story-id" }],
+  };
+  const object = { id: "moment-id", title: "Moment", slug: "moment", moment_time: "2020-01-02T03:04:00.000Z" };
+  const stateFields = {
+    title: "Moment", slug: "moment", body: "", momentTime: object.moment_time,
+    selectedEras: ["new-era"], selectedPlaces: ["new-place"],
+    selectedNeighborhoods: ["new-neighborhood"], selectedRelationships: [], inline360Urls: [], thumbnail360Url: "",
+  };
+  const stubs = {};
+  for (const name of ["MomentBasicsForm", "MomentTimelineForm", "MomentSpatialForm", "Moment360Form",
+    "RelationshipSelector", "CivicLifecycleControls"]) stubs[name] = function Stub() {};
+  let completed = null;
+  const saver = {
+    hasPending: () => false,
+    clearCompleted: () => { completed = null; },
+    async save(id, cityId, value) {
+      if (!completed) {
+        submitted.push({ id, cityId, value });
+        completed = { changed: true, auditId: "audit-id" };
+      }
+      return completed;
+    },
+  };
+  const mocks = {
+    react,
+    "next/navigation": { useRouter: () => ({ push() {} }) },
+    "@/lib/supabase/client": { createBrowserClient: () => fakeReadClient(object) },
+    "@/hooks/useCivicObjectMutation": { useCivicEdit: () => ({
+      actions: { canEdit: true }, busy: false, unconfirmed: false, error: null, message: null,
+      save: async () => {}, saveLinks: async (save) => { try { await save(); } catch {} }, transition() {},
+    }) },
+    "@/lib/admin/civicObjectClient": {
+      ...client,
+      saveCivicRelationships: async () => { graphCalls++; if (graphCalls === 1) throw new Error("graph failed"); },
+    },
+    "@/lib/moments/relationshipClient": { createMomentRelationshipSaver: () => saver },
+    "@/hooks/useLoadMomentInitial": { useLoadMomentInitial: () => ({ loading: false, initialData: {
+      cityId: "city-id", moment: object, momentRelationships: momentSnapshot, relationshipsLoaded: true,
+      relationships: [], events: [], entities: [], artifacts: [], stories: [],
+    } }) },
+    "@/hooks/useMomentState": { useMomentState: () => stateFields },
+  };
+  for (const [name, component] of Object.entries(stubs)) {
+    const folder = name === "RelationshipSelector" ? "relationships" : name === "CivicLifecycleControls" ? "admin" : "moments";
+    mocks[`@/components/${folder}/${name}`] = { __esModule: true, default: component };
+  }
+  const page = load("app/[citySlug]/moments/[momentSlug]/edit/page.tsx", mocks).default;
+  const render = () => { react.begin(); const tree = page({ params: { citySlug: "seattle", momentSlug: "moment" } }); return tree.type(tree.props); };
+  await find(render(), (node) => node.type === "button" && node.props.children === "Save Relationships").props.onClick();
+  const afterFailure = render();
+  assert.ok(find(afterFailure, (node) => node.type === "p" && String(node.props.children).includes("Audit ID: audit-id")));
+  await find(afterFailure, (node) => node.type === "button" && node.props.children === "Save Relationships").props.onClick();
+  assert.equal(submitted.length, 1);
+  assert.equal(graphCalls, 2);
+  assert.deepEqual(submitted[0].value, {
+    entities: momentSnapshot.entities, stories: momentSnapshot.stories,
+    eras: [{ id: "new-era" }], places: [{ id: "new-place" }], neighborhoods: [{ id: "new-neighborhood" }],
+  });
+});
+
+test("Moment loader disables relationship saves when the complete snapshot cannot be read", async () => {
+  const react = fakeReact();
+  const object = { id: "moment-id", city_id: "city-id" };
+  const hooks = load("hooks/useLoadMomentInitial.ts", {
+    react,
+    "@/lib/supabase/client": { createBrowserClient: () => fakeReadClient(object) },
+    "@/lib/moments/relationshipClient": { loadMomentRelationships: async () => { throw new Error("snapshot unavailable"); } },
+  });
+  const render = () => { react.begin(); return hooks.useLoadMomentInitial("seattle", "moment"); };
+  render();
+  await new Promise((resolve) => setImmediate(resolve));
+  const result = render();
+  assert.equal(result.initialData.relationshipsLoaded, false);
+  assert.equal(result.initialData.momentRelationships, null);
+  assert.match(result.initialData.relationshipsError, /snapshot unavailable/);
+});
 
 test("failed or ambiguous civic requests are not reported as success", async (t) => {
   const previous = global.fetch;

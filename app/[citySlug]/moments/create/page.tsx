@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { createBrowserClient } from "@/lib/supabase/client";
 
 import { useCivicCreate } from "@/hooks/useCivicObjectMutation";
-import { saveCivicLinks, saveCivicRelationships, type CivicRelationship } from "@/lib/admin/civicObjectClient";
+import { CivicRequestError, saveCivicRelationships, type CivicRelationship } from "@/lib/admin/civicObjectClient";
+import { createMomentRelationshipSaver, loadMomentRelationships } from "@/lib/moments/relationshipClient";
+import type { MomentRelationshipSnapshot } from "@/lib/moments/relationships";
 
 import MomentBasicsForm from "@/components/moments/MomentBasicsForm";
 import MomentTimelineForm from "@/components/moments/MomentTimelineForm";
@@ -55,6 +57,12 @@ export default function CreateMomentPage({ params }: CreateMomentPageProps) {
   const [inline360Urls, setInline360Urls] = useState<string[]>([]);
 
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [relationshipPending, setRelationshipPending] = useState(false);
+  const [relationshipMessage, setRelationshipMessage] = useState<string | null>(null);
+  const [relationshipSave] = useState(() => ({
+    saver: createMomentRelationshipSaver(),
+    snapshot: null as MomentRelationshipSnapshot | null,
+  }));
 
   // Relationships
   const [selectedRelationships, setSelectedRelationships] = useState<CivicRelationship[]>([]);
@@ -137,6 +145,7 @@ export default function CreateMomentPage({ params }: CreateMomentPageProps) {
   if (!cityId) return <div className="p-6">City not found.</div>;
 
   async function handleSave() {
+    if (!cityId) return;
     if (!momentTime.trim() || Number.isNaN(new Date(momentTime).getTime())) {
       setValidationError("Please enter a valid moment time.");
       return;
@@ -146,18 +155,37 @@ export default function CreateMomentPage({ params }: CreateMomentPageProps) {
       title, ...(slug.trim() ? { slug } : {}), body, moment_time: new Date(momentTime).toISOString(),
       thumbnail_360_url: thumbnail360Url, inline_360_urls: inline360Urls,
     }, async (id) => {
-      if (mutation.createdId || selectedEras.length) {
-        await saveCivicLinks(supabase, "moment_eras", "moment_id", "era_id", id, selectedEras);
+      setRelationshipMessage(null);
+      if (!relationshipSave.snapshot) {
+        try {
+          relationshipSave.snapshot = await loadMomentRelationships(id, cityId);
+        } catch (error) {
+          console.error("Failed to load newly created Moment relationships:", error);
+          throw new CivicRequestError("Unable to load complete Moment relationships. Retry relationships.");
+        }
       }
-      if (mutation.createdId || selectedPlaces.length) {
-        await saveCivicLinks(supabase, "moment_places", "moment_id", "place_id", id, selectedPlaces);
-      }
-      if (mutation.createdId || selectedNeighborhoods.length) {
-        await saveCivicLinks(supabase, "moment_neighborhoods", "moment_id", "neighborhood_id", id, selectedNeighborhoods);
+      try {
+        const result = await relationshipSave.saver.save(id, cityId, {
+          ...relationshipSave.snapshot,
+          eras: selectedEras.map((targetId) => ({ id: targetId })),
+          places: selectedPlaces.map((targetId) => ({ id: targetId })),
+          neighborhoods: selectedNeighborhoods.map((targetId) => ({ id: targetId })),
+        });
+        setRelationshipPending(false);
+        setRelationshipMessage(result.changed ? `Moment relationships saved. Audit ID: ${result.auditId}` : "Moment relationships unchanged.");
+      } catch (error) {
+        setRelationshipPending(relationshipSave.saver.hasPending());
+        throw error;
       }
       if (mutation.createdId || selectedRelationships.length) {
-        await saveCivicRelationships(supabase, "moment", id, selectedRelationships);
+        try {
+          await saveCivicRelationships(supabase, "moment", id, selectedRelationships);
+        } catch (error) {
+          console.error("Failed to save Moment civic graph:", error);
+          throw new CivicRequestError("Moment relationships saved, but civic graph relationships may not have saved. Retry relationships.");
+        }
       }
+      relationshipSave.saver.clearCompleted();
     });
   }
 
@@ -166,6 +194,7 @@ export default function CreateMomentPage({ params }: CreateMomentPageProps) {
       <h1 className="text-3xl font-bold">Create Moment</h1>
       {mutation.error && <p role="alert">{mutation.error}</p>}
       {validationError && <p role="alert">{validationError}</p>}
+      {relationshipMessage && <p role="status">{relationshipMessage}</p>}
       <p>Moments are created pending and unpublished.</p>
       {mutation.createdId && <p>Metadata was saved. Only relationships will be retried.</p>}
 
@@ -191,7 +220,7 @@ export default function CreateMomentPage({ params }: CreateMomentPageProps) {
       </fieldset>
 
       {/* Spatial */}
-      <fieldset disabled={mutation.busy || mutation.unconfirmed}><MomentSpatialForm
+      <fieldset disabled={mutation.busy || mutation.unconfirmed || relationshipPending}><MomentSpatialForm
         places={places}
         selectedPlaces={selectedPlaces}
         setSelectedPlaces={setSelectedPlaces}
@@ -211,7 +240,7 @@ export default function CreateMomentPage({ params }: CreateMomentPageProps) {
       </fieldset>
 
       {/* Relationships */}
-      <fieldset disabled={mutation.busy || mutation.unconfirmed}><RelationshipSelector
+      <fieldset disabled={mutation.busy || mutation.unconfirmed || relationshipPending}><RelationshipSelector
         fromType="moment"
         fromId={null}
         availableTargets={[

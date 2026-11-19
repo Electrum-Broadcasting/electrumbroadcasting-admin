@@ -35,7 +35,9 @@ export function useCivicCreate(type: CivicType, citySlug: string, listPath: stri
     } catch (error) {
       console.error(`Failed to create ${type} or save relationships:`, error);
       if (id) {
-        setError(`Record created (ID: ${id}), but relationships could not be saved and may have changed. Retry relationships or return to the list.`);
+        setError(error instanceof CivicRequestError
+          ? `Record created (ID: ${id}). ${error.message}`
+          : `Record created (ID: ${id}), but relationships could not be saved and may have changed. Retry relationships or return to the list.`);
       } else {
         setUnconfirmed(!(error instanceof CivicRequestError) || error.unconfirmed);
         setError(error instanceof CivicRequestError ? error.message : "Creation outcome is unconfirmed. Verify before retrying.");
@@ -95,7 +97,8 @@ export function useCivicEdit(type: CivicType, id: string | null, citySlug: strin
       setMessage("Relationships saved.");
     } catch (error) {
       console.error(`Failed to save ${type} relationships:`, error);
-      setError("Relationships could not be saved and may have changed. Retry or reload to verify.");
+      setError(error instanceof CivicRequestError ? error.message
+        : "Relationships could not be saved and may have changed. Retry or reload to verify.");
     } finally { setBusy(false); }
   }
 

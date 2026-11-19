@@ -7,7 +7,8 @@ import { createBrowserClient } from "@/lib/supabase/client";
 import { useLoadMomentInitial } from "@/hooks/useLoadMomentInitial";
 import { useMomentState } from "@/hooks/useMomentState";
 import { useCivicEdit } from "@/hooks/useCivicObjectMutation";
-import { saveCivicLinks, saveCivicRelationships } from "@/lib/admin/civicObjectClient";
+import { CivicRequestError, saveCivicRelationships } from "@/lib/admin/civicObjectClient";
+import { createMomentRelationshipSaver } from "@/lib/moments/relationshipClient";
 import CivicLifecycleControls from "@/components/admin/CivicLifecycleControls";
 
 
@@ -51,6 +52,9 @@ function EditMomentForm({
   const router = useRouter();
   const [supabase] = useState(createBrowserClient);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [relationshipSaver] = useState(createMomentRelationshipSaver);
+  const [relationshipPending, setRelationshipPending] = useState(false);
+  const [relationshipMessage, setRelationshipMessage] = useState<string | null>(null);
   const {
     title,
     setTitle,
@@ -90,12 +94,29 @@ function EditMomentForm({
   }
 
   async function handleRelationships() {
-    if (!initialData.relationshipsLoaded) return;
+    if (!initialData.relationshipsLoaded || !initialData.momentRelationships) return;
     await mutation.saveLinks(async () => {
-      await saveCivicLinks(supabase, "moment_eras", "moment_id", "era_id", moment.id, selectedEras);
-      await saveCivicLinks(supabase, "moment_places", "moment_id", "place_id", moment.id, selectedPlaces);
-      await saveCivicLinks(supabase, "moment_neighborhoods", "moment_id", "neighborhood_id", moment.id, selectedNeighborhoods);
-      await saveCivicRelationships(supabase, "moment", moment.id, selectedRelationships);
+      setRelationshipMessage(null);
+      try {
+        const result = await relationshipSaver.save(moment.id, initialData.cityId, {
+          ...initialData.momentRelationships,
+          eras: selectedEras.map((id) => ({ id })),
+          places: selectedPlaces.map((id) => ({ id })),
+          neighborhoods: selectedNeighborhoods.map((id) => ({ id })),
+        });
+        setRelationshipPending(false);
+        setRelationshipMessage(result.changed ? `Moment relationships saved. Audit ID: ${result.auditId}` : "Moment relationships unchanged.");
+      } catch (error) {
+        setRelationshipPending(relationshipSaver.hasPending());
+        throw error;
+      }
+      try {
+        await saveCivicRelationships(supabase, "moment", moment.id, selectedRelationships);
+      } catch (error) {
+        console.error("Failed to save Moment civic graph:", error);
+        throw new CivicRequestError("Moment relationships saved, but civic graph relationships may not have saved. Retry relationships.");
+      }
+      relationshipSaver.clearCompleted();
     });
   }
   return (
@@ -103,10 +124,11 @@ function EditMomentForm({
       <h1 className="text-3xl font-bold">Edit Moment</h1>
       {mutation.error && <p role="alert">{mutation.error}</p>}
       {validationError && <p role="alert">{validationError}</p>}
-      {!initialData.relationshipsLoaded && <p role="alert">Unable to load relationships. Relationship changes are disabled.</p>}
+      {!initialData.relationshipsLoaded && <p role="alert">{initialData.relationshipsError || "Unable to load relationships."} Relationship changes are disabled.</p>}
       {mutation.message && <p role="status">{mutation.message}</p>}
+      {relationshipMessage && <p role="status">{relationshipMessage}</p>}
       <p>Metadata and relationships are saved separately.</p>
-      <CivicLifecycleControls {...mutation} />
+      <CivicLifecycleControls {...mutation} busy={mutation.busy || relationshipPending} />
 
       <MomentBasicsForm
         title={title}
@@ -123,10 +145,10 @@ function EditMomentForm({
         eras={initialData.erasTargets ?? []}
         selectedEras={selectedEras}
         setSelectedEras={setSelectedEras}
-        relationshipsDisabled={!initialData.relationshipsLoaded || mutation.busy || mutation.unconfirmed || !mutation.actions?.canEdit}
+        relationshipsDisabled={!initialData.relationshipsLoaded || mutation.busy || mutation.unconfirmed || relationshipPending || !mutation.actions?.canEdit}
       />
 
-      <fieldset disabled={!initialData.relationshipsLoaded || mutation.busy || mutation.unconfirmed || !mutation.actions?.canEdit}>
+      <fieldset disabled={!initialData.relationshipsLoaded || mutation.busy || mutation.unconfirmed || relationshipPending || !mutation.actions?.canEdit}>
       <MomentSpatialForm
         places={initialData.places ?? []}
         selectedPlaces={selectedPlaces}
@@ -144,7 +166,7 @@ function EditMomentForm({
         setInline360Urls={setInline360Urls}
       />
 
-      {initialData.relationshipsLoaded && <fieldset disabled={mutation.busy || mutation.unconfirmed || !mutation.actions?.canEdit}><RelationshipSelector
+      {initialData.relationshipsLoaded && <fieldset disabled={mutation.busy || mutation.unconfirmed || relationshipPending || !mutation.actions?.canEdit}><RelationshipSelector
         fromType="moment"
         fromId={moment.id}
         availableTargets={[
@@ -159,7 +181,7 @@ function EditMomentForm({
 
       {mutation.actions?.canEdit && <button
         onClick={handleSave}
-        disabled={mutation.busy || mutation.unconfirmed}
+        disabled={mutation.busy || mutation.unconfirmed || relationshipPending}
         className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
       >
         Save Metadata
@@ -168,8 +190,12 @@ function EditMomentForm({
         onClick={handleRelationships}
         disabled={mutation.busy || mutation.unconfirmed}
         className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-      >Save Relationships</button>}
-      <button onClick={() => router.push(`/${citySlug}/moments`)}>Cancel</button>
+      >{relationshipPending ? "Retry Relationships" : "Save Relationships"}</button>}
+      <button onClick={() => {
+        if (!relationshipPending || confirm("The Moment relationship save is unconfirmed. Leaving loses its retry key. Leave anyway?")) {
+          router.push(`/${citySlug}/moments`);
+        }
+      }}>Cancel</button>
     </div>
   );
 }
