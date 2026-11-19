@@ -13,13 +13,22 @@ behavior or feature states in the higher-level specifications.
 For schema details, field definitions, RLS policies, and coordinate system documentation, see HOTSPOT_MODEL.md.
 For panorama upload and lifecycle, see PANORAMA_MODEL.md.
 
+M9B implementation: the Panorama Manager has a flat-image UV placement surface,
+numeric coordinate inputs, target search/validation, and guarded place, update,
+activate, deactivate, and delete actions. The immersive viewer, bulk operations,
+reordering UI, stale badges, and public traversal described below are future
+work. Draft and deactivated hotspots share the same stored inactive state.
+The former 24-hour deletion restriction is superseded by the deployed governance:
+City Admins may delete hotspots in their assigned cities at any age; CEO and
+PLATFORM_ADMIN may delete across cities. Every mutation is audited.
+
 This document covers:
 
 Role permissions and access path
 
 Prerequisites and target eligibility rules
 
-rpc_validate_hotspot_target contract
+Server-side target validation
 
 Step-by-step placement procedure and pan_x/pan_y capture
 
@@ -44,8 +53,7 @@ Place hotspot (own city)	✅	✅
 Edit hotspot (own city)	✅	✅
 Activate / deactivate (own city)	✅	✅
 Reorder hotspots (own city)	✅	✅
-Delete hotspot within 24 h of creation	✅	✅
-Delete hotspot after 24 h	❌	✅
+Delete hotspot at any age	✅	✅
 View hotspots across all cities	❌	✅
 Link hotspot to a target in another city	❌	❌
 
@@ -64,16 +72,17 @@ Object Manager
         └── Panoramas tab
               └── [Select a published panorama]
                     └── Hotspot Editor
-The Hotspot Editor tab is available on any panorama with status = 'published'. Draft panoramas display the tab as disabled with the tooltip: "Publish this panorama to place hotspots."
+M9B can place and activate hotspots on draft or published panoramas. Archived
+panoramas cannot receive new hotspots or activate hotspots.
 
 4. Prerequisites
 All of the following must be true before a hotspot can be placed or activated.
 
 4.1 Parent panorama
-panoramas.status = 'published'
+panoramas.status is not 'archived'
 
 4.2 Parent civic object
-status = 'approved' and is_published = true on the parent civic object
+The parent civic object must exist and be accessible to the administrator.
 
 4.3 City Admin scope
 city_id of the panorama must be in the admin's admin_users.city_ids array
@@ -86,8 +95,8 @@ civic_place	is_published = true
 civic_moment	is_published = true
 civic_artifact	is_published = true
 civic_neighborhood	is_published = true
-civic_story	review_status = 'published'
-panorama	status = 'published'; must belong to the same city; activation is deferred for the MVP
+civic_story	is_published = true and safety_hold = false
+panorama	Not supported by M9B; activation is deferred for the MVP
 external_url	Valid absolute https:// URL; no further record-level validation
 
 
@@ -100,79 +109,42 @@ Cross-city hotspot traversal
 deferred to future
 multi-city governance work.
 
-5. rpc_validate_hotspot_target
-The admin UI calls this RPC before enabling the Save button. It must also be called server-side before any INSERT or UPDATE that modifies target_type, target_id, or target_url.
-
-5.1 Signature
-sql
-
-
-Copy
-rpc_validate_hotspot_target(
-  p_target_type  TEXT,
-  p_target_id    UUID,    -- NULL when target_type = 'external_url'
-  p_target_url   TEXT,    -- NULL when target_type ≠ 'external_url'
-  p_city_id      UUID
-)
-RETURNS JSONB
--- { "valid": true }
--- { "valid": false, "reason": "..." }
-5.2 Validation logic
-Code
-
-
-Copy
-1. Confirm p_target_type is a valid enum value.
-2. If target_type = 'external_url':
-     a. Confirm p_target_url is not null and begins with 'https://'.
-     b. Return { valid: true }.
-3. Confirm p_target_id is not null.
-4. Look up the target record in the table corresponding to p_target_type.
-5. Confirm the target record exists.
-6. Confirm target city_id = p_city_id for every actor.
-7. Check publication state:
-     - civic_* types: is_published = true
-     - civic_story:   review_status = 'published'
-     - panorama:      status = 'published'
-8. Return { valid: true } or { valid: false, reason: <string> }.
-5.3 Error reasons (canonical strings)
-reason	Condition
-"target_not_found"	No record for p_target_id in the target table
-"target_not_published"	Record exists but fails publication check
-"target_outside_city_scope"	target city_id ≠ p_city_id
-"invalid_target_type"	p_target_type not in allowed enum
-"invalid_url"	external_url missing or not https://
+5. Server-side target validation
+The authenticated hotspot service checks the target type, existence, same-city
+scope, publication, and anonymous-read accessibility on save and activation.
+Stories must also be free of safety holds. An external URL must be a valid HTTPS
+URL without embedded credentials; destination reachability is not checked.
+The database trigger independently checks existence and city when targets change,
+and publication when a hotspot is activated. There is no deployed
+`rpc_validate_hotspot_target` RPC.
+Service checks and mutation RPCs are separate requests, so target visibility can
+change between them. The trigger checks publication at activation, but neither
+it nor the service continuously deactivates already-active stale targets.
 
 
 6. Placing a Hotspot
 6.1 Step-by-step
-Navigate to Object Manager → [Civic object] → Panoramas → [Published panorama] → Hotspot Editor.
+Navigate to Object Manager → [Civic object] → Panoramas → [Draft or published panorama] → Manage hotspots.
 
-The Hotspot Editor loads the panorama in the 360° interactive viewer in placement mode. A crosshair cursor indicates placement is active.
+The M9B editor shows the flat equirectangular image with a crosshair cursor.
 
-Click or tap the desired point in the panorama. The viewer maps the interaction through the
-current camera ray to the source panorama before storing the hotspot position.
+Click or tap the desired point in the image, or enter exact UV coordinates.
 
-The viewer converts the interaction to source-panorama UV coordinates pan_x/pan_y (see §6.2);
-viewport coordinates are never stored.
+The image-relative position is saved as source-panorama UV coordinates pan_x/pan_y (see §6.2).
 
 A temporary anchor marker renders at the clicked position.
 
-The Hotspot Configuration Panel opens (slide-in, right side):
+The hotspot editor includes:
 
 Label — required, max 120 chars
 
-Icon — dropdown of design-system icon keys; auto-suggested based on target_type
+Target type — civic entity, event, place, moment, artifact, neighborhood, story, or external URL
 
-Target type — dropdown (civic_entity / civic_event / civic_place / civic_moment / civic_artifact / civic_neighborhood / civic_story / panorama / external_url)
+Target — search and select a published civic object, enter its ID, or enter an HTTPS URL
 
-Target — typeahead search (civic objects and stories) or panorama thumbnail picker or URL input, depending on target_type
-
-metadata.short_description — optional, shown in the callout card
-
-metadata.caption / metadata.attribution — optional
-
-When a target is selected, the UI calls rpc_validate_hotspot_target. If valid: false, the reason is shown inline adjacent to the target field and the Save button remains disabled.
+M9B validates a selected search result, provides a Validate target action, and
+always validates on save; errors are shown in the editor. Search returns at most
+30 matching published targets.
 
 City Admin clicks Save Hotspot.
 
@@ -184,16 +156,16 @@ admin_action_logs entry written (see §10).
 
 The hotspot appears in the Hotspot List Panel with a status badge of "Inactive".
 
-The anchor marker renders in the viewer in a greyed-out inactive style so the City Admin can visually verify position before activating.
+The editor shows an anchor marker on the flat image while placing or editing.
 
 6.2 pan_x / pan_y capture
 Code
 
 
 Copy
-The interaction point is converted to a camera ray, intersected with the panorama sphere, and
-mapped from the resulting source direction to normalized UV coordinates on the equirectangular
-panorama. The resulting source UV values are saved as pan_x and pan_y.
+The image click is mapped directly to normalized UV coordinates on the flat
+equirectangular image. A future spherical viewer must convert its camera ray
+to the corresponding source-image UV coordinates.
 
 pan_x and pan_y are normalized coordinates on the source panorama, not viewport or screen-pixel
 coordinates. The same source-to-viewer projection is used to render and reposition hotspots;
@@ -201,12 +173,11 @@ visible marker positions change with camera orientation. See HOTSPOT_MODEL.md §
 happens at the database layer.
 
 6.3 Position adjustment after save
-City Admin may reposition an existing hotspot by dragging its projected marker within the viewer;
-the viewer converts the drag through the camera ray back to source-panorama UV coordinates.
+City Admin may reposition an existing hotspot by clicking the flat image.
 
 City Admin may also enter exact source-panorama UV values in the Configuration Panel's coordinate
-fields (two numeric inputs, 4 decimal places, range 0–1). Input changes preview the projected
-marker at the corresponding camera-relative viewer position.
+fields (two numeric inputs, 4 decimal places, range 0–1). Input changes preview the
+marker on the flat image.
 
 Each save writes a hotspot_updated entry to admin_action_logs with metadata.changed_fields containing the old and new values.
 
@@ -214,18 +185,19 @@ Each save writes a hotspot_updated entry to admin_action_logs with metadata.chan
 7.1 Activation
 City Admin clicks Activate in either the Hotspot List Panel row or the Configuration Panel.
 
-System: UPDATE hotspots SET is_active = true WHERE id = :id
+System: call `admin_set_hotspot_active` through the authenticated service.
 
-Before activating, the system re-runs rpc_validate_hotspot_target. If the target has been unpublished since the hotspot was placed, activation is blocked with the validation error reason.
+Before activating, the service revalidates the target. If the target has been unpublished since placement, activation is blocked.
 
-Hotspot becomes immediately visible to anon users in the live viewer.
+An active hotspot is eligible for anonymous reads when its parent panorama is
+published. Public viewer traversal is deferred.
 
 Audit: action = 'hotspot_activated', domain = 'navigation'.
 
 7.2 Deactivation
 City Admin clicks Deactivate.
 
-System: UPDATE hotspots SET is_active = false WHERE id = :id
+System: call `admin_set_hotspot_active` through the authenticated service.
 
 Hotspot is hidden from the public viewer immediately — no unpublish confirmation required.
 
@@ -234,9 +206,10 @@ The hotspot row, its position, and its target link are preserved.
 Audit: action = 'hotspot_deactivated', domain = 'navigation'.
 
 7.3 Bulk activate / deactivate
+Deferred for M9B.
 City Admin may check multiple rows in the Hotspot List Panel and apply Activate all or Deactivate all.
 
-Each hotspot runs rpc_validate_hotspot_target individually before activation.
+If implemented, each hotspot must be individually validated before activation.
 
 Hotspots that fail validation are skipped; a summary is shown: "3 of 5 hotspots activated. 2 skipped — targets not published."
 
@@ -252,6 +225,7 @@ Parent panorama returned to draft	Active flags remain unchanged, but public RLS 
 
 
 8. Reordering Hotspots
+The reorder UI is deferred for M9B.
 display_order controls:
 
 The sequence of hotspot markers in the viewer's list-mode overlay (for low-motion or accessibility views)
@@ -265,6 +239,7 @@ City Admin reorders by drag-and-drop on the Hotspot List Panel rows. On drop, th
 Each reorder operation writes one hotspot_updated entry per affected row to admin_action_logs, with metadata.changed_fields = { "display_order": { "old": n, "new": m } }.
 
 9. Navigation Hotspots (panorama → panorama)
+Panorama targets and traversal are deferred for M9B.
 Navigation hotspots (target_type = 'panorama') let users move between connected panoramas — the immersive equivalent of walking from one space into another.
 
 9.1 Configuration
@@ -272,7 +247,7 @@ Set Target type to panorama.
 
 The Target field becomes a Panorama Picker: a thumbnail grid of published panoramas scoped to the same city.
 
-Select the destination panorama. rpc_validate_hotspot_target confirms status = 'published'.
+Select the destination panorama. This workflow is deferred for M9B.
 
 Set Icon to navigate (auto-suggested; overridable).
 
@@ -379,24 +354,24 @@ Changing an active hotspot's target type or target ID rechecks eligibility. An i
 target is rejected; it is not automatically deactivated. Unrelated edits do not continuously
 recheck the existing target.
 
-11.2 Deletion — within 24 hours
-City Admins may hard-delete a hotspot within 24 hours of created_at.
-
-A Delete button is visible in the Configuration Panel when NOW() - created_at < INTERVAL '24 hours'.
+11.2 Deletion
+City Admins may hard-delete a hotspot in their assigned city at any age; CEO and
+PLATFORM_ADMIN may do so across cities.
 
 A confirmation dialog is shown: "Delete this hotspot? This cannot be undone."
 
 On confirm: row is hard-deleted from hotspots. The parent panorama and linked target record are unaffected.
 
-Audit: action = 'hotspot_deleted', with metadata.reason required.
+Audit: action = 'hotspot_deleted'; the guarded RPC accepts an optional reason.
 
-11.3 Deletion — after 24 hours
-After 24 hours, the Delete button is hidden for City Admins. The hotspot must be deactivated instead. Hard deletion after 24 hours is a CEO-only action.
-
-11.4 Stale Hotspots warning
-The Hotspot List Panel surfaces a Stale badge on any active hotspot whose target no longer passes rpc_validate_hotspot_target. This check runs on panel load (not in real-time). Stale hotspots continue to serve correctly in the public viewer for existing anon sessions (RLS reads is_active = true only — it does not re-validate the target record), but City Admins should investigate and deactivate or retarget them.
+11.3 Stale Hotspots warning
+M9B does not provide stale badges or continuously revalidate active targets.
+The public RLS policy does not revalidate target publication. City Admins should
+deactivate or retarget hotspots whose destinations become unavailable.
 
 12. UI Component Requirements — Hotspot Editor
+The following describes the intended future immersive editor unless marked
+otherwise; the M9B implementation is summarized at the top of this document.
 Component	Requirement
 360° viewer	Renders equirectangular panorama; projects source-panorama UV hotspots into viewer space based on camera orientation; supports placement
 Viewer behavior	Intended behavior: 3°/second auto-rotation; +14°/-14° pitch lock; drag interaction; compass awareness; camera-aware hotspot positioning and viewport clipping; auto-rotation yields to interaction. The authoritative vision classifies the panorama canvas and UV hotspots as Current Implementation.
@@ -411,11 +386,11 @@ Target typeahead	Searches civic objects and civic stories scoped to city; deboun
 Panorama Picker	Grid of published panorama thumbnails for target_type = 'panorama'
 URL input	Plain text field for target_type = 'external_url'; inline validation (must begin https://)
 Validation errors	Inline, adjacent to the offending field; not toast-only
-Save button state	Disabled until label is non-empty and rpc_validate_hotspot_target returns valid: true
+Save button state	Validation is performed server-side when Save is clicked
 Unsaved changes guard	Warn on panel close or navigation away if Configuration Panel has unsaved changes
 Stale badge	Amber badge on Hotspot List Panel rows where target fails current validation
 Inactive style	Greyed-out marker and opacity-reduced label for inactive hotspots in placement preview
-Delete button	Visible only when NOW() - created_at < 24h; always requires confirmation dialog
+Delete button	Available at any age to authorized admins; requires confirmation
 
 
 13. Future Possibilities — Unity / VR Admin Concepts

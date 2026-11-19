@@ -198,7 +198,9 @@ panorama	panoramas.id	NULL
 external_url	NULL	Absolute https:// URL
 
 
-Referential integrity on target_id is enforced at the application layer via rpc_validate_hotspot_target (see HOTSPOT_WORKFLOW.md §5), not by a DB-level FK, because the target table varies by target_type.
+Target IDs have no polymorphic FK. The hotspot integrity trigger checks existence
+and city on target changes and publication on activation; the M9B service also
+checks publication and anonymous access before saving or activating.
 
 ## 6. Relationships
 
@@ -391,7 +393,7 @@ GRANT SELECT ON public.hotspots TO anon;
 
 [ ] Always filter is_active = true and verify parent panorama status = 'published' before serving to anon
 
-[ ] Call rpc_validate_hotspot_target before allowing a City Admin to activate any hotspot
+[ ] Validate target eligibility through the hotspot service before activation
 
 [ ] Encode metadata.domain = 'navigation' in every admin_action_logs write
 

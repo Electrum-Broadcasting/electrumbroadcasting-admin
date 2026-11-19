@@ -634,7 +634,7 @@ anon may SELECT where is_active = true AND the parent panoramas.status = 'publis
 
 City Admins may SELECT / INSERT / UPDATE / DELETE for their cities (scoped by city_id).
 
-Linked target_id objects must be published before the hotspot is activated (enforced by rpc_validate_hotspot_target).
+Linked target_id objects must be published before activation (enforced by the hotspot integrity trigger and checked by the admin service).
 
 
 ### 3.14 Table: games

@@ -31,8 +31,7 @@ CEO may:
 •   	full CRUD on sponsorship_campaigns across all cities
 •  	activate and terminate campaigns via rpc_activate_campaign / rpc_expire_campaign
 •   	full CRUD on creative_assets across all cities
-•   	hard-delete hotspots after 24 h (City Admin cannot)
-•   	create cross-city hotspot links (City Admin cannot)
+•   	hard-delete hotspots at any age across cities (City Admin may do so in assigned cities)
 •   	trigger rpc_reindex_city for any city
 •   	modify search ranking weights (city_prompts.search_ranking_weights) for any city
 •   	view search_index rows across all cities including unpublished rows

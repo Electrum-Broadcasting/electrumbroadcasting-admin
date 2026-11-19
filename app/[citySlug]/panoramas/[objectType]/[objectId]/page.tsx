@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import HotspotManager from "./HotspotManager";
 
 type Panorama = {
   id: string;
@@ -29,6 +30,7 @@ export default function PanoramaManager({ params }: {
   const endpoint = `/api/admin/civic-objects/${encodeURIComponent(params.objectType)}/${encodeURIComponent(params.objectId)}/panoramas`;
   const [panoramas, setPanoramas] = useState<Panorama[]>([]);
   const [selected, setSelected] = useState<Panorama | null>(null);
+  const [hotspotPanoramaId, setHotspotPanoramaId] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState("");
@@ -152,6 +154,9 @@ export default function PanoramaManager({ params }: {
               <p className="break-all">URL: <a href={item.equirectangular_url} target="_blank" rel="noreferrer">{item.equirectangular_url}</a></p>
               <PanoramaPreview panorama={item} />
               <div className="flex gap-4">
+                <button disabled={busy || blocked} onClick={() => setHotspotPanoramaId(hotspotPanoramaId === item.id ? null : item.id)}>
+                  {hotspotPanoramaId === item.id ? "Close hotspots" : "Manage hotspots"}
+                </button>
                 {item.status !== "archived" && <>
                   <button disabled={busy || blocked} onClick={() => setSelected({ ...item })}>Edit</button>
                   <button disabled={busy || blocked} onClick={() => void reorder(item.id, -1)}>Move up</button>
@@ -163,6 +168,11 @@ export default function PanoramaManager({ params }: {
                   }}>Archive</button>
                 </>}
               </div>
+              {hotspotPanoramaId === item.id && <HotspotManager
+                endpoint={`${endpoint}/${encodeURIComponent(item.id)}/hotspots`}
+                imageUrl={item.equirectangular_url}
+                panoramaStatus={item.status}
+              />}
             </li>
           ))}
         </ol>

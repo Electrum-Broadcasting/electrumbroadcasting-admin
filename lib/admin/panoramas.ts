@@ -27,7 +27,7 @@ function serviceClient() {
   });
 }
 
-async function authorize(type: string, objectId: string) {
+export async function authorizePanoramaParent(type: string, objectId: string) {
   if (!Object.hasOwn(tables, type) || !isValidCityId(objectId)) fail("Invalid object", 400);
   const context = await resolveAdminContext();
   if (!context.ok) fail("Please sign in as an active administrator.", context.reason === "unauthenticated" ? 401 : 403, "forbidden");
@@ -45,7 +45,7 @@ async function authorize(type: string, objectId: string) {
 }
 
 export async function checkPanoramaAccess(type: string, objectId: string) {
-  await authorize(type, objectId);
+  await authorizePanoramaParent(type, objectId);
 }
 
 function requireRecord(value: unknown): Record<string, unknown> {
@@ -87,7 +87,7 @@ function confirmAudit(value: unknown) {
 }
 
 export async function listPanoramas(type: string, objectId: string) {
-  const context = await authorize(type, objectId);
+  const context = await authorizePanoramaParent(type, objectId);
   const { data, error, count } = await context.service.from("panoramas")
     .select("id, city_id, civic_object_type, civic_object_id, label, description, status, display_order, equirectangular_url, pan_x_initial, pan_y_initial, created_at", { count: "exact" })
     .eq("city_id", context.cityId).eq("civic_object_type", context.objectType).eq("civic_object_id", context.objectId)
@@ -100,7 +100,7 @@ export async function listPanoramas(type: string, objectId: string) {
 }
 
 export async function createPanorama(type: string, objectId: string, form: FormData) {
-  const context = await authorize(type, objectId);
+  const context = await authorizePanoramaParent(type, objectId);
   const file = form.get("file");
   const title = label(form.get("label"));
   const details = description(form.get("description"));
@@ -181,7 +181,7 @@ export async function createPanorama(type: string, objectId: string, form: FormD
 }
 
 export async function mutatePanorama(type: string, objectId: string, body: unknown) {
-  const context = await authorize(type, objectId);
+  const context = await authorizePanoramaParent(type, objectId);
   const input = requireRecord(body);
   const actor = { p_actor_admin_id: context.admin.id, p_actor_auth_uid: context.admin.auth_uid, p_expected_city_id: context.cityId };
   if (input.operation === "reorder") {

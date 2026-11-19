@@ -54,7 +54,6 @@ City Admins may NOT:
 - modify global settings
 - access raw_ingestion
 - **link a hotspot to a target record (civic object, story, or panorama) belonging to a different city** ← new
-- **hard-delete a hotspot more than 24 hours after its creation** (deactivation required instead; hard deletion after 24 h is CEO-only) ← new
 - **re-publish an archived panorama** (a new panorama row must be created instead) ← new
 
 ---
@@ -319,7 +318,8 @@ Object Manager → [Approved civic object] → Panoramas tab
   → [Published panorama] → Hotspot Editor tab
 ```
 
-The Hotspot Editor tab is disabled on draft and archived panoramas. Tooltip: *"Publish this panorama to place hotspots."*
+M9B hotspot management is available for draft and published panoramas. Archived panoramas
+cannot receive new hotspots or activate them.
 
 #### 10.7.3 Coordinate system
 
@@ -327,42 +327,45 @@ Hotspot positions are stored as **normalized UV coordinates** (`pan_x`, `pan_y`)
 - `pan_x`: horizontal position — `0.0` = left edge, `1.0` = right edge, `0.5` = centre
 - `pan_y`: vertical position — `0.0` = top (zenith), `1.0` = bottom (nadir), `0.5` = horizon
 
-City Admin places a hotspot by clicking anywhere in the 360° viewer. The viewer captures `(pan_x, pan_y)` from the pointer position. See HOTSPOT_MODEL.md §2 for conversion formulas used by the viewer layer.
+In M9B, City Admin places a hotspot by clicking the flat equirectangular image or
+entering precise UV coordinates. A spherical placement viewer is deferred.
 
 #### 10.7.4 City Admin actions on hotspots
 
 | Action | Permitted | Notes |
 |---|---|---|
 | Place hotspot (click in viewer) | ✅ | Saved as inactive by default |
-| Edit label, icon, target, metadata | ✅ | |
-| Adjust position (drag or numeric input) | ✅ | |
-| Activate hotspot | ✅ | `rpc_validate_hotspot_target` runs before activation |
+| Edit label or target | ✅ | Icon and metadata editing are deferred |
+| Adjust position | ✅ | Flat-image click or numeric input |
+| Activate hotspot | ✅ | The service validates the target again before activation |
 | Deactivate hotspot | ✅ | Hides from public; preserves row |
-| Bulk activate / deactivate | ✅ | |
-| Reorder hotspots (`display_order`) | ✅ | Drag-and-drop in Hotspot List Panel |
-| Hard-delete hotspot within 24 h of creation | ✅ | Requires confirmation dialog + reason |
-| Hard-delete hotspot after 24 h | ❌ | Deactivate instead; CEO-only after 24 h |
-| Link to target in another city | ❌ | CEO-only |
-| Edit `behavior.world_position` directly | ❌ | Computed by viewer layer; readable in VR Preview |
+| Bulk activate / deactivate | Deferred | |
+| Reorder hotspots (`display_order`) | Deferred | |
+| Hard-delete hotspot at any age | ✅ | Requires confirmation; audited by the RPC |
+| Link to target in another city | ❌ | Not permitted for any role |
+| Edit `behavior.world_position` directly | ❌ | Deferred |
 
 #### 10.7.5 Target eligibility
 
 | target_type | Requirement |
 |---|---|
 | civic_entity / event / place / moment / artifact / neighborhood | `is_published = true` |
-| civic_story | `review_status = 'published'` |
-| panorama | `status = 'published'`; must be in same city |
+| civic_story | `is_published = true` and no safety hold |
+| panorama | Deferred; not supported for activation |
 | external_url | Valid `https://` URL |
 
-Validated by `rpc_validate_hotspot_target` before the Save button is enabled and again before activation.
+The server validates same-city, publication, and anonymous accessibility on save and
+activation. HTTPS URL syntax is checked without contacting the destination.
 
 #### 10.7.6 Navigation hotspots (panorama → panorama)
 
-When `target_type = 'panorama'`, the hotspot enables panorama-to-panorama navigation — the user moves from the current panorama to the destination without a page reload. After saving, the admin UI prompts City Admin to create a reciprocal return hotspot on the destination panorama (advisory; dismissible).
+Panorama-to-panorama navigation and reciprocal return hotspots are deferred;
+M9B does not offer panorama targets.
 
 #### 10.7.7 Stale hotspots
 
-The Hotspot List Panel shows an amber **Stale** badge on any active hotspot whose target no longer passes `rpc_validate_hotspot_target` (e.g., a linked civic object was subsequently hidden). Stale hotspots remain visible to the public viewer until deactivated. City Admin should investigate and deactivate or retarget them.
+Target changes after activation are not continuously checked, and M9B does not
+provide a stale badge. City Admin should deactivate or retarget stale hotspots.
 
 #### 10.7.8 Audit
 
@@ -676,17 +679,15 @@ Re-publishing from archived is not permitted. Create a new panorama row instead.
 
 | State | Visible to anon | City Admin may | Notes |
 |---|---|---|---|
-| Saved (inactive) | No | Edit, activate, delete (within 24 h) | Default state on creation |
-| Active | Yes | Deactivate, edit, reorder | Visible in live viewer |
-| Deactivated | No | Reactivate, edit, delete (within 24 h of creation) | Row preserved |
-| Auto-deactivated | No | Reactivate | Triggered by parent panorama archive |
+| Saved (inactive) | No | Edit, activate, delete | Default state on creation |
+| Active | Only if the parent is published | Deactivate, edit, delete | Public traversal is deferred |
+| Deactivated | No | Reactivate, edit, delete | Row preserved |
+| Auto-deactivated | No | Edit or delete | Triggered by parent panorama archive; activation on archived panoramas is blocked |
 
 **Deletion rules:**
 
-| Window | City Admin | CEO |
-|---|---|---|
-| Within 24 h of `created_at` | Hard delete (with reason) | Hard delete |
-| After 24 h | Deactivate only | Hard delete |
+City Admins may hard-delete hotspots in their assigned cities at any age; CEO and
+PLATFORM_ADMIN may do so across cities. The guarded RPC writes a deletion audit.
 
 ---
 
@@ -702,7 +703,8 @@ Hotspot positions use **normalized UV coordinates** — not degrees, not latitud
 | 0.5 | 0.0 | Straight up (zenith) |
 | 0.5 | 1.0 | Straight down (nadir) |
 
-City Admins never enter these values manually during normal use. The 360° viewer captures them automatically when you click to place a hotspot, or when you drag an existing hotspot to a new position. Manual numeric inputs (4 decimal places) are available as a precision override in the Configuration Panel.
+In M9B, City Admins click the flat equirectangular image or enter numeric values
+directly. Spherical-viewer placement and dragging are deferred.
 
 ---
 
@@ -727,7 +729,7 @@ City Admins never enter these values manually during normal use. The 360° viewe
         │
         ▼
 6. Configure hotspot: label, icon, target type, target record
-   System validates target via rpc_validate_hotspot_target
+   System validates target through the server-side hotspot service
         │
         ▼
 7. Save hotspot  →  saved as inactive; visible only in preview
@@ -736,7 +738,8 @@ City Admins never enter these values manually during normal use. The 360° viewe
 8. Preview hotspot in viewer; adjust position if needed
         │
         ▼
-9. Activate hotspot  →  immediately visible to anon
+9. Activate hotspot  →  eligible for anon read when the panorama is published;
+                        public traversal remains deferred
         │
         ▼
 10. Repeat steps 5–9 for additional hotspots
@@ -811,9 +814,8 @@ City Admins can toggle **VR Preview** from within the Hotspot Editor to inspect 
 | Hard-delete panorama | ❌ | ✅ |
 | Place hotspot | Own cities | All cities |
 | Activate / deactivate hotspot | Own cities | All cities |
-| Hard-delete hotspot (within 24 h) | Own cities | All cities |
-| Hard-delete hotspot (after 24 h) | ❌ | ✅ |
-| Link hotspot across cities | ❌ | ✅ |
+| Hard-delete hotspot at any age | Own cities | All cities |
+| Link hotspot across cities | ❌ | ❌ |
 | Edit page settings | Own cities | All cities |
 | Set canonical URL on page settings | ❌ (CEO authorization required) | ✅ |
 
@@ -831,7 +833,7 @@ Every existing section was preserved verbatim. Additions are integrated inline a
 |---|---|
 | §1 Purpose & Scope | Added `immersive media curation (panoramas and hotspots)` to the domain list |
 | §2.1 Permissions | Added: INSERT/UPDATE/DELETE panoramas and hotspots; publish/archive panoramas; activate/deactivate hotspots; configure Object Page and Story Page settings |
-| §2.2 Restrictions | Added: no cross-city hotspot links; no hard-delete of hotspots after 24 h; no re-publishing archived panoramas |
+| §2.2 Restrictions | No cross-city hotspot links or re-publishing archived panoramas |
 | §3.2 Object Actions | Added: manage panoramas, place hotspots, configure Object Page settings |
 | §3.3 Publication | Added a note explaining that `hero_360_url` is auto-populated from the primary published panorama — no manual sync needed |
 | §4 Editorial | Added Story Page settings configuration responsibility |
