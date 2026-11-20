@@ -41,6 +41,7 @@ function fixture() {
     if (name === "osm_stage_item") return { data: { raw_id: raw, audit_id: audit, state: "staged" }, error: null, status: 200 };
     if (name === "osm_ingest_item") return { data: { raw_id: raw, audit_id: audit, state: args.p_quarantine_reason ? "quarantined" : "created" }, error: null, status: 200 };
     if (name === "osm_finish_batch") return { data: { batch_id: args.p_batch_id, audit_id: audit, status: args.p_error ? "failed" : "completed" }, error: null, status: 200 };
+    if (name === "osm_operations_for_city") return { data: { boundaries: [], batches: [] }, error: null, status: 200 };
     throw new Error(`Unexpected RPC ${name}`);
   } };
   const mocks = {
@@ -53,7 +54,7 @@ function fixture() {
     "@/lib/supabase/env": { SUPABASE_URL: "https://example.test", SUPABASE_SERVICE_ROLE_KEY: "test-key" },
     "@/supabase/functions/ingest_osm_places/overpassQuery": load("supabase/functions/ingest_osm_places/overpassQuery.ts"),
   };
-  return { state, runs: load("app/api/admin/ingestion/osm/runs/route.ts", mocks),
+  return { state, operations: load("app/api/admin/ingestion/operations/route.ts", mocks), runs: load("app/api/admin/ingestion/osm/runs/route.ts", mocks),
     boundaries: load("app/api/admin/ingestion/osm/boundaries/route.ts", mocks) };
 }
 
@@ -78,6 +79,108 @@ test("authenticated run stages every item then creates or quarantines with a sou
     assert.equal(state.calls[4].args.p_candidate.name, "Library");
     assert.equal(state.calls[5].args.p_quarantine_reason, "location_outside");
     assert.equal(state.calls[4].args.p_actor_auth_uid, user);
+  } finally { global.fetch = original; }
+});
+
+test("Overpass request uses the configured endpoint, identifies Electrum, and allows the query timeout", async () => {
+  const { runs } = fixture();
+  const originalFetch = global.fetch;
+  const originalTimeout = AbortSignal.timeout;
+  const originalEndpoint = process.env.OVERPASS_ENDPOINT;
+  let timeout;
+  process.env.OVERPASS_ENDPOINT = "https://overpass.example.test/api/interpreter";
+  AbortSignal.timeout = (milliseconds) => { timeout = milliseconds; return new AbortController().signal; };
+  global.fetch = async (url, options) => {
+    assert.equal(url, "https://overpass.example.test/api/interpreter");
+    assert.equal(options.method, "POST");
+    assert.equal(options.headers["Content-Type"], "application/x-www-form-urlencoded");
+    assert.equal(options.headers["User-Agent"], "Electrum Ingestion/1.0 (+https://electrumbroadcasting.com)");
+    assert.equal(options.redirect, "manual");
+    assert.equal(options.body.get("data"), `[out:json][timeout:60];
+(
+  nwr["amenity"~"^(arts_centre|library|marketplace|place_of_worship|school|theatre)$"](0,0,10,10);
+  nwr["historic"~"^(archaeological_site|building|castle|memorial|monument|ruins)$"](0,0,10,10);
+  nwr["leisure"~"^(garden|park|sports_centre)$"](0,0,10,10);
+  nwr["public_transport"~"^(station|stop_position|platform)$"](0,0,10,10);
+  nwr["tourism"~"^(attraction|gallery|museum|viewpoint)$"](0,0,10,10);
+);
+out center tags 51 qt;`);
+    return new Response(JSON.stringify({ osm3s: { timestamp_osm_base: "2026-11-19T21:00:00Z" }, elements: [] }));
+  };
+  try {
+    assert.equal((await runs.POST(request(runInput))).status, 200);
+    assert.equal(timeout, 80_000);
+    assert.equal(runs.maxDuration, 180);
+  } finally {
+    global.fetch = originalFetch; AbortSignal.timeout = originalTimeout;
+    if (originalEndpoint === undefined) delete process.env.OVERPASS_ENDPOINT;
+    else process.env.OVERPASS_ENDPOINT = originalEndpoint;
+  }
+});
+
+test("invalid Overpass configuration is rejected before creating a batch", async () => {
+  const { state, runs } = fixture();
+  const originalEndpoint = process.env.OVERPASS_ENDPOINT;
+  process.env.OVERPASS_ENDPOINT = "http://overpass.example.test/api/interpreter";
+  try {
+    assert.equal((await runs.POST(request(runInput))).status, 503);
+    assert.equal(state.calls.length, 0);
+  } finally {
+    if (originalEndpoint === undefined) delete process.env.OVERPASS_ENDPOINT;
+    else process.env.OVERPASS_ENDPOINT = originalEndpoint;
+  }
+});
+
+test("Overpass HTTP failures are categorized, audited, and never retried or staged", async () => {
+  const original = global.fetch;
+  try {
+    for (const [status, message] of [[400, /malformed request.*HTTP 400/], [406, /provider rejected.*HTTP 406/],
+      [429, /rate limit.*HTTP 429/], [503, /capacity.*HTTP 503/], [504, /timed out.*HTTP 504/],
+      [418, /unexpected response.*HTTP 418/]]) {
+      const { state, runs } = fixture();
+      let requests = 0;
+      global.fetch = async () => { requests++; return new Response("sensitive upstream detail", { status, headers: status === 429 ? { "Retry-After": "60" } : {} }); };
+      const result = await runs.POST(request(runInput));
+      assert.equal(result.status, 502);
+      assert.match(result.body.error, message);
+      assert.equal(result.body.error.includes("sensitive upstream detail"), false);
+      if (status === 429) assert.match(result.body.error, /wait at least 60 seconds/);
+      assert.equal(requests, 1);
+      assert.deepEqual(state.calls.map((call) => call.name), ["osm_start_batch", "osm_finish_batch"]);
+      assert.equal(state.calls.at(-1).args.p_error, result.body.error);
+    }
+  } finally { global.fetch = original; }
+});
+
+test("Overpass transport timeouts and connection failures are categorized and audited", async () => {
+  const original = global.fetch;
+  try {
+    for (const [failure, message] of [[new DOMException("timed out", "TimeoutError"), /request timed out/],
+      [new Error("private provider address"), /Unable to reach the Overpass provider/]]) {
+      const { state, runs } = fixture();
+      global.fetch = async () => { throw failure; };
+      const result = await runs.POST(request(runInput));
+      assert.equal(result.status, 502);
+      assert.match(result.body.error, message);
+      assert.equal(result.body.error.includes("private provider address"), false);
+      assert.equal(state.calls.at(-1).args.p_error, result.body.error);
+    }
+  } finally { global.fetch = original; }
+});
+
+test("Overpass response body failures are reported without exposing provider content", async () => {
+  const original = global.fetch;
+  try {
+    for (const [body, message] of [["not json", /invalid response/],
+      [JSON.stringify({ elements: [], remark: "private upstream details" }), /incomplete response/]]) {
+      const { state, runs } = fixture();
+      global.fetch = async () => new Response(body);
+      const result = await runs.POST(request(runInput));
+      assert.equal(result.status, 502);
+      assert.match(result.body.error, message);
+      assert.equal(result.body.error.includes("private upstream details"), false);
+      assert.equal(state.calls.at(-1).args.p_error, result.body.error);
+    }
   } finally { global.fetch = original; }
 });
 
@@ -120,4 +223,21 @@ test("boundary registration rejects invalid geometry and out-of-city actors", as
   state.cities = [];
   assert.equal((await boundaries.POST(request({ ...data, geometry }))).status, 403);
   assert.equal(state.calls.length, 0);
+});
+
+test("operations records require an authorized city and pass the verified actor to the read RPC", async () => {
+  const { state, operations } = fixture();
+  const lookup = () => new Request(`http://local?city_id=${city}`);
+  state.cities = [];
+  assert.equal((await operations.GET(lookup())).status, 403);
+  assert.equal(state.calls.length, 0);
+  state.cities = [city];
+  const result = await operations.GET(lookup());
+  assert.equal(result.status, 200);
+  assert.deepEqual(state.calls[0], { name: "osm_operations_for_city", args: {
+    p_actor_admin_id: actor, p_actor_auth_uid: user, p_city_id: city,
+  } });
+  state.role = "EDITOR";
+  assert.equal((await operations.GET(lookup())).status, 403);
+  assert.equal(state.calls.length, 1);
 });

@@ -1,6 +1,7 @@
 export const runtime = "nodejs";
 
 import "./globals.css";
+import "leaflet/dist/leaflet.css";
 import type { CSSProperties, ReactNode } from "react";
 import { Toaster } from "sonner";
 

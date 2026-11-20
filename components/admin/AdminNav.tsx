@@ -18,6 +18,7 @@ const ceoLinks = [
   { href: "/admin/CEO/contributors", label: "Contributors" },
   { href: "/admin/CEO/themes", label: "Themes" },
   { href: "/admin/CEO/safety", label: "Safety" },
+  { href: "/admin/ingestion", label: "Ingestion" },
   { href: "/admin/platform/system-logs", label: "System Logs" },
   { href: "/admin/platform/settings", label: "Settings" }
 ];
@@ -28,7 +29,8 @@ const cityAdminLinks = (cityId: string) => [
   { href: `/admin/city/${cityId}/contributors`, label: "Contributors" },
   { href: `/admin/city/${cityId}/media`, label: "Media Library" },
   { href: `/admin/city/${cityId}/theme`, label: "City Theme" },
-  { href: `/admin/city/${cityId}/safety`, label: "Safety" }
+  { href: `/admin/city/${cityId}/safety`, label: "Safety" },
+  { href: "/admin/ingestion", label: "Ingestion" }
 ];
 
 const editorLinks = [
@@ -40,6 +42,7 @@ const editorLinks = [
 const platformAdminLinks = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/reset-password", label: "Reset Password" },
+  { href: "/admin/ingestion", label: "Ingestion" },
   ...Object.values(adminTables).map((table) => ({
     href: table.route,
     label: table.label
@@ -52,7 +55,7 @@ function getLinks(role: AdminRole, cityId?: string) {
       return ceoLinks;
 
     case "CITY_ADMIN":
-      return cityId ? cityAdminLinks(cityId) : [];
+      return cityId ? cityAdminLinks(cityId) : [{ href: "/admin/ingestion", label: "Ingestion" }];
 
     case "EDITOR":
       return editorLinks;

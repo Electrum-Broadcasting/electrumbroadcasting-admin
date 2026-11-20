@@ -20,7 +20,7 @@ DECLARE
   payload jsonb := '{"type":"node","id":1,"lat":48,"lon":-122,"tags":{"name":"Example"}}';
   candidate jsonb := '{"name":"Example","slug":"example","latitude":48,"longitude":-122,"place_type":"park"}';
   b jsonb; run jsonb; run2 jsonb; raw jsonb; item jsonb; again jsonb;
-  duplicate jsonb; quarantined jsonb; failed jsonb; details jsonb; p uuid;
+  duplicate jsonb; quarantined jsonb; failed jsonb; details jsonb; operations jsonb; p uuid;
 BEGIN
   b := public.admin_register_osm_boundary(a, u, c, 'https://example.test', 'v1',
     '{"type":"Polygon","coordinates":[[[-123,47],[-121,47],[-121,49],[-123,49],[-123,47]]]}'::jsonb);
@@ -70,6 +70,24 @@ BEGIN
   IF details->>'status' <> 'failed' OR jsonb_array_length(details->'items') <> 3 THEN
     RAISE EXCEPTION 'batch trace incomplete: %', details;
   END IF;
+  operations := public.osm_operations_for_city(a, u, c);
+  IF jsonb_array_length(operations->'boundaries') <> 1
+      OR jsonb_array_length(operations->'batches') <> 2
+      OR NOT EXISTS (SELECT 1 FROM jsonb_array_elements(operations->'batches') AS batch,
+        jsonb_array_elements(batch->'items') AS entry
+        WHERE entry->>'place_id' = p::text AND entry->>'place_status' = 'pending') THEN
+    RAISE EXCEPTION 'operations read model incomplete: %', operations;
+  END IF;
+  IF pg_catalog.has_function_privilege('authenticated', 'public.osm_operations_for_city(uuid,uuid,uuid)', 'EXECUTE')
+      OR NOT pg_catalog.has_function_privilege('service_role', 'public.osm_operations_for_city(uuid,uuid,uuid)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'operations read privileges invalid';
+  END IF;
+  BEGIN
+    PERFORM public.osm_operations_for_city(a, u, '44444444-4444-4444-8444-444444444444');
+    RAISE EXCEPTION 'cross-city operations read authorized';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM = 'cross-city operations read authorized' THEN RAISE; END IF;
+  END;
   PERFORM public.admin_mutate_civic_place(a, u, c, 'approve', p, '{}');
   IF NOT EXISTS (SELECT 1 FROM public.civic_places WHERE id = p AND city_id = c
       AND status = 'approved' AND is_published IS TRUE) THEN

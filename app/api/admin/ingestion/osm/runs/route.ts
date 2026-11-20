@@ -8,11 +8,28 @@ import { cityBoundaryExtent, classifyCityPoint, parseCityBoundary } from "@/lib/
 import { SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL } from "@/lib/supabase/env";
 import { buildRefinedOverpassQuery, type BoundingBox } from "@/supabase/functions/ingest_osm_places/overpassQuery";
 
-const endpoint = "https://overpass-api.de/api/interpreter";
+export const maxDuration = 180;
+
+const defaultEndpoint = "https://overpass-api.de/api/interpreter";
+const userAgent = "Electrum Ingestion/1.0 (+https://electrumbroadcasting.com)";
 const maxItems = 50;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function overpassHttpError(status: number, retryAfter: string | null): string {
+  if ([401, 403, 406].includes(status)) return `Overpass provider rejected the request (HTTP ${status}); check provider access policy and wait at least 30 seconds before retrying`;
+  if (status === 429) {
+    const seconds = retryAfter && /^\d+$/.test(retryAfter) ? Number(retryAfter) : NaN;
+    const date = retryAfter && !/^\d+$/.test(retryAfter) ? Date.parse(retryAfter) : NaN;
+    const delay = Number.isSafeInteger(seconds) ? seconds : Number.isFinite(date) ? Math.ceil((date - Date.now()) / 1000) : 0;
+    return `Overpass provider rate limit reached (HTTP 429); wait at least ${Math.max(30, delay)} seconds before retrying`;
+  }
+  if ([400, 422].includes(status)) return `Overpass provider rejected a malformed request (HTTP ${status}); contact an administrator`;
+  if ([408, 504].includes(status)) return `Overpass provider timed out (HTTP ${status}); check import history before retrying`;
+  if ([500, 502, 503].includes(status)) return `Overpass provider is unavailable or at capacity (HTTP ${status}); try again later`;
+  return `Overpass returned an unexpected response (HTTP ${status}); contact an administrator`;
 }
 
 function queryBox(value: unknown): BoundingBox | null {
@@ -136,6 +153,13 @@ export async function POST(request: Request) {
   if (!canAccessCity(context.admin, input.city_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+  let endpoint: URL;
+  try {
+    endpoint = new URL(process.env.OVERPASS_ENDPOINT ?? defaultEndpoint);
+    if (endpoint.protocol !== "https:" || endpoint.username || endpoint.password || endpoint.hash) throw new Error();
+  } catch {
+    return NextResponse.json({ error: "Overpass endpoint configuration is invalid" }, { status: 503 });
+  }
   const service = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
@@ -164,16 +188,32 @@ export async function POST(request: Request) {
         || box.west < extent.west || box.east > extent.east) {
       throw new Error("Query box must be within the registered boundary extent");
     }
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ data: buildRefinedOverpassQuery(box, maxItems + 1) }),
-      signal: AbortSignal.timeout(35_000),
-    });
-    if (!response.ok) throw new Error(`Overpass returned HTTP ${response.status}`);
-    const body: unknown = await response.json();
-    if (!isRecord(body) || !Array.isArray(body.elements)) throw new Error("Invalid Overpass response");
-    if (typeof body.remark === "string" && body.remark.trim()) throw new Error(`Overpass reported: ${body.remark}`);
+    const signal = AbortSignal.timeout(80_000);
+    let response: Response;
+    try {
+      response = await fetch(endpoint.href, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": userAgent },
+        body: new URLSearchParams({ data: buildRefinedOverpassQuery(box, maxItems + 1) }),
+        signal,
+        redirect: "manual",
+      });
+    } catch (error) {
+      if (signal.aborted || (error instanceof Error && ["TimeoutError", "AbortError"].includes(error.name))) {
+        throw new Error("Overpass request timed out; check import history before retrying");
+      }
+      throw new Error("Unable to reach the Overpass provider; check provider availability before retrying");
+    }
+    if (!response.ok) throw new Error(overpassHttpError(response.status, response.headers.get("retry-after")));
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      if (signal.aborted) throw new Error("Overpass request timed out; check import history before retrying");
+      throw new Error("Overpass returned an invalid response; contact an administrator");
+    }
+    if (!isRecord(body) || !Array.isArray(body.elements)) throw new Error("Overpass returned an invalid response; contact an administrator");
+    if (typeof body.remark === "string" && body.remark.trim()) throw new Error("Overpass returned an incomplete response; try a smaller area or check provider availability");
     const snapshot = isRecord(body.osm3s) ? body.osm3s.timestamp_osm_base : null;
     if (typeof snapshot !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(snapshot)
         || Number.isNaN(Date.parse(snapshot))) throw new Error("Overpass response has no valid source version");

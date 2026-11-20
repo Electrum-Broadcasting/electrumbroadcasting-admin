@@ -8,6 +8,9 @@ The remainder of this document describes the broader ingestion specification;
 it is not evidence that the other sources or object types are implemented.
 The governed MVP supports **OpenStreetMap Places only**.
 
+For step-by-step boundary registration and run execution, see the
+[Phase 5D-4B Operator Runbook](./PHASE_5D_4B_OPERATOR_RUNBOOK.md).
+
 An authenticated, active City Admin assigned to the city, CEO, or Platform
 Admin registers a sourced and versioned GeoJSON Polygon or MultiPolygon through
 `POST /api/admin/ingestion/osm/boundaries`. The JSON body contains `city_id`,
@@ -28,6 +31,77 @@ the worker checks each representative point against the registered polygon.
 Points outside the polygon, on its boundary, in a hole, or missing coordinates
 are quarantined. OSM way/relation centers are representative points, not proof
 that a whole feature lies within the city.
+
+### Overpass service configuration
+
+The original governed runner used `https://overpass-api.de/api/interpreter`,
+HTTP POST, `Content-Type: application/x-www-form-urlencoded`, and a `data`
+field containing the Overpass QL query. It did not explicitly set User-Agent,
+Referer, or Accept; the Node fetch implementation supplied its defaults
+(observed as `undici` and `*/*` for User-Agent and Accept). The query requested
+`[out:json][timeout:60]` and `out center tags 51 qt`; the fetch timeout was
+35 seconds. The repository did not specify a platform execution limit.
+Those are source and local-observation values; the deployed platform's actual
+execution limit has not been verified.
+
+The runner now uses the server-only `OVERPASS_ENDPOINT` setting, defaulting to
+`https://overpass-api.de/api/interpreter`. Configure one approved HTTPS
+interpreter URL, without embedded username, password, or fragment. URL query
+parameters may contain credentials, so keep configuration and logs private.
+An invalid setting is rejected before a batch is started. Requests do not
+automatically follow redirects or switch providers; configure the final URL.
+Providers requiring authentication headers need separate integration work.
+
+The outbound request inspected in the route test is:
+
+```text
+POST <configured HTTPS interpreter URL>
+Content-Type: application/x-www-form-urlencoded
+User-Agent: Electrum Ingestion/1.0 (+https://electrumbroadcasting.com)
+Referer: not explicitly set
+Accept: not explicitly set (Node fetch normally sends */*)
+Body: data=<URL-encoded Overpass QL>
+```
+
+For the test box `(south, west, north, east) = (0, 0, 10, 10)`, the decoded
+`data` field contains exactly:
+
+```text
+[out:json][timeout:60];
+(
+  nwr["amenity"~"^(arts_centre|library|marketplace|place_of_worship|school|theatre)$"](0,0,10,10);
+  nwr["historic"~"^(archaeological_site|building|castle|memorial|monument|ruins)$"](0,0,10,10);
+  nwr["leisure"~"^(garden|park|sports_centre)$"](0,0,10,10);
+  nwr["public_transport"~"^(station|stop_position|platform)$"](0,0,10,10);
+  nwr["tourism"~"^(attraction|gallery|museum|viewpoint)$"](0,0,10,10);
+);
+out center tags 51 qt;
+```
+
+Actual requests substitute the selected query box. The HTTP timeout is 80 seconds,
+allowing time for the 60-second query and provider queueing. The route declares
+`maxDuration = 180` seconds for platforms that support it. Verify the deployed
+host, proxy, and plan permit at least 180 seconds for the entire synchronous
+run, including item processing and auditing. This setting is not a guarantee:
+interruptions or a shorter effective platform limit can still strand a batch.
+
+Provider HTTP errors and transport failures are recorded in the existing batch
+failure audit. The UI can distinguish rejection, rate limiting, malformed
+requests, timeouts, capacity/unavailability, and unknown responses. No automatic
+retry occurs. On HTTP 429, wait at least the displayed delay and comply with the
+provider's policy. For HTTP 406, stop and check provider policy; do not switch
+providers to evade a block. Check batch history before any retry.
+
+The [public Overpass instance guidance](https://wiki.openstreetmap.org/wiki/Overpass_API)
+requires identifiable applications and recommends paid or self-hosted services
+for commercial use. Public instances are shared and have no reliability
+guarantee; review each instance's current terms and limits. For production,
+evaluate a paid Overpass-compatible provider such as Geofabrik against its terms,
+authentication, data freshness, and service commitments. Self-hosting requires
+provisioning storage and compute, initial data loading, replication updates,
+monitoring, and backup and security operations. Select and verify an approved
+provider before changing the server configuration; do not implement automatic
+failover around provider access restrictions.
 
 Each run is limited to 50 source results. A larger response fails without
 processing a subset; split the query region and retry. Overpass's
