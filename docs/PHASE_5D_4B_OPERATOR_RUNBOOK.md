@@ -1,8 +1,8 @@
 # Phase 5D-4B — OSM Place Operator Runbook
 
-This runbook covers the currently implemented API workflow for registering a
-city boundary and running a small OSM Place import. It does not require an
-ingestion UI. Use an active, signed-in administrator with one of these roles:
+This runbook covers the ingestion UI workflow for preparing/registering a
+city boundary and running a small OSM Place import. Use an active, signed-in
+administrator with one of these roles:
 City Admin assigned to the target city, CEO, or Platform Admin with city
 access.
 
@@ -48,6 +48,15 @@ Have these values ready:
 4. The boundary source URL and recorded source version.
 5. A small query box whose numeric bounds fit inside the registered
    boundary's bounding extent.
+
+If the source exceeds the registration parser's 5,000-coordinate cap, use
+**Prepare Boundary** from Admin → Ingestion → Boundary Registry. The preparation
+view retains the original geometry, generates a projected simplification
+candidate, and compares containment before approval. Review the overlay and
+explicitly acknowledge any boundary-near differences; interior/exterior grid
+differences block approval. Registration remains subject to the existing parser
+and 1 MiB request-body cap. See the [boundary preparation notes](./AI_INGESTION.md#boundary-preparation-for-large-municipal-geometry)
+for the measured Oakland result and comparison details.
 
 The boundary must pass geometry validation: coordinates are longitude,
 latitude pairs; rings are closed and valid; geometry is not self-intersecting;

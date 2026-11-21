@@ -1,4 +1,4 @@
--- Run after the fixture and the four governance/ingestion migrations in an isolated database.
+-- Run after the fixture and required governance/ingestion migrations in an isolated database.
 INSERT INTO public.cities VALUES
   ('11111111-1111-4111-8111-111111111111'), ('44444444-4444-4444-8444-444444444444');
 INSERT INTO public.admin_users VALUES (
@@ -111,3 +111,85 @@ BEGIN
   END;
 END;
 $test$;
+
+DO $preparation_test$
+DECLARE
+  a uuid := '22222222-2222-4222-8222-222222222222';
+  u uuid := '33333333-3333-4333-8333-333333333333';
+  c uuid := '11111111-1111-4111-8111-111111111111';
+  source_shape jsonb := '{"type":"Polygon","coordinates":[[[0,0],[10,0],[10,10],[0,10],[0,0]]]}'::jsonb;
+  analysis jsonb := '{"valid":true,"bounds":{"west":0,"south":0,"east":10,"north":10}}'::jsonb;
+  metadata jsonb := '{"algorithm":"Douglas-Peucker","algorithm_version":"JSTS 2.12.1","projection":"local AEQD","tolerance_meters":0.1,"validation_passed":false,"containment":{"grid_differences":0,"boundary_differences":6}}'::jsonb;
+  prep jsonb; candidate jsonb; candidate2 jsonb; approved jsonb; registered jsonb; prep_id uuid; boundary_id uuid;
+  oversized jsonb; oversized_id uuid;
+BEGIN
+  prep := public.osm_create_boundary_preparation(a, u, c, 'https://example.test/oakland', '2026-11-20',
+    source_shape, repeat('a', 64), 5, pg_catalog.octet_length(source_shape::text), 1, analysis);
+  prep_id := (prep->>'preparation_id')::uuid;
+  candidate := public.osm_save_boundary_preparation_candidate(a, u, prep_id, source_shape,
+    repeat('b', 64), 5, pg_catalog.octet_length(source_shape::text), metadata);
+  candidate2 := public.osm_save_boundary_preparation_candidate(a, u, prep_id, source_shape,
+    repeat('c', 64), 5, pg_catalog.octet_length(source_shape::text), metadata);
+  IF candidate->>'candidate_version' <> '1' OR candidate2->>'candidate_version' <> '2'
+      OR (SELECT count(*) FROM public.osm_boundary_preparation_candidates WHERE preparation_id = prep_id) <> 2
+      OR NOT EXISTS (SELECT 1 FROM public.osm_boundary_preparation_candidates
+        WHERE preparation_id = prep_id AND version = 1 AND geometry_hash = repeat('b', 64)) THEN
+    RAISE EXCEPTION 'Candidate versions were not retained';
+  END IF;
+  BEGIN
+    PERFORM public.osm_approve_boundary_preparation(a, u, prep_id, false);
+    RAISE EXCEPTION 'boundary changes approved without acknowledgement';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM = 'boundary changes approved without acknowledgement' THEN RAISE; END IF;
+  END;
+  approved := public.osm_approve_boundary_preparation(a, u, prep_id, true);
+  registered := public.osm_register_prepared_boundary(a, u, prep_id);
+  boundary_id := (registered->>'boundary_id')::uuid;
+  IF boundary_id IS NULL OR registered->>'preparation_id' <> prep_id::text
+      OR NOT EXISTS (SELECT 1 FROM public.osm_boundary_preparations p
+        WHERE p.id = prep_id AND p.status = 'registered'
+          AND p.source_geometry = source_shape AND p.prepared_geometry = source_shape
+          AND p.source_hash = repeat('a', 64) AND p.prepared_hash = repeat('c', 64)
+          AND p.prepared_version = 2 AND p.current_candidate_id = (candidate2->>'candidate_id')::uuid
+          AND p.registered_boundary_id = boundary_id)
+      OR NOT EXISTS (SELECT 1 FROM public.osm_city_boundaries b
+        WHERE b.id = boundary_id AND b.city_id = c AND b.geometry = source_shape)
+      OR NOT EXISTS (SELECT 1 FROM public.osm_boundary_preparation_candidates
+        WHERE id = (candidate2->>'candidate_id')::uuid AND version = 2 AND geometry = source_shape) THEN
+    RAISE EXCEPTION 'Prepared boundary registration did not preserve source/candidate provenance';
+  END IF;
+  IF (SELECT count(*) FROM public.admin_action_logs
+      WHERE entity_type = 'osm_boundary_preparation' AND entity_id = prep_id
+        AND action IN ('boundary_uploaded','boundary_analysis_completed','boundary_prepared',
+          'boundary_preparation_approved','boundary_registered')) <> 6
+      OR registered->>'audit_id' IS NULL OR registered->>'link_audit_id' IS NULL THEN
+    RAISE EXCEPTION 'Boundary preparation audit chain is incomplete';
+  END IF;
+    IF NOT EXISTS (SELECT 1 FROM public.admin_action_logs AS log WHERE log.entity_type = 'osm_boundary_preparation'
+      AND log.entity_id = prep_id AND log.action = 'boundary_preparation_approved'
+      AND log.metadata->>'acknowledged_boundary_differences' = 'true') THEN
+    RAISE EXCEPTION 'Boundary difference acknowledgement was not audited';
+  END IF;
+    oversized := public.osm_create_boundary_preparation(a, u, c, 'https://example.test/large-city', 'v1',
+      source_shape, repeat('c', 64), 6000, 100000, 1, analysis);
+    oversized_id := (oversized->>'preparation_id')::uuid;
+    PERFORM public.osm_save_boundary_preparation_candidate(a, u, oversized_id, source_shape,
+      repeat('d', 64), 5001, 100000, metadata);
+    BEGIN
+      PERFORM public.osm_approve_boundary_preparation(a, u, oversized_id, true);
+      RAISE EXCEPTION 'over-limit candidate approved';
+    EXCEPTION WHEN raise_exception THEN
+      IF SQLERRM = 'over-limit candidate approved' THEN RAISE; END IF;
+    END;
+    IF NOT EXISTS (SELECT 1 FROM public.osm_boundary_preparations p
+        WHERE p.id = oversized_id AND p.status = 'prepared' AND p.prepared_coordinate_count = 5001) THEN
+      RAISE EXCEPTION 'over-limit candidate was not retained for operator review';
+    END IF;
+  IF pg_catalog.has_function_privilege('authenticated',
+      'public.osm_create_boundary_preparation(uuid,uuid,uuid,text,text,jsonb,text,integer,integer,integer,jsonb)', 'EXECUTE')
+      OR NOT pg_catalog.has_function_privilege('service_role',
+      'public.osm_register_prepared_boundary(uuid,uuid,uuid)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Boundary preparation RPC privileges are invalid';
+  END IF;
+END;
+$preparation_test$;

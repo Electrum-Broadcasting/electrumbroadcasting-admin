@@ -23,6 +23,56 @@ boundary rather than bypassing validation. If the registration response is lost,
 an operator must reconcile it against the boundary-registration audit before
 retrying.
 
+### Boundary preparation for large municipal geometry
+
+Use the **Prepare Boundary** action in Admin → Ingestion → Boundary Registry
+when an authoritative Polygon or MultiPolygon exceeds the existing registration
+limit. Preparation does not replace or edit the source. It stores the source
+geometry, source URL/version, SHA-256, byte size, coordinate count, ring count,
+and source-analysis result in an immutable preparation record. Source uploads
+are limited to 5 MiB and 50,000 coordinates; these preparation-only limits do
+not change the registration validator.
+
+The operator may generate a Douglas–Peucker candidate at 0.1, 0.5, 1, 2, 5, or
+10 metres. Coordinates are transformed to a city-centered azimuthal-equidistant
+projection before simplification, then transformed back to WGS84. JSTS validates
+source and candidate topology; the candidate is also passed through the existing
+`parseCityBoundary` registration parser. Candidates must remain at or below
+50,000 source coordinates to bound preparation work. Reduced candidates are
+retained for comparison even if they still exceed registration limits. Approval
+requires at most 5,000 coordinates and 900,000 geometry bytes so the unchanged
+registration request remains below its 1 MiB body cap; select a higher
+simplification tolerance if a candidate is not yet eligible.
+
+Preparation records the algorithm/version, projection, tolerance, source and
+prepared hashes/counts/sizes, signed area delta, and deterministic containment
+comparisons. The comparisons use an interior/exterior grid (up to about 4,000
+points) and sampled boundary segments with offsets on both sides from 0.5 to 10
+metres. A zero-difference grid with boundary-near differences is **not** an
+automatic pass: inspect the original/prepared overlay and explicitly acknowledge
+those differences before approval. Any interior/exterior grid difference blocks
+approval; generate a lower-tolerance candidate. These finite samples do not
+prove identical containment for every possible point. Points close to a changed
+edge remain uncertain and should be reviewed against the source boundary.
+
+Approval records the operator and audit event. Registration then invokes the
+existing `admin_register_osm_boundary` RPC in the same transaction that links
+the registered boundary to its preparation record. The original boundary audit
+and registration checks remain in force. Preparation emits
+`boundary_uploaded`, `boundary_analysis_completed`, `boundary_prepared`,
+`boundary_preparation_approved`, and `boundary_registered` audit events, all
+linked to the city and preparation; registration also retains the existing
+`ingestion_boundary_registered` audit entry on the boundary.
+
+OaklandGIS `City_Limits` sample test: 6,599 source coordinates (242,677 compact
+geometry bytes) simplified at 0.1 m to 1,617 coordinates (64,759 bytes), a
+75.50% coordinate reduction. The measured area delta was +0.0000323%; the
+4,030-point grid had zero differences, while 6 of 3,010 boundary-near probes
+differed. The candidate passed the unchanged registration parser, but requires
+explicit operator review and acknowledgement of those near-boundary differences
+before it can be approved. This sample is a concept/acceptance measurement, not
+a claim of exact geographic equivalence or legal-boundary replacement.
+
 Start a run with `POST /api/admin/ingestion/osm/runs` and a JSON body containing
 `city_id`, `boundary_id`, `source: "openstreetmap"`, and `query_box` with numeric
 `south`, `west`, `north`, and `east`. The box must lie within the registered
